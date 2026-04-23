@@ -76,10 +76,16 @@ export function Workspace() {
   }, []);
 
   const refresh = useCallback(async () => {
-    const response = await fetch("/api/bootstrap");
+    const response = await fetch("/api/bootstrap", { cache: "no-store" });
     const payload = (await response.json()) as Bootstrap;
-    setData(payload);
-    setActiveNoteId((current) => current || payload.notes[0]?.id || null);
+    const [folders, notes, indexStatus] = await Promise.all([
+      fetch("/api/folders", { cache: "no-store" }).then((result) => result.json() as Promise<FolderType[]>),
+      fetch("/api/notes", { cache: "no-store" }).then((result) => result.json() as Promise<Note[]>),
+      fetch("/api/index", { cache: "no-store" }).then((result) => result.json() as Promise<Bootstrap["indexStatus"]>)
+    ]);
+    const next = { ...payload, folders, notes, indexStatus };
+    setData(next);
+    setActiveNoteId((current) => current || next.notes[0]?.id || null);
   }, []);
 
   useEffect(() => {
