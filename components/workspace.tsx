@@ -30,7 +30,7 @@ import {
   Sparkles,
   Trash2
 } from "lucide-react";
-import { type CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, type KeyboardEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { MarkdownPreview } from "@/components/markdown";
 import type { AnswerResult, Flashcard, Folder as FolderType, Note, ProviderSettings, QuizQuestion } from "@/lib/types";
 
@@ -57,6 +57,7 @@ export function Workspace() {
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
   const [noteView, setNoteView] = useState<NoteView>("write");
+  const [draftTitle, setDraftTitle] = useState("");
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<Toast | null>(null);
 
@@ -92,6 +93,21 @@ export function Workspace() {
       gridTemplateColumns: `${left} minmax(0, 1fr) ${right}`
     };
   }, [leftOpen, rightOpen]);
+
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setDraftTitle(activeNote?.title ?? "");
+  }, [activeNote?.id, activeNote?.title]);
+
+  useEffect(() => {
+    if (!activeNote || draftTitle === activeNote.title) return;
+    const timer = window.setTimeout(() => {
+      void updateNote(activeNote.id, { title: draftTitle });
+    }, 450);
+    return () => window.clearTimeout(timer);
+    // updateNote intentionally stays local so title selection/caret state is not reset on every keydown.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeNote?.id, activeNote?.title, draftTitle]);
 
   async function createNote(folderId: string | null = scope.type === "folder" ? scope.folderId : null) {
     const response = await fetch("/api/notes", {
@@ -276,8 +292,12 @@ export function Workspace() {
               <div className="min-w-0 border-b border-ink-700/80 bg-ink-925/95 px-5 py-3">
                 <div className="flex min-w-0 items-center gap-3">
                   <input
-                    value={activeNote.title}
-                    onChange={(event) => updateNote(activeNote.id, { title: event.target.value })}
+                    value={draftTitle}
+                    onKeyDown={allowNativeTextShortcuts}
+                    onChange={(event) => setDraftTitle(event.target.value)}
+                    onBlur={() => {
+                      if (draftTitle !== activeNote.title) void updateNote(activeNote.id, { title: draftTitle });
+                    }}
                     className="min-w-0 flex-1 rounded-md bg-transparent px-1 text-xl font-semibold text-white outline-none placeholder:text-ink-500"
                   />
                   <select
@@ -588,6 +608,7 @@ function AskTool({ scope, notify }: { scope: Scope; notify: (message: string, to
       <ToolHeader title="Ask your notes" description="Answers are limited to indexed source excerpts." />
       <textarea
         value={question}
+        onKeyDown={allowNativeTextShortcuts}
         onChange={(event) => setQuestion(event.target.value)}
         placeholder="Ask a question supported by your notes..."
         className="control-soft h-32 w-full resize-none rounded-xl p-3 text-sm leading-6 text-ink-100 outline-none placeholder:text-ink-500"
@@ -634,6 +655,7 @@ function FindTool() {
         <Search className="h-4 w-4 text-ink-500" />
         <input
           value={query}
+          onKeyDown={allowNativeTextShortcuts}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Search source text..."
           className="min-w-0 flex-1 bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500"
@@ -708,6 +730,7 @@ function FlashcardTool({ scope, notify }: { scope: Scope; notify: (message: stri
               <div className="text-sm font-medium leading-6 text-ink-100">{item.prompt}</div>
               <input
                 value={answers[index] ?? ""}
+                onKeyDown={allowNativeTextShortcuts}
                 onChange={(event) => setAnswers({ ...answers, [index]: event.target.value })}
                 placeholder="Type your answer..."
                 className="control-soft mt-3 w-full rounded-lg px-3 py-2.5 text-sm outline-none placeholder:text-ink-500"
@@ -944,6 +967,7 @@ function SettingsModal({
           <Field label={`OpenAI API key${settings.maskedKey ? ` (${settings.maskedKey})` : ""}`}>
             <input
               value={apiKey}
+              onKeyDown={allowNativeTextShortcuts}
               onChange={(event) => setApiKey(event.target.value)}
               placeholder="sk-..."
               type="password"
@@ -953,6 +977,7 @@ function SettingsModal({
           <Field label="OpenAI project ID">
             <input
               value={projectId}
+              onKeyDown={allowNativeTextShortcuts}
               onChange={(event) => setProjectId(event.target.value)}
               placeholder="Optional"
               className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
@@ -962,6 +987,7 @@ function SettingsModal({
             <Field label="Embedding model">
               <input
                 value={embeddingModel}
+                onKeyDown={allowNativeTextShortcuts}
                 onChange={(event) => setEmbeddingModel(event.target.value)}
                 className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
               />
@@ -969,6 +995,7 @@ function SettingsModal({
             <Field label="Answer model">
               <input
                 value={answerModel}
+                onKeyDown={allowNativeTextShortcuts}
                 onChange={(event) => setAnswerModel(event.target.value)}
                 className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
               />
@@ -1104,6 +1131,14 @@ function ToastView({ toast }: { toast: Toast }) {
       {toast.message}
     </div>
   );
+}
+
+function allowNativeTextShortcuts(event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) {
+  if (!event.ctrlKey && !event.metaKey) return;
+  const key = event.key.toLowerCase();
+  if (["a", "c", "v", "x", "z", "y"].includes(key)) {
+    event.stopPropagation();
+  }
 }
 
 function apiScope(scope: Scope) {
