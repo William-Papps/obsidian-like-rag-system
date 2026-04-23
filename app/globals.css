@@ -1,0 +1,100 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  background: #0b0d10;
+  color: #e5e8ee;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  min-height: 100%;
+  margin: 0;
+}
+
+body {
+  background:
+    linear-gradient(180deg, rgba(21, 25, 34, 0.96), rgba(11, 13, 16, 0.98)),
+    #0b0d10;
+  font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+::selection {
+  background: rgba(53, 194, 166, 0.35);
+}
+
+.cm-editor {
+  height: 100%;
+  background: transparent !important;
+  color: #e5e8ee !important;
+  outline: none !important;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.cm-gutters {
+  background: transparent !important;
+  border-right: 1px solid rgba(104, 115, 134, 0.18) !important;
+}
+
+.cm-activeLine,
+.cm-activeLineGutter {
+  background: rgba(53, 194, 166, 0.05) !important;
+}
+
+.markdown-preview h1,
+.markdown-preview h2,
+.markdown-preview h3 {
+  color: #f4f6f8;
+  font-weight: 700;
+  letter-spacing: 0;
+}
+
+.markdown-preview h1 {
+  font-size: 1.75rem;
+  margin: 0 0 1rem;
+}
+
+.markdown-preview h2 {
+  font-size: 1.25rem;
+  margin: 1.5rem 0 0.75rem;
+}
+
+.markdown-preview h3 {
+  font-size: 1rem;
+  margin: 1.25rem 0 0.5rem;
+}
+
+.markdown-preview p,
+.markdown-preview li {
+  color: #d6dae2;
+  line-height: 1.75;
+}
+
+.markdown-preview code {
+  border: 1px solid rgba(104, 115, 134, 0.24);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 0.1rem 0.35rem;
+}
+
+.markdown-preview pre {
+  overflow: auto;
+  border: 1px solid rgba(104, 115, 134, 0.24);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 1rem;
+}
