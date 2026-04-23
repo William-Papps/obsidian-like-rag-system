@@ -21,16 +21,18 @@ import {
   Layers3,
   Loader2,
   MessageSquareText,
+  MoreVertical,
   PanelRight,
   PanelRightClose,
   PanelRightOpen,
+  Pencil,
   Search,
   Settings,
   ShieldCheck,
   Sparkles,
   Trash2
 } from "lucide-react";
-import { type CSSProperties, type KeyboardEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { MarkdownPreview } from "@/components/markdown";
 import type { AnswerResult, Flashcard, Folder as FolderType, Note, ProviderSettings, QuizQuestion } from "@/lib/types";
 
@@ -46,6 +48,8 @@ type Scope = { type: "all" } | { type: "note"; noteId: string } | { type: "folde
 type Tab = "ask" | "find" | "quiz" | "flashcards" | "summary";
 type NoteView = "write" | "preview" | "split";
 type Toast = { id: number; tone: "success" | "info" | "error"; message: string };
+type VaultMenu = { kind: "folder" | "note"; id: string; x: number; y: number } | null;
+type DragItem = { kind: "folder" | "note"; id: string } | null;
 
 export function Workspace() {
   const [data, setData] = useState<Bootstrap | null>(null);
@@ -60,6 +64,8 @@ export function Workspace() {
   const [draftTitle, setDraftTitle] = useState("");
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<Toast | null>(null);
+  const [vaultMenu, setVaultMenu] = useState<VaultMenu>(null);
+  const [dragItem, setDragItem] = useState<DragItem>(null);
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const next = { id: Date.now(), tone, message };
@@ -80,6 +86,19 @@ export function Workspace() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    const close = () => setVaultMenu(null);
+    const closeOnEscape = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") close();
+    };
+    window.addEventListener("click", close);
+    window.addEventListener("keydown", closeOnEscape);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("keydown", closeOnEscape);
+    };
+  }, []);
 
   const activeNote = useMemo(() => data?.notes.find((note) => note.id === activeNoteId) ?? null, [data, activeNoteId]);
   const noteFolder = useMemo(
@@ -147,12 +166,108 @@ export function Workspace() {
     notify("Folder created", "success");
   }
 
-  async function deleteActiveNote() {
-    if (!activeNote || !window.confirm(`Delete "${activeNote.title}"?`)) return;
-    await fetch(`/api/notes/${activeNote.id}`, { method: "DELETE" });
+  async function renameFolderById(folder: FolderType) {
+    const name = window.prompt("Rename folder", folder.name);
+    if (!name?.trim()) return;
+    await fetch(`/api/folders/${folder.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name })
+    });
     await refresh();
-    setActiveNoteId(data?.notes.find((note) => note.id !== activeNote.id)?.id ?? null);
+    notify("Folder renamed", "success");
+  }
+
+  async function deleteFolderById(folder: FolderType) {
+    const count = data?.notes.filter((note) => note.folderId === folder.id).length ?? 0;
+    const detail = count ? ` ${count} note${count === 1 ? "" : "s"} will move to Unfiled notes.` : "";
+    if (!window.confirm(`Delete folder "${folder.name}"?${detail}`)) return;
+    await fetch(`/api/folders/${folder.id}`, { method: "DELETE" });
+    if (scope.type === "folder" && scope.folderId === folder.id) setScope({ type: "all" });
+    await refresh();
+    notify("Folder deleted", "info");
+  }
+
+  async function moveFolderById(folder: FolderType, parentId: string | null) {
+    if (parentId === folder.id) return notify("A folder cannot move into itself", "error");
+    const response = await fetch(`/api/folders/${folder.id}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ parentId })
+    });
+    if (!response.ok) {
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      notify(payload?.error ?? "Folder could not be moved", "error");
+      return;
+    }
+    await refresh();
+    notify(parentId ? "Folder moved" : "Folder moved to vault root", "success");
+  }
+
+  async function moveNoteToFolder(note: Note, folderId: string | null) {
+    await updateNote(note.id, { folderId });
+    await refresh();
+    notify(folderId ? "Note moved" : "Note moved to Unfiled notes", "success");
+  }
+
+  async function chooseFolderForNote(note: Note) {
+    const target = chooseFolderTarget(data?.folders ?? [], note.folderId);
+    if (target.cancelled) return;
+    await moveNoteToFolder(note, target.folderId);
+  }
+
+  async function chooseFolderForFolder(folder: FolderType) {
+    const target = chooseFolderTarget(
+      (data?.folders ?? []).filter((item) => item.id !== folder.id),
+      folder.parentId
+    );
+    if (target.cancelled) return;
+    await moveFolderById(folder, target.folderId);
+  }
+
+  async function handleDropOnFolder(targetFolder: FolderType) {
+    if (!dragItem) return;
+    if (dragItem.kind === "note") {
+      const note = data?.notes.find((item) => item.id === dragItem.id);
+      if (note) await moveNoteToFolder(note, targetFolder.id);
+    } else {
+      const folder = data?.folders.find((item) => item.id === dragItem.id);
+      if (folder) await moveFolderById(folder, targetFolder.id);
+    }
+    setDragItem(null);
+  }
+
+  async function handleDropOnRoot() {
+    if (!dragItem) return;
+    if (dragItem.kind === "note") {
+      const note = data?.notes.find((item) => item.id === dragItem.id);
+      if (note) await moveNoteToFolder(note, null);
+    } else {
+      const folder = data?.folders.find((item) => item.id === dragItem.id);
+      if (folder) await moveFolderById(folder, null);
+    }
+    setDragItem(null);
+  }
+
+  async function renameNoteById(note: Note) {
+    const title = window.prompt("Rename note", note.title);
+    if (!title?.trim()) return;
+    await updateNote(note.id, { title });
+    if (activeNoteId === note.id) setDraftTitle(title);
+    notify("Note renamed", "success");
+  }
+
+  async function deleteNoteById(note: Note) {
+    if (!window.confirm(`Delete "${note.title}"?`)) return;
+    await fetch(`/api/notes/${note.id}`, { method: "DELETE" });
+    await refresh();
+    if (activeNoteId === note.id) setActiveNoteId(data?.notes.find((item) => item.id !== note.id)?.id ?? null);
     notify("Note deleted", "info");
+  }
+
+  async function deleteActiveNote() {
+    if (!activeNote) return;
+    await deleteNoteById(activeNote);
   }
 
   if (!data) {
@@ -165,6 +280,63 @@ export function Workspace() {
       </main>
     );
   }
+
+  const rootFolders = data.folders.filter((folder) => !folder.parentId);
+  const renderFolderNode = (folder: FolderType, depth = 0): ReactNode => {
+    const folderNotes = data.notes.filter((note) => note.folderId === folder.id);
+    const childFolders = data.folders.filter((child) => child.parentId === folder.id);
+    const collapsed = collapsedFolders[folder.id] ?? false;
+    return (
+      <div key={folder.id} className="rounded-lg" style={{ marginLeft: depth ? 12 : 0 }}>
+        <FolderRow
+          folder={folder}
+          count={folderNotes.length + childFolders.length}
+          collapsed={collapsed}
+          active={scope.type === "folder" && scope.folderId === folder.id}
+          dragActive={dragItem?.id !== folder.id}
+          onClick={() => setScope({ type: "folder", folderId: folder.id })}
+          onToggle={() => setCollapsedFolders((current) => ({ ...current, [folder.id]: !collapsed }))}
+          onCreate={() => createNote(folder.id)}
+          onRename={() => renameFolderById(folder)}
+          onDelete={() => deleteFolderById(folder)}
+          onMove={() => chooseFolderForFolder(folder)}
+          onDragStart={() => setDragItem({ kind: "folder", id: folder.id })}
+          onDrop={() => handleDropOnFolder(folder)}
+          onMenu={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setVaultMenu({ kind: "folder", id: folder.id, x: event.clientX, y: event.clientY });
+          }}
+        />
+        <div className={`overflow-hidden pl-4 transition-[max-height,opacity] duration-300 ease-premium ${collapsed ? "max-h-0 opacity-0" : "max-h-[720px] opacity-100"}`}>
+          <div className="ml-2 mt-1 space-y-1 border-l border-ink-700/70 pl-2">
+            {childFolders.map((child) => renderFolderNode(child, depth + 1))}
+            {folderNotes.map((note) => (
+              <NoteRow
+                key={note.id}
+                note={note}
+                active={activeNoteId === note.id}
+                onClick={() => {
+                  setActiveNoteId(note.id);
+                  setScope({ type: "note", noteId: note.id });
+                }}
+                onRename={() => renameNoteById(note)}
+                onDelete={() => deleteNoteById(note)}
+                onMove={() => chooseFolderForNote(note)}
+                onDragStart={() => setDragItem({ kind: "note", id: note.id })}
+                onMenu={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+                  setVaultMenu({ kind: "note", id: note.id, x: event.clientX, y: event.clientY });
+                }}
+              />
+            ))}
+            {!childFolders.length && !folderNotes.length ? <div className="px-2 py-2 text-xs text-ink-500">Drop notes or folders here</div> : null}
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <main className="h-screen overflow-hidden bg-ink-950 text-ink-100">
@@ -215,57 +387,32 @@ export function Workspace() {
               <span className="rounded-full bg-white/6 px-2 py-0.5 text-xs text-ink-300">{data.notes.length}</span>
             </button>
 
-            <SectionLabel label="Classes" />
+            <div
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                void handleDropOnRoot();
+              }}
+            >
+              <SectionLabel label="Classes" />
+            </div>
             <div className="space-y-1.5">
-              {data.folders.map((folder) => {
-                const folderNotes = data.notes.filter((note) => note.folderId === folder.id);
-                const collapsed = collapsedFolders[folder.id] ?? false;
-                return (
-                  <div key={folder.id} className="rounded-lg">
-                    <FolderRow
-                      folder={folder}
-                      count={folderNotes.length}
-                      collapsed={collapsed}
-                      active={scope.type === "folder" && scope.folderId === folder.id}
-                      onClick={() => setScope({ type: "folder", folderId: folder.id })}
-                      onToggle={() => setCollapsedFolders((current) => ({ ...current, [folder.id]: !collapsed }))}
-                      onCreate={() => createNote(folder.id)}
-                      onRefresh={refresh}
-                      notify={notify}
-                    />
-                    <div
-                      className={`overflow-hidden pl-4 transition-[max-height,opacity] duration-300 ease-premium ${
-                        collapsed ? "max-h-0 opacity-0" : "max-h-96 opacity-100"
-                      }`}
-                    >
-                      <div className="ml-2 mt-1 space-y-1 border-l border-ink-700/70 pl-2">
-                        {folderNotes.map((note) => (
-                          <NoteRow
-                            key={note.id}
-                            note={note}
-                            active={activeNoteId === note.id}
-                            onClick={() => {
-                              setActiveNoteId(note.id);
-                              setScope({ type: "note", noteId: note.id });
-                            }}
-                          />
-                        ))}
-                        {folderNotes.length === 0 ? (
-                          <div className="px-2 py-2 text-xs text-ink-500">No notes yet</div>
-                        ) : null}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              {data.folders.length === 0 ? (
+              {rootFolders.map((folder) => renderFolderNode(folder))}
+              {rootFolders.length === 0 ? (
                 <EmptyState action="Create folder" onAction={createFolder}>
                   Group notes by class, exam, or topic.
                 </EmptyState>
               ) : null}
             </div>
 
-            <div className="mt-5">
+            <div
+              className="mt-5"
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => {
+                event.preventDefault();
+                void handleDropOnRoot();
+              }}
+            >
               <SectionLabel label="Unfiled notes" />
               <div className="space-y-1">
                 {data.notes
@@ -278,6 +425,15 @@ export function Workspace() {
                       onClick={() => {
                         setActiveNoteId(note.id);
                         setScope({ type: "note", noteId: note.id });
+                      }}
+                      onRename={() => renameNoteById(note)}
+                      onDelete={() => deleteNoteById(note)}
+                      onMove={() => chooseFolderForNote(note)}
+                      onDragStart={() => setDragItem({ kind: "note", id: note.id })}
+                      onMenu={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setVaultMenu({ kind: "note", id: note.id, x: event.clientX, y: event.clientY });
                       }}
                     />
                   ))}
@@ -366,6 +522,19 @@ export function Workspace() {
         </div>
       </div>
       {settingsOpen ? <SettingsModal settings={data.settings} onClose={() => setSettingsOpen(false)} onSaved={refresh} notify={notify} /> : null}
+      <VaultContextMenu
+        menu={vaultMenu}
+        folders={data.folders}
+        notes={data.notes}
+        onClose={() => setVaultMenu(null)}
+        onNewNote={(folderId) => createNote(folderId)}
+        onMoveFolder={chooseFolderForFolder}
+        onRenameFolder={renameFolderById}
+        onDeleteFolder={deleteFolderById}
+        onMoveNote={chooseFolderForNote}
+        onRenameNote={renameNoteById}
+        onDeleteNote={deleteNoteById}
+      />
       {toast ? <ToastView toast={toast} /> : null}
     </main>
   );
@@ -868,8 +1037,13 @@ function FolderRow({
   onClick,
   onToggle,
   onCreate,
-  onRefresh,
-  notify
+  onRename,
+  onDelete,
+  onMove,
+  onDragStart,
+  onDrop,
+  dragActive,
+  onMenu
 }: {
   folder: FolderType;
   count: number;
@@ -878,26 +1052,34 @@ function FolderRow({
   onClick: () => void;
   onToggle: () => void;
   onCreate: () => void;
-  onRefresh: () => void;
-  notify: (message: string, tone?: Toast["tone"]) => void;
+  onRename: () => void;
+  onDelete: () => void;
+  onMove: () => void;
+  onDragStart: () => void;
+  onDrop: () => void;
+  dragActive: boolean;
+  onMenu: (event: MouseEvent) => void;
 }) {
-  async function rename() {
-    const name = window.prompt("Rename folder", folder.name);
-    if (!name) return;
-    await fetch(`/api/folders/${folder.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name })
-    });
-    onRefresh();
-    notify("Folder renamed", "success");
-  }
   return (
-    <div className={`group flex items-center rounded-lg border ${active ? "border-accent-500/25 bg-accent-500/10" : "border-transparent hover:bg-white/[0.04]"}`}>
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onDragOver={(event) => {
+        if (dragActive) event.preventDefault();
+      }}
+      onDrop={(event) => {
+        event.preventDefault();
+        onDrop();
+      }}
+      onContextMenu={onMenu}
+      className={`group flex items-center rounded-lg border ${
+        active ? "border-accent-500/25 bg-accent-500/10" : dragActive ? "border-transparent hover:border-accent-500/30 hover:bg-accent-500/8" : "border-transparent hover:bg-white/[0.04]"
+      }`}
+    >
       <button onClick={onToggle} aria-label={collapsed ? "Expand folder" : "Collapse folder"} className="grid h-9 w-8 place-items-center text-ink-500 hover:text-ink-100">
         {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
       </button>
-      <button onClick={onClick} onDoubleClick={rename} className="flex min-w-0 flex-1 items-center gap-2 py-2 text-left text-sm text-ink-200">
+      <button onClick={onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-center gap-2 py-2 text-left text-sm text-ink-200">
         {collapsed ? <Folder className="h-4 w-4 text-blue-400" /> : <FolderOpen className="h-4 w-4 text-blue-400" />}
         <span className="truncate">{folder.name}</span>
       </button>
@@ -905,24 +1087,209 @@ function FolderRow({
       <button onClick={onCreate} aria-label={`New note in ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
         <FilePlus className="h-3.5 w-3.5" />
       </button>
+      <button onClick={onRename} aria-label={`Rename ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
+        <Pencil className="h-3.5 w-3.5" />
+      </button>
+      <button onClick={onDelete} aria-label={`Delete ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-danger-400 group-hover:opacity-100">
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+      <button onClick={onMove} aria-label={`Move ${folder.name}`} className="hidden" />
+      <button
+        onClick={(event) => {
+          event.stopPropagation();
+          onMenu(event);
+        }}
+        aria-label={`More actions for ${folder.name}`}
+        className="grid h-8 w-8 place-items-center text-ink-500 hover:text-ink-100"
+      >
+        <MoreVertical className="h-3.5 w-3.5" />
+      </button>
     </div>
   );
 }
 
-function NoteRow({ note, active, onClick }: { note: Note; active: boolean; onClick: () => void }) {
+function NoteRow({
+  note,
+  active,
+  onClick,
+  onRename,
+  onDelete,
+  onMove,
+  onDragStart,
+  onMenu
+}: {
+  note: Note;
+  active: boolean;
+  onClick: () => void;
+  onRename: () => void;
+  onDelete: () => void;
+  onMove: () => void;
+  onDragStart: () => void;
+  onMenu: (event: MouseEvent) => void;
+}) {
   return (
-    <button
-      onClick={onClick}
+    <div
+      draggable
+      onDragStart={onDragStart}
+      onContextMenu={onMenu}
       className={`group flex w-full items-start gap-2 rounded-lg border px-2.5 py-2 text-left transition-all duration-200 ease-premium ${
         active ? "border-accent-500/30 bg-accent-500/10 text-white shadow-glow" : "border-transparent text-ink-300 hover:bg-white/[0.04] hover:text-ink-100"
       }`}
     >
-      <FileText className={`mt-0.5 h-4 w-4 shrink-0 ${active ? "text-accent-300" : "text-ink-500 group-hover:text-ink-300"}`} />
-      <span className="min-w-0 flex-1">
+      <button onClick={onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-start gap-2 text-left">
+        <FileText className={`mt-0.5 h-4 w-4 shrink-0 ${active ? "text-accent-300" : "text-ink-500 group-hover:text-ink-300"}`} />
+        <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{note.title}</span>
         <span className="mt-1 block truncate text-xs text-ink-500">{new Date(note.updatedAt).toLocaleDateString()}</span>
-      </span>
-    </button>
+        </span>
+      </button>
+      <button onClick={onRename} aria-label={`Rename ${note.title}`} className="grid h-7 w-7 shrink-0 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
+        <Pencil className="h-3.5 w-3.5" />
+      </button>
+      <button onClick={onDelete} aria-label={`Delete ${note.title}`} className="grid h-7 w-7 shrink-0 place-items-center text-ink-500 opacity-0 hover:text-danger-400 group-hover:opacity-100">
+        <Trash2 className="h-3.5 w-3.5" />
+      </button>
+      <button onClick={onMove} aria-label={`Move ${note.title}`} className="hidden" />
+      <button
+        onClick={(event) => {
+          event.stopPropagation();
+          onMenu(event);
+        }}
+        aria-label={`More actions for ${note.title}`}
+        className="grid h-7 w-7 shrink-0 place-items-center text-ink-500 hover:text-ink-100"
+      >
+        <MoreVertical className="h-3.5 w-3.5" />
+      </button>
+    </div>
+  );
+}
+
+function VaultContextMenu({
+  menu,
+  folders,
+  notes,
+  onClose,
+  onNewNote,
+  onMoveFolder,
+  onRenameFolder,
+  onDeleteFolder,
+  onMoveNote,
+  onRenameNote,
+  onDeleteNote
+}: {
+  menu: VaultMenu;
+  folders: FolderType[];
+  notes: Note[];
+  onClose: () => void;
+  onNewNote: (folderId: string | null) => void;
+  onMoveFolder: (folder: FolderType) => void;
+  onRenameFolder: (folder: FolderType) => void;
+  onDeleteFolder: (folder: FolderType) => void;
+  onMoveNote: (note: Note) => void;
+  onRenameNote: (note: Note) => void;
+  onDeleteNote: (note: Note) => void;
+}) {
+  if (!menu) return null;
+  const folder = menu.kind === "folder" ? folders.find((item) => item.id === menu.id) : null;
+  const note = menu.kind === "note" ? notes.find((item) => item.id === menu.id) : null;
+  if (!folder && !note) return null;
+
+  const viewportWidth = typeof window === "undefined" ? 1200 : window.innerWidth;
+  const viewportHeight = typeof window === "undefined" ? 800 : window.innerHeight;
+  const left = Math.max(8, Math.min(menu.x, viewportWidth - 230));
+  const top = Math.max(8, Math.min(menu.y, viewportHeight - 190));
+  const itemClass = "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-ink-200 hover:bg-accent-500/12 hover:text-white";
+  const dangerClass = "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-danger-400 hover:bg-danger-400/10";
+
+  return (
+    <div
+      onClick={(event) => event.stopPropagation()}
+      className="fixed z-[80] w-56 rounded-xl border border-ink-700 bg-ink-900/98 p-1.5 shadow-panel backdrop-blur"
+      style={{ left, top }}
+    >
+      <div className="border-b border-ink-700/70 px-3 py-2">
+        <div className="truncate text-xs font-semibold text-ink-100">{folder?.name ?? note?.title}</div>
+        <div className="mt-0.5 text-[11px] uppercase tracking-[0.14em] text-ink-500">{folder ? "Folder" : "Note"}</div>
+      </div>
+      {folder ? (
+        <>
+          <button
+            className={itemClass}
+            onClick={() => {
+              onClose();
+              onNewNote(folder.id);
+            }}
+          >
+            <FilePlus className="h-4 w-4 text-accent-300" />
+            New note here
+          </button>
+          <button
+            className={itemClass}
+            onClick={() => {
+              onClose();
+              onRenameFolder(folder);
+            }}
+          >
+            <Pencil className="h-4 w-4 text-accent-300" />
+            Rename folder
+          </button>
+          <button
+            className={itemClass}
+            onClick={() => {
+              onClose();
+              onMoveFolder(folder);
+            }}
+          >
+            <FolderOpen className="h-4 w-4 text-accent-300" />
+            Move folder...
+          </button>
+          <button
+            className={dangerClass}
+            onClick={() => {
+              onClose();
+              onDeleteFolder(folder);
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete folder
+          </button>
+        </>
+      ) : null}
+      {note ? (
+        <>
+          <button
+            className={itemClass}
+            onClick={() => {
+              onClose();
+              onRenameNote(note);
+            }}
+          >
+            <Pencil className="h-4 w-4 text-accent-300" />
+            Rename note
+          </button>
+          <button
+            className={itemClass}
+            onClick={() => {
+              onClose();
+              onMoveNote(note);
+            }}
+          >
+            <FolderOpen className="h-4 w-4 text-accent-300" />
+            Move note...
+          </button>
+          <button
+            className={dangerClass}
+            onClick={() => {
+              onClose();
+              onDeleteNote(note);
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete note
+          </button>
+        </>
+      ) : null}
+    </div>
   );
 }
 
@@ -1139,6 +1506,16 @@ function allowNativeTextShortcuts(event: KeyboardEvent<HTMLInputElement | HTMLTe
   if (["a", "c", "v", "x", "z", "y"].includes(key)) {
     event.stopPropagation();
   }
+}
+
+function chooseFolderTarget(folders: FolderType[], currentFolderId: string | null | undefined) {
+  const options = folders.filter((folder) => folder.id !== currentFolderId);
+  const list = ["0. Vault root / Unfiled", ...options.map((folder, index) => `${index + 1}. ${folder.name}`)].join("\n");
+  const choice = window.prompt(`Move to:\n\n${list}\n\nEnter a number`, "0");
+  if (choice === null) return { cancelled: true as const, folderId: null };
+  const index = Number.parseInt(choice, 10);
+  if (Number.isNaN(index) || index < 0 || index > options.length) return { cancelled: true as const, folderId: null };
+  return { cancelled: false as const, folderId: index === 0 ? null : options[index - 1].id };
 }
 
 function apiScope(scope: Scope) {

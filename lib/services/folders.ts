@@ -1,4 +1,4 @@
-import { dbAll, dbRun } from "@/lib/db";
+import { dbAll, dbGet, dbRun } from "@/lib/db";
 import type { Folder } from "@/lib/types";
 import { id, now, toCamelRecord } from "@/lib/utils";
 
@@ -36,6 +36,41 @@ export async function renameFolder(userId: string, folderId: string, name: strin
   ]);
 }
 
+export async function updateFolder(
+  userId: string,
+  folderId: string,
+  input: { name?: string; parentId?: string | null }
+) {
+  const existing = await dbGet<{ id: string }>("select id from folders where id = ? and user_id = ?", [folderId, userId]);
+  if (!existing) return;
+
+  if (input.parentId !== undefined) {
+    if (input.parentId === folderId) throw new Error("A folder cannot be moved into itself.");
+    if (input.parentId) {
+      const parent = await dbGet<{ id: string }>("select id from folders where id = ? and user_id = ?", [input.parentId, userId]);
+      if (!parent) throw new Error("Target folder was not found.");
+      if (await isDescendant(userId, input.parentId, folderId)) throw new Error("A folder cannot be moved into one of its descendants.");
+    }
+    await dbRun("update folders set parent_id = ?, updated_at = ? where id = ? and user_id = ?", [input.parentId, now(), folderId, userId]);
+  }
+
+  if (input.name !== undefined) {
+    await renameFolder(userId, folderId, input.name);
+  }
+}
+
 export async function deleteFolder(userId: string, folderId: string) {
   await dbRun("delete from folders where id = ? and user_id = ?", [folderId, userId]);
+}
+
+async function isDescendant(userId: string, folderId: string, possibleAncestorId: string): Promise<boolean> {
+  let current = await dbGet<{ parent_id: string | null }>("select parent_id from folders where id = ? and user_id = ?", [folderId, userId]);
+  while (current?.parent_id) {
+    if (current.parent_id === possibleAncestorId) return true;
+    current = await dbGet<{ parent_id: string | null }>("select parent_id from folders where id = ? and user_id = ?", [
+      current.parent_id,
+      userId
+    ]);
+  }
+  return false;
 }
