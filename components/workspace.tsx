@@ -30,7 +30,7 @@ import {
   Sparkles,
   Trash2
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, useCallback, useEffect, useMemo, useState } from "react";
 import { MarkdownPreview } from "@/components/markdown";
 import type { AnswerResult, Flashcard, Folder as FolderType, Note, ProviderSettings, QuizQuestion } from "@/lib/types";
 
@@ -44,6 +44,7 @@ type Bootstrap = {
 
 type Scope = { type: "all" } | { type: "note"; noteId: string } | { type: "folder"; folderId: string | null };
 type Tab = "ask" | "find" | "quiz" | "flashcards" | "summary";
+type NoteView = "write" | "preview" | "split";
 type Toast = { id: number; tone: "success" | "info" | "error"; message: string };
 
 export function Workspace() {
@@ -55,6 +56,7 @@ export function Workspace() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
+  const [noteView, setNoteView] = useState<NoteView>("write");
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<Toast | null>(null);
 
@@ -83,6 +85,13 @@ export function Workspace() {
     () => data?.folders.find((folder) => folder.id === activeNote?.folderId)?.name ?? "No folder",
     [activeNote, data]
   );
+  const workspaceGridStyle = useMemo<CSSProperties>(() => {
+    const left = leftOpen ? "300px" : "0px";
+    const right = rightOpen ? "410px" : "0px";
+    return {
+      gridTemplateColumns: `${left} minmax(0, 1fr) ${right}`
+    };
+  }, [leftOpen, rightOpen]);
 
   async function createNote(folderId: string | null = scope.type === "folder" ? scope.folderId : null) {
     const response = await fetch("/api/notes", {
@@ -154,19 +163,8 @@ export function Workspace() {
         onReindexed={refresh}
         notify={notify}
       />
-      <div
-        className={`grid h-[calc(100vh-61px)] overflow-auto transition-[grid-template-columns] duration-300 ease-premium xl:overflow-hidden ${
-          leftOpen && rightOpen
-            ? "grid-cols-1 lg:grid-cols-[300px_minmax(430px,1fr)] xl:grid-cols-[300px_minmax(520px,1fr)_410px]"
-            : leftOpen
-              ? "grid-cols-1 lg:grid-cols-[300px_minmax(430px,1fr)] xl:grid-cols-[300px_minmax(620px,1fr)]"
-              : rightOpen
-                ? "grid-cols-1 xl:grid-cols-[minmax(620px,1fr)_410px]"
-                : "grid-cols-1"
-        }`}
-      >
-        {leftOpen ? (
-        <aside className="panel-shell min-h-[320px] border-b border-r lg:min-h-0">
+      <div className="grid h-[calc(100vh-61px)] overflow-hidden transition-[grid-template-columns] duration-300 ease-premium" style={workspaceGridStyle}>
+        <aside className={`panel-shell min-h-0 overflow-hidden border-r transition-opacity duration-200 ${leftOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}>
           <div className="flex h-16 items-center justify-between border-b border-ink-700/80 px-4">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-300/75">Vault</div>
@@ -271,9 +269,8 @@ export function Workspace() {
             </div>
           </div>
         </aside>
-        ) : null}
 
-        <section className="grid min-h-[720px] min-w-0 grid-rows-[86px_1fr] bg-ink-925 lg:min-h-0">
+        <section className="grid min-h-0 min-w-0 grid-rows-[96px_45px_minmax(0,1fr)] bg-ink-925">
           {activeNote ? (
             <>
               <div className="border-b border-ink-700/80 bg-ink-925/95 px-5 py-3">
@@ -306,8 +303,10 @@ export function Workspace() {
                   <Pill icon={<ShieldCheck className="h-3.5 w-3.5" />} label="Notes are source of truth" accent />
                 </div>
               </div>
-              <div className="grid min-h-0 grid-cols-1 xl:grid-cols-2">
-                <div className="min-h-[360px] min-w-0 border-b border-ink-700/80 bg-ink-900/50 xl:border-b-0 xl:border-r">
+              <NoteViewTabs value={noteView} onChange={setNoteView} />
+              <div className={`min-h-0 min-w-0 ${noteView === "split" ? "grid grid-cols-2" : "grid grid-cols-1"}`}>
+                {(noteView === "write" || noteView === "split") ? (
+                <div className={`min-h-0 min-w-0 bg-ink-900/50 ${noteView === "split" ? "border-r border-ink-700/80" : ""}`}>
                   <CodeMirror
                     value={activeNote.markdownContent}
                     extensions={[markdown()]}
@@ -316,13 +315,16 @@ export function Workspace() {
                     onChange={(value) => updateNote(activeNote.id, { markdownContent: value })}
                   />
                 </div>
-                <div className="min-h-[360px] bg-ink-925">
+                ) : null}
+                {(noteView === "preview" || noteView === "split") ? (
+                <div className="min-h-0 min-w-0 overflow-hidden bg-ink-925">
                   <MarkdownPreview markdown={activeNote.markdownContent} />
                 </div>
+                ) : null}
               </div>
             </>
           ) : (
-            <div className="grid h-full place-items-center p-8">
+            <div className="row-span-3 grid h-full place-items-center p-8">
               <EmptyState action="Create note" onAction={() => createNote()}>
                 Create a Markdown note, then reindex it for source-grounded study tools.
               </EmptyState>
@@ -330,18 +332,18 @@ export function Workspace() {
           )}
         </section>
 
-        {rightOpen ? (
+        <div className={`min-w-0 overflow-hidden transition-opacity duration-200 ${rightOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}>
           <AssistantPanel
-            tab={tab}
-            setTab={setTab}
-            scope={scope}
-            setScope={setScope}
-            data={data}
-            activeNote={activeNote}
-            notify={notify}
-            onHide={() => setRightOpen(false)}
-          />
-        ) : null}
+              tab={tab}
+              setTab={setTab}
+              scope={scope}
+              setScope={setScope}
+              data={data}
+              activeNote={activeNote}
+              notify={notify}
+              onHide={() => setRightOpen(false)}
+            />
+        </div>
       </div>
       {settingsOpen ? <SettingsModal settings={data.settings} onClose={() => setSettingsOpen(false)} onSaved={refresh} notify={notify} /> : null}
       {toast ? <ToastView toast={toast} /> : null}
@@ -431,6 +433,35 @@ function TopBar({
   );
 }
 
+function NoteViewTabs({ value, onChange }: { value: NoteView; onChange: (value: NoteView) => void }) {
+  const tabs: Array<{ id: NoteView; label: string }> = [
+    { id: "write", label: "Write" },
+    { id: "preview", label: "Preview" },
+    { id: "split", label: "Split" }
+  ];
+
+  return (
+    <div className="flex items-end justify-between border-b border-ink-700/80 bg-ink-950/45 px-5">
+      <div className="flex h-full items-end gap-1">
+        {tabs.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => onChange(tab.id)}
+            className={`h-9 rounded-t-lg border border-b-0 px-4 text-sm font-medium ${
+              value === tab.id
+                ? "border-ink-700 bg-ink-925 text-ink-100 shadow-glow"
+                : "border-transparent text-ink-500 hover:bg-ink-850/70 hover:text-ink-100"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+      <div className="hidden pb-2 text-xs text-ink-500 sm:block">Switch between Markdown and rendered note views</div>
+    </div>
+  );
+}
+
 function AssistantPanel(props: {
   tab: Tab;
   setTab: (tab: Tab) => void;
@@ -450,7 +481,7 @@ function AssistantPanel(props: {
   ];
 
   return (
-    <aside className="panel-shell grid min-h-[620px] grid-rows-[72px_54px_1fr] border-t border-l xl:min-h-0 xl:border-t-0">
+    <aside className="panel-shell grid h-full min-h-0 grid-rows-[72px_54px_minmax(0,1fr)] border-l">
       <div className="flex items-center justify-between gap-3 border-b border-ink-700/80 px-4">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-ink-100">Right sidebar</div>
