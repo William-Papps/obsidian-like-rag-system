@@ -107,6 +107,20 @@ export function Workspace() {
   }, []);
 
   const activeNote = useMemo(() => data?.notes.find((note) => note.id === activeNoteId) ?? null, [data, activeNoteId]);
+  const openNoteFromSource = useCallback(
+    (noteId: string) => {
+      const note = data?.notes.find((item) => item.id === noteId);
+      if (!note) {
+        notify("Source note is no longer available", "error");
+        return;
+      }
+
+      setActiveNoteId(noteId);
+      setScope({ type: "note", noteId });
+      notify(`Opened ${note.title}`, "info");
+    },
+    [data?.notes, notify]
+  );
   const noteFolder = useMemo(
     () => data?.folders.find((folder) => folder.id === activeNote?.folderId)?.name ?? "No folder",
     [activeNote, data]
@@ -523,6 +537,7 @@ export function Workspace() {
               data={data}
               activeNote={activeNote}
               notify={notify}
+              onOpenNote={openNoteFromSource}
               onHide={() => setRightOpen(false)}
             />
         </div>
@@ -665,6 +680,7 @@ function AssistantPanel(props: {
   data: Bootstrap;
   activeNote: Note | null;
   notify: (message: string, tone?: Toast["tone"]) => void;
+  onOpenNote: (noteId: string) => void;
   onHide: () => void;
 }) {
   const tabs: Array<[Tab, string, React.ReactNode]> = [
@@ -708,11 +724,11 @@ function AssistantPanel(props: {
       </div>
       <div className="min-h-0 overflow-auto p-4">
         <div key={props.tab} className="animate-[fadeIn_220ms_ease-out]">
-          {props.tab === "ask" ? <AskTool scope={props.scope} notify={props.notify} /> : null}
-          {props.tab === "find" ? <FindTool /> : null}
-          {props.tab === "quiz" ? <QuizTool scope={props.scope} notify={props.notify} /> : null}
-          {props.tab === "flashcards" ? <FlashcardTool scope={props.scope} notify={props.notify} /> : null}
-          {props.tab === "summary" ? <SummaryTool scope={props.scope} notify={props.notify} /> : null}
+          {props.tab === "ask" ? <AskTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} /> : null}
+          {props.tab === "find" ? <FindTool onOpenNote={props.onOpenNote} /> : null}
+          {props.tab === "quiz" ? <QuizTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} /> : null}
+          {props.tab === "flashcards" ? <FlashcardTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} /> : null}
+          {props.tab === "summary" ? <SummaryTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} /> : null}
         </div>
       </div>
     </aside>
@@ -757,7 +773,15 @@ function ScopeSelect({
   );
 }
 
-function AskTool({ scope, notify }: { scope: Scope; notify: (message: string, tone?: Toast["tone"]) => void }) {
+function AskTool({
+  scope,
+  notify,
+  onOpenNote
+}: {
+  scope: Scope;
+  notify: (message: string, tone?: Toast["tone"]) => void;
+  onOpenNote: (noteId: string) => void;
+}) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<AnswerResult | null>(null);
   const [busy, setBusy] = useState(false);
@@ -805,14 +829,22 @@ function AskTool({ scope, notify }: { scope: Scope; notify: (message: string, to
             </div>
             <div className="whitespace-pre-wrap">{answer.answer}</div>
           </div>
-          <SourceList sources={answer.citations} />
+          {answer.unsupported && answer.citations.length > 0 ? (
+            <div className="rounded-xl border border-accent-500/20 bg-accent-500/8 p-3">
+              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">Closest related information</div>
+              <div className="mt-1 text-xs leading-5 text-ink-400">
+                The direct answer was not supported by your notes. These are the nearest indexed excerpts.
+              </div>
+            </div>
+          ) : null}
+          <SourceList sources={answer.citations} onOpenNote={onOpenNote} />
         </div>
       ) : null}
     </div>
   );
 }
 
-function FindTool() {
+function FindTool({ onOpenNote }: { onOpenNote: (noteId: string) => void }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Array<{ noteId: string; noteTitle: string; excerpt: string }>>([]);
   useEffect(() => {
@@ -836,12 +868,20 @@ function FindTool() {
           className="min-w-0 flex-1 bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500"
         />
       </div>
-      <SourceList sources={results.map((result) => ({ ...result, chunkId: result.noteId, similarity: 1 }))} empty="No exact matches yet." />
+      <SourceList sources={results.map((result) => ({ ...result, chunkId: result.noteId, similarity: 1 }))} empty="No exact matches yet." onOpenNote={onOpenNote} />
     </div>
   );
 }
 
-function QuizTool({ scope, notify }: { scope: Scope; notify: (message: string, tone?: Toast["tone"]) => void }) {
+function QuizTool({
+  scope,
+  notify,
+  onOpenNote
+}: {
+  scope: Scope;
+  notify: (message: string, tone?: Toast["tone"]) => void;
+  onOpenNote: (noteId: string) => void;
+}) {
   const [items, setItems] = useState<QuizQuestion[]>([]);
   const [open, setOpen] = useState<Record<number, boolean>>({});
   return (
@@ -871,7 +911,7 @@ function QuizTool({ scope, notify }: { scope: Scope; notify: (message: string, t
                   <div className="mt-3 rounded-lg border border-ink-700/80 bg-ink-950/40 p-3 text-sm leading-6 text-ink-300">{item.answer}</div>
                 </div>
               </div>
-              <SourceList sources={[item.source]} compact />
+              <SourceList sources={[item.source]} compact onOpenNote={onOpenNote} />
             </div>
           ))}
         </div>
@@ -880,7 +920,15 @@ function QuizTool({ scope, notify }: { scope: Scope; notify: (message: string, t
   );
 }
 
-function FlashcardTool({ scope, notify }: { scope: Scope; notify: (message: string, tone?: Toast["tone"]) => void }) {
+function FlashcardTool({
+  scope,
+  notify,
+  onOpenNote
+}: {
+  scope: Scope;
+  notify: (message: string, tone?: Toast["tone"]) => void;
+  onOpenNote: (noteId: string) => void;
+}) {
   const [items, setItems] = useState<Flashcard[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [open, setOpen] = useState<Record<number, boolean>>({});
@@ -918,7 +966,7 @@ function FlashcardTool({ scope, notify }: { scope: Scope; notify: (message: stri
                   <div className="mt-3 rounded-lg border border-success-400/25 bg-success-400/10 p-3 text-sm leading-6 text-ink-200">{item.answer}</div>
                 </div>
               </div>
-              <SourceList sources={[item.source]} compact />
+              <SourceList sources={[item.source]} compact onOpenNote={onOpenNote} />
             </div>
           ))}
         </div>
@@ -927,7 +975,15 @@ function FlashcardTool({ scope, notify }: { scope: Scope; notify: (message: stri
   );
 }
 
-function SummaryTool({ scope, notify }: { scope: Scope; notify: (message: string, tone?: Toast["tone"]) => void }) {
+function SummaryTool({
+  scope,
+  notify,
+  onOpenNote
+}: {
+  scope: Scope;
+  notify: (message: string, tone?: Toast["tone"]) => void;
+  onOpenNote: (noteId: string) => void;
+}) {
   const [items, setItems] = useState<Array<{ id: string; label: string; text: string; source: AnswerResult["citations"][number] }>>([]);
   return (
     <StudyList
@@ -945,7 +1001,7 @@ function SummaryTool({ scope, notify }: { scope: Scope; notify: (message: string
             <div key={item.id} className="study-card">
               <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">{item.label}</div>
               <blockquote className="border-l-2 border-accent-400/70 pl-3 text-sm leading-6 text-ink-200">{item.text}</blockquote>
-              <SourceList sources={[item.source]} compact />
+              <SourceList sources={[item.source]} compact onOpenNote={onOpenNote} />
             </div>
           ))}
         </div>
@@ -1005,11 +1061,13 @@ function StudyList<T>({
 function SourceList({
   sources,
   compact = false,
-  empty = "No source excerpts found."
+  empty = "No source excerpts found.",
+  onOpenNote
 }: {
-  sources: Array<{ chunkId: string; noteTitle: string; excerpt: string; similarity: number }>;
+  sources: Array<{ chunkId: string; noteId?: string; noteTitle: string; excerpt: string; similarity: number }>;
   compact?: boolean;
   empty?: string;
+  onOpenNote?: (noteId: string) => void;
 }) {
   if (!sources.length) return <div className="surface-soft rounded-xl px-3 py-4 text-sm text-ink-500">{empty}</div>;
   return (
@@ -1029,6 +1087,16 @@ function SourceList({
             </div>
           </summary>
           <blockquote className="mt-3 border-l-2 border-accent-400/70 pl-3 text-xs leading-5 text-ink-300">{source.excerpt}</blockquote>
+          {source.noteId && onOpenNote ? (
+            <button
+              type="button"
+              onClick={() => onOpenNote(source.noteId!)}
+              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-ink-700 bg-ink-950/40 px-2.5 py-1.5 text-xs font-medium text-ink-200 transition-colors hover:border-accent-500/40 hover:bg-accent-500/10 hover:text-accent-200 focus:outline-none focus:ring-2 focus:ring-accent-400/40"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Open note
+            </button>
+          ) : null}
         </details>
       ))}
     </div>

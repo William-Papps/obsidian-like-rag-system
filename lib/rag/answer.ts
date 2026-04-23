@@ -47,13 +47,20 @@ export async function answerFromNotes(
     ]
   });
 
+  const answer = response.choices[0]?.message.content?.trim() || "Not found in the notes.";
+
   return {
-    answer: response.choices[0]?.message.content?.trim() || "Not found in the notes.",
+    answer,
     citations,
-    unsupported: false
+    unsupported: isUnsupportedAnswer(answer)
   };
 }
 
 function formatCitations(citations: RetrievedChunk[]) {
   return citations.map((citation, index) => `[${index + 1}] ${citation.noteTitle}\n${citation.excerpt}`).join("\n\n");
+}
+
+function isUnsupportedAnswer(answer: string) {
+  const normalized = answer.trim().toLowerCase();
+  return normalized === "not found in the notes." || normalized === "not found in the notes";
 }
