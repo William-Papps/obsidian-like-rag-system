@@ -39,10 +39,12 @@ import {
   ShieldCheck,
   Sparkles,
   Trash2,
+  Upload,
   X
 } from "lucide-react";
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { MarkdownPreview } from "@/components/markdown";
+import { DocumentImportModal } from "@/components/document-import-modal";
 import type { AnswerResult, Flashcard, Folder as FolderType, Note, ProviderSettings, QuizQuestion } from "@/lib/types";
 
 type Bootstrap = {
@@ -81,6 +83,7 @@ export function Workspace() {
   const [vaultMenu, setVaultMenu] = useState<VaultMenu>(null);
   const [dragItem, setDragItem] = useState<DragItem>(null);
   const [sourcePeek, setSourcePeek] = useState<SourceRef | null>(null);
+  const [importModalOpen, setImportModalOpen] = useState(false);
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const next = { id: Date.now(), tone, message };
@@ -214,6 +217,26 @@ export function Workspace() {
       current ? { ...current, notes: current.notes.map((item) => (item.id === note.id ? note : item)) } : current
     );
     setSaving(false);
+  }
+
+  async function importDocument(markdown: string, fileName: string) {
+    // Extract title from filename or use first line of content
+    let title = fileName.replace(/\.[^/.]+$/, "").replace(/-/g, " ");
+    if (!title || title === "pasted-content") {
+      const firstLine = markdown.split("\n")[0].replace(/^#+\s*/, "").trim();
+      title = firstLine || "Imported document";
+    }
+
+    const folderId = scope.type === "folder" ? scope.folderId : null;
+    const response = await fetch("/api/notes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title, folderId, markdownContent: markdown })
+    });
+    const note = (await response.json()) as Note;
+    await refresh();
+    selectNote(note.id);
+    notify(`Document imported as "${title}"`, "success");
   }
 
   async function createFolder(parentId: string | null = null) {
@@ -506,6 +529,7 @@ export function Workspace() {
         onSettings={() => setSettingsOpen(true)}
         onFind={() => setTab("find")}
         onReindexed={refresh}
+        onImport={() => setImportModalOpen(true)}
         notify={notify}
       />
       <div className="grid h-[calc(100vh-61px)] overflow-hidden transition-[grid-template-columns] duration-300 ease-premium" style={workspaceGridStyle}>
@@ -745,6 +769,12 @@ export function Workspace() {
         </div>
       </div>
       {settingsOpen ? <SettingsModal settings={data.settings} onClose={() => setSettingsOpen(false)} onSaved={refresh} notify={notify} /> : null}
+      <DocumentImportModal
+        isOpen={importModalOpen}
+        onClose={() => setImportModalOpen(false)}
+        onImport={importDocument}
+        notify={notify}
+      />
       <VaultContextMenu
         menu={vaultMenu}
         folders={data.folders}
@@ -778,6 +808,7 @@ function TopBar({
   onSettings,
   onFind,
   onReindexed,
+  onImport,
   notify
 }: {
   data: Bootstrap;
@@ -788,6 +819,7 @@ function TopBar({
   onSettings: () => void;
   onFind: () => void;
   onReindexed: () => void;
+  onImport: () => void;
   notify: (message: string, tone?: Toast["tone"]) => void;
 }) {
   const [busy, setBusy] = useState(false);
@@ -840,6 +872,9 @@ function TopBar({
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           <span className="hidden sm:inline">Reindex</span>
         </button>
+        <IconButton label="Import document" onClick={onImport}>
+          <Upload className="h-4 w-4" />
+        </IconButton>
         <IconButton label="Settings" onClick={onSettings}>
           <Settings className="h-4 w-4" />
         </IconButton>
