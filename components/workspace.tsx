@@ -270,11 +270,11 @@ export function Workspace() {
           </div>
         </aside>
 
-        <section className="grid min-h-0 min-w-0 grid-rows-[96px_45px_minmax(0,1fr)] bg-ink-925">
+        <section className="grid min-h-0 min-w-0 grid-rows-[auto_45px_minmax(0,1fr)] overflow-hidden bg-ink-925">
           {activeNote ? (
             <>
-              <div className="border-b border-ink-700/80 bg-ink-925/95 px-5 py-3">
-                <div className="flex items-center gap-3">
+              <div className="min-w-0 border-b border-ink-700/80 bg-ink-925/95 px-5 py-3">
+                <div className="flex min-w-0 items-center gap-3">
                   <input
                     value={activeNote.title}
                     onChange={(event) => updateNote(activeNote.id, { title: event.target.value })}
@@ -283,7 +283,7 @@ export function Workspace() {
                   <select
                     value={activeNote.folderId ?? ""}
                     onChange={(event) => updateNote(activeNote.id, { folderId: event.target.value || null })}
-                    className="control-soft hidden rounded-md px-2.5 py-1.5 text-xs text-ink-300 outline-none sm:block"
+                    className="control-soft hidden w-36 shrink-0 rounded-md px-2.5 py-1.5 text-xs text-ink-300 outline-none sm:block"
                   >
                     <option value="">No folder</option>
                     {data.folders.map((folder) => (
@@ -297,10 +297,10 @@ export function Workspace() {
                     <Trash2 className="h-4 w-4" />
                   </IconButton>
                 </div>
-                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink-500">
+                <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 overflow-hidden text-xs text-ink-500">
                   <Pill icon={<Folder className="h-3.5 w-3.5" />} label={noteFolder} />
                   <Pill icon={<Clock3 className="h-3.5 w-3.5" />} label={`Updated ${new Date(activeNote.updatedAt).toLocaleString()}`} />
-                  <Pill icon={<ShieldCheck className="h-3.5 w-3.5" />} label="Notes are source of truth" accent />
+                  <Pill icon={<ShieldCheck className="h-3.5 w-3.5" />} label="Source of truth" accent />
                 </div>
               </div>
               <NoteViewTabs value={noteView} onChange={setNoteView} />
@@ -441,7 +441,7 @@ function NoteViewTabs({ value, onChange }: { value: NoteView; onChange: (value: 
   ];
 
   return (
-    <div className="flex items-end justify-between border-b border-ink-700/80 bg-ink-950/45 px-5">
+    <div className="flex min-w-0 items-end justify-between gap-3 overflow-hidden border-b border-ink-700/80 bg-ink-950/45 px-5">
       <div className="flex h-full items-end gap-1">
         {tabs.map((tab) => (
           <button
@@ -457,7 +457,7 @@ function NoteViewTabs({ value, onChange }: { value: NoteView; onChange: (value: 
           </button>
         ))}
       </div>
-      <div className="hidden pb-2 text-xs text-ink-500 sm:block">Switch between Markdown and rendered note views</div>
+      <div className="hidden truncate pb-2 text-xs text-ink-500 2xl:block">Markdown / rendered views</div>
     </div>
   );
 }
@@ -481,8 +481,8 @@ function AssistantPanel(props: {
   ];
 
   return (
-    <aside className="panel-shell grid h-full min-h-0 grid-rows-[72px_54px_minmax(0,1fr)] border-l">
-      <div className="flex items-center justify-between gap-3 border-b border-ink-700/80 px-4">
+    <aside className="panel-shell grid h-full min-h-0 grid-rows-[72px_54px_minmax(0,1fr)] overflow-hidden border-l">
+      <div className="flex min-w-0 items-center justify-between gap-2 border-b border-ink-700/80 px-4">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-ink-100">Right sidebar</div>
           <div className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-500">
@@ -490,24 +490,24 @@ function AssistantPanel(props: {
             Grounded in source excerpts
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex min-w-0 shrink-0 items-center gap-2">
           <ScopeSelect {...props} />
           <IconButton label="Hide study panel" onClick={props.onHide}>
             <PanelRightClose className="h-4 w-4" />
           </IconButton>
         </div>
       </div>
-      <div className="relative grid grid-cols-5 border-b border-ink-700/80 bg-ink-950/25 p-1.5">
+      <div className="relative grid min-w-0 grid-cols-5 gap-1 overflow-hidden border-b border-ink-700/80 bg-ink-950/25 p-1.5">
         {tabs.map(([id, label, icon]) => (
           <button
             key={id}
             onClick={() => props.setTab(id)}
-            className={`relative flex items-center justify-center gap-1 rounded-md text-xs font-medium transition-all duration-200 ease-premium ${
+            className={`relative flex min-w-0 items-center justify-center gap-1 rounded-md px-1 text-xs font-medium transition-all duration-200 ease-premium ${
               props.tab === id ? "bg-ink-800 text-accent-300 shadow-sm" : "text-ink-500 hover:bg-white/[0.04] hover:text-ink-100"
             }`}
           >
             {icon}
-            <span className="hidden sm:inline xl:inline">{label}</span>
+            <span className="hidden truncate 2xl:inline">{label}</span>
           </button>
         ))}
       </div>
@@ -1048,9 +1048,9 @@ function EmptyState({ children, action, onAction }: { children: React.ReactNode;
 
 function Pill({ icon, label, accent = false }: { icon: React.ReactNode; label: string; accent?: boolean }) {
   return (
-    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${accent ? "border-accent-500/25 bg-accent-500/10 text-accent-300" : "border-ink-700/80 bg-ink-850/70 text-ink-400"}`}>
-      {icon}
-      {label}
+    <span className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 ${accent ? "border-accent-500/25 bg-accent-500/10 text-accent-300" : "border-ink-700/80 bg-ink-850/70 text-ink-400"}`}>
+      <span className="shrink-0">{icon}</span>
+      <span className="truncate">{label}</span>
     </span>
   );
 }
