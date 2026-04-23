@@ -17,10 +17,13 @@ import {
   Folder,
   FolderOpen,
   FolderPlus,
+  LayoutPanelLeft,
   Layers3,
   Loader2,
   MessageSquareText,
   PanelRight,
+  PanelRightClose,
+  PanelRightOpen,
   Search,
   Settings,
   ShieldCheck,
@@ -50,6 +53,8 @@ export function Workspace() {
   const [scope, setScope] = useState<Scope>({ type: "all" });
   const [tab, setTab] = useState<Tab>("ask");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [leftOpen, setLeftOpen] = useState(true);
+  const [rightOpen, setRightOpen] = useState(true);
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<Toast | null>(null);
 
@@ -138,15 +143,36 @@ export function Workspace() {
 
   return (
     <main className="h-screen overflow-hidden bg-ink-950 text-ink-100">
-      <TopBar data={data} onSettings={() => setSettingsOpen(true)} onFind={() => setTab("find")} onReindexed={refresh} notify={notify} />
-      <div className="grid h-[calc(100vh-61px)] grid-cols-1 overflow-auto lg:grid-cols-[300px_minmax(430px,1fr)] xl:grid-cols-[300px_minmax(520px,1fr)_410px] xl:overflow-hidden">
+      <TopBar
+        data={data}
+        leftOpen={leftOpen}
+        rightOpen={rightOpen}
+        onToggleLeft={() => setLeftOpen((open) => !open)}
+        onToggleRight={() => setRightOpen((open) => !open)}
+        onSettings={() => setSettingsOpen(true)}
+        onFind={() => setTab("find")}
+        onReindexed={refresh}
+        notify={notify}
+      />
+      <div
+        className={`grid h-[calc(100vh-61px)] overflow-auto transition-[grid-template-columns] duration-300 ease-premium xl:overflow-hidden ${
+          leftOpen && rightOpen
+            ? "grid-cols-1 lg:grid-cols-[300px_minmax(430px,1fr)] xl:grid-cols-[300px_minmax(520px,1fr)_410px]"
+            : leftOpen
+              ? "grid-cols-1 lg:grid-cols-[300px_minmax(430px,1fr)] xl:grid-cols-[300px_minmax(620px,1fr)]"
+              : rightOpen
+                ? "grid-cols-1 xl:grid-cols-[minmax(620px,1fr)_410px]"
+                : "grid-cols-1"
+        }`}
+      >
+        {leftOpen ? (
         <aside className="panel-shell min-h-[320px] border-b border-r lg:min-h-0">
           <div className="flex h-16 items-center justify-between border-b border-ink-700/80 px-4">
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-500">Workspace</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-300/75">Vault</div>
               <div className="mt-0.5 flex items-center gap-2 text-sm font-semibold text-ink-100">
                 <BookOpen className="h-4 w-4 text-accent-400" />
-                Study Vault
+                Study Graph
               </div>
             </div>
             <div className="flex gap-1.5">
@@ -245,6 +271,7 @@ export function Workspace() {
             </div>
           </div>
         </aside>
+        ) : null}
 
         <section className="grid min-h-[720px] min-w-0 grid-rows-[86px_1fr] bg-ink-925 lg:min-h-0">
           {activeNote ? (
@@ -303,7 +330,18 @@ export function Workspace() {
           )}
         </section>
 
-        <AssistantPanel tab={tab} setTab={setTab} scope={scope} setScope={setScope} data={data} activeNote={activeNote} notify={notify} />
+        {rightOpen ? (
+          <AssistantPanel
+            tab={tab}
+            setTab={setTab}
+            scope={scope}
+            setScope={setScope}
+            data={data}
+            activeNote={activeNote}
+            notify={notify}
+            onHide={() => setRightOpen(false)}
+          />
+        ) : null}
       </div>
       {settingsOpen ? <SettingsModal settings={data.settings} onClose={() => setSettingsOpen(false)} onSaved={refresh} notify={notify} /> : null}
       {toast ? <ToastView toast={toast} /> : null}
@@ -313,12 +351,20 @@ export function Workspace() {
 
 function TopBar({
   data,
+  leftOpen,
+  rightOpen,
+  onToggleLeft,
+  onToggleRight,
   onSettings,
   onFind,
   onReindexed,
   notify
 }: {
   data: Bootstrap;
+  leftOpen: boolean;
+  rightOpen: boolean;
+  onToggleLeft: () => void;
+  onToggleRight: () => void;
   onSettings: () => void;
   onFind: () => void;
   onReindexed: () => void;
@@ -338,24 +384,27 @@ function TopBar({
     }
   }
   return (
-    <header className="flex h-[61px] items-center justify-between border-b border-ink-700/80 bg-ink-950/90 px-4 backdrop-blur-xl">
-      <div className="flex min-w-0 items-center gap-3">
-        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-accent-500/20 bg-accent-500/10 text-accent-300 shadow-glow">
-          <BookOpen className="h-4 w-4" />
+    <header className="flex h-[61px] items-center justify-between border-b border-ink-700/80 bg-ink-950/90 px-3 backdrop-blur-xl">
+      <div className="flex min-w-0 items-center gap-2">
+        <IconButton label={leftOpen ? "Hide vault" : "Show vault"} onClick={onToggleLeft}>
+          <LayoutPanelLeft className="h-4 w-4" />
+        </IconButton>
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-accent-500/30 bg-accent-500/15 text-accent-300 shadow-glow">
+          <Sparkles className="h-4 w-4" />
         </div>
         <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-ink-100">StudyOS Notes</div>
-          <div className="truncate text-xs text-ink-500">{data.user.email}</div>
+          <div className="truncate text-sm font-semibold text-ink-100">StudyOS Vault</div>
+          <div className="truncate text-xs text-ink-500">Purple workspace / {data.user.email}</div>
         </div>
       </div>
 
       <button
         onClick={onFind}
-        className="control-soft mx-4 hidden h-9 min-w-[280px] max-w-xl flex-1 items-center gap-2 rounded-lg px-3 text-left text-sm text-ink-500 lg:flex"
+        className="control-soft mx-3 hidden h-9 min-w-[260px] max-w-2xl flex-1 items-center gap-2 rounded-xl px-3 text-left text-sm text-ink-500 lg:flex"
       >
         <Search className="h-4 w-4 text-ink-500" />
-        Search notes and excerpts
-        <span className="ml-auto flex items-center gap-1 rounded border border-ink-700/80 px-1.5 py-0.5 text-[11px] text-ink-500">
+        Search notes, classes, excerpts
+        <span className="ml-auto flex items-center gap-1 rounded-md border border-ink-700/80 bg-ink-925 px-1.5 py-0.5 text-[11px] text-ink-500">
           <Command className="h-3 w-3" />
           Find
         </span>
@@ -374,6 +423,9 @@ function TopBar({
         <IconButton label="Settings" onClick={onSettings}>
           <Settings className="h-4 w-4" />
         </IconButton>
+        <IconButton label={rightOpen ? "Hide study panel" : "Show study panel"} onClick={onToggleRight}>
+          {rightOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+        </IconButton>
       </div>
     </header>
   );
@@ -387,6 +439,7 @@ function AssistantPanel(props: {
   data: Bootstrap;
   activeNote: Note | null;
   notify: (message: string, tone?: Toast["tone"]) => void;
+  onHide: () => void;
 }) {
   const tabs: Array<[Tab, string, React.ReactNode]> = [
     ["ask", "Ask", <MessageSquareText className="h-4 w-4" key="ask" />],
@@ -400,13 +453,18 @@ function AssistantPanel(props: {
     <aside className="panel-shell grid min-h-[620px] grid-rows-[72px_54px_1fr] border-t border-l xl:min-h-0 xl:border-t-0">
       <div className="flex items-center justify-between gap-3 border-b border-ink-700/80 px-4">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-ink-100">Study tools</div>
+          <div className="text-sm font-semibold text-ink-100">Right sidebar</div>
           <div className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-500">
             <ShieldCheck className="h-3.5 w-3.5 text-accent-400" />
             Grounded in source excerpts
           </div>
         </div>
-        <ScopeSelect {...props} />
+        <div className="flex items-center gap-2">
+          <ScopeSelect {...props} />
+          <IconButton label="Hide study panel" onClick={props.onHide}>
+            <PanelRightClose className="h-4 w-4" />
+          </IconButton>
+        </div>
       </div>
       <div className="relative grid grid-cols-5 border-b border-ink-700/80 bg-ink-950/25 p-1.5">
         {tabs.map(([id, label, icon]) => (
