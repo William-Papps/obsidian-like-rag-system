@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
+import { getCurrentUser } from "@/lib/auth";
+
+type MammothMarkdownAdapter = {
+  convertToMarkdown: (input: { arrayBuffer: ArrayBuffer }) => Promise<{ value: string }>;
+};
 
 async function convertDocxToMarkdown(buffer: Buffer): Promise<string> {
   try {
-    const result = await (mammoth as any).convertToMarkdown({ arrayBuffer: buffer });
+    const bytes = Uint8Array.from(buffer);
+    const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    const result = await (mammoth as unknown as MammothMarkdownAdapter).convertToMarkdown({ arrayBuffer });
     return result.value;
   } catch (error) {
     throw new Error(`Failed to convert DOCX: ${error instanceof Error ? error.message : "Unknown error"}`);
@@ -11,17 +18,17 @@ async function convertDocxToMarkdown(buffer: Buffer): Promise<string> {
 }
 
 async function convertTextToMarkdown(text: string): Promise<string> {
-  // Simple text to markdown conversion
-  // Preserve line breaks and add basic formatting
   return text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0)
-    .join("\n\n");
+    .replace(/^\uFEFF/, "")
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+$/gm, "")
+    .replace(/\n{4,}/g, "\n\n\n")
+    .trim();
 }
 
 export async function POST(request: NextRequest) {
   try {
+    await getCurrentUser();
     const formData = await request.formData();
     const file = formData.get("file") as File;
     const textContent = formData.get("text") as string;
@@ -42,20 +49,19 @@ export async function POST(request: NextRequest) {
       if (fileName.endsWith(".docx") || file.type === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
         markdown = await convertDocxToMarkdown(buffer);
       } else if (fileName.endsWith(".doc")) {
-        // For .doc files, try to treat as text or provide helpful error
         return NextResponse.json(
           { error: "Classic .doc files are not fully supported. Please convert to .docx format first." },
           { status: 400 }
         );
-      } else if (fileName.endsWith(".pdf")) {
-        return NextResponse.json(
-          { error: "PDF extraction requires client-side processing. Please paste the text content directly." },
-          { status: 400 }
-        );
-      } else if (fileName.endsWith(".txt") || file.type === "text/plain") {
+      } else if (
+        fileName.endsWith(".txt") ||
+        fileName.endsWith(".md") ||
+        fileName.endsWith(".markdown") ||
+        fileName.endsWith(".text") ||
+        file.type.startsWith("text/")
+      ) {
         markdown = await convertTextToMarkdown(buffer.toString("utf-8"));
       } else {
-        // Try text parsing as fallback
         try {
           markdown = await convertTextToMarkdown(buffer.toString("utf-8"));
         } catch {
@@ -67,11 +73,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Clean up the markdown
-    markdown = markdown
-      .replace(/\r\n/g, "\n")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
+    markdown = markdown.replace(/\r\n?/g, "\n").replace(/\n{4,}/g, "\n\n\n").trim();
 
     return NextResponse.json({
       success: true,

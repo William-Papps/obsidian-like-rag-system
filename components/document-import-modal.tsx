@@ -97,7 +97,7 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
         <div className="flex items-center justify-between border-b border-ink-700/80 px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-ink-100">Import Document</h2>
-            <p className="mt-1 text-xs text-ink-500">Convert Word docs, PDFs, or text to markdown</p>
+            <p className="mt-1 text-xs text-ink-500">Convert DOCX and plain text files into clean Markdown</p>
           </div>
           <button
             onClick={onClose}
@@ -120,7 +120,7 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".docx,.pdf,.txt,.doc"
+                accept=".docx,.txt,.md,.markdown,.text"
                 onChange={handleFileSelect}
                 disabled={isLoading}
                 className="hidden"
@@ -129,9 +129,9 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
                 <div className="text-center">
                   <Upload className="mx-auto h-8 w-8 text-ink-500 mb-2" />
                   <p className="text-sm font-medium text-ink-300">
-                    {isLoading ? "Converting..." : "Click to upload or drag and drop"}
+                    {isLoading ? "Converting..." : "Click to upload a document"}
                   </p>
-                  <p className="mt-1 text-xs text-ink-500">DOCX, PDF, or TXT files</p>
+                  <p className="mt-1 text-xs text-ink-500">DOCX, TXT, MD, and other plain text files</p>
                 </div>
               </div>
             </div>
@@ -150,7 +150,7 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Paste your text content here..."
+              placeholder="Paste lecture notes, document text, or slide text here..."
               disabled={isLoading}
               className="min-h-[120px] w-full rounded-lg border border-ink-700/50 bg-ink-850 px-3 py-2 text-sm text-ink-100 placeholder-ink-500 focus:border-accent-500/50 focus:outline-none"
             />
