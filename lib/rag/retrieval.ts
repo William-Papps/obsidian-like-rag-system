@@ -1,4 +1,5 @@
 import { dbAll, dbGet } from "@/lib/db";
+import { listDescendantFolderIds } from "@/lib/services/folders";
 import { getNote } from "@/lib/services/notes";
 import { getProviderSettings } from "@/lib/services/settings";
 import { cosine, embedText } from "@/lib/rag/embeddings";
@@ -20,8 +21,13 @@ export async function retrieveChunks(
     params.push(scope.noteId);
   }
   if (scope.folderId !== undefined) {
-    where += scope.folderId === null ? " and n.folder_id is null" : " and n.folder_id = ?";
-    if (scope.folderId !== null) params.push(scope.folderId);
+    if (scope.folderId === null) {
+      where += " and n.folder_id is null";
+    } else {
+      const folderIds = await listDescendantFolderIds(userId, scope.folderId);
+      where += ` and n.folder_id in (${folderIds.map(() => "?").join(", ")})`;
+      params.push(...folderIds);
+    }
   }
 
   const rows = await dbAll<{ id: string; note_id: string; title: string; chunk_text: string; vector_json: string }>(

@@ -1,4 +1,5 @@
 import { dbGet, dbRun } from "@/lib/db";
+import { listDescendantFolderIds } from "@/lib/services/folders";
 import { listNotes } from "@/lib/services/notes";
 import { getProviderSettings } from "@/lib/services/settings";
 import { chunkNote } from "@/lib/rag/chunking";
@@ -7,9 +8,10 @@ import { id, now, sha256 } from "@/lib/utils";
 
 export async function reindexNotes(userId: string, scope?: { noteId?: string; folderId?: string | null }) {
   const settings = await getProviderSettings(userId);
+  const folderIds = scope?.folderId ? await listDescendantFolderIds(userId, scope.folderId) : [];
   const notes = (await listNotes(userId)).filter((note) => {
     if (scope?.noteId) return note.id === scope.noteId;
-    if (scope?.folderId !== undefined) return note.folderId === scope.folderId;
+    if (scope?.folderId !== undefined) return scope.folderId === null ? note.folderId === null : Boolean(note.folderId && folderIds.includes(note.folderId));
     return true;
   });
 

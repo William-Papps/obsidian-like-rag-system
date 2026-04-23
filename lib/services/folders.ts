@@ -63,6 +63,21 @@ export async function deleteFolder(userId: string, folderId: string) {
   await dbRun("delete from folders where id = ? and user_id = ?", [folderId, userId]);
 }
 
+export async function listDescendantFolderIds(userId: string, folderId: string): Promise<string[]> {
+  const rows = await dbAll<{ id: string; parent_id: string | null }>("select id, parent_id from folders where user_id = ?", [userId]);
+  const childrenByParent = new Map<string, string[]>();
+  for (const row of rows) {
+    if (!row.parent_id) continue;
+    childrenByParent.set(row.parent_id, [...(childrenByParent.get(row.parent_id) ?? []), row.id]);
+  }
+
+  const ids = [folderId];
+  for (let index = 0; index < ids.length; index += 1) {
+    ids.push(...(childrenByParent.get(ids[index]) ?? []));
+  }
+  return ids;
+}
+
 async function isDescendant(userId: string, folderId: string, possibleAncestorId: string): Promise<boolean> {
   let current = await dbGet<{ parent_id: string | null }>("select parent_id from folders where id = ? and user_id = ?", [folderId, userId]);
   while (current?.parent_id) {

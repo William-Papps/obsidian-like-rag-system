@@ -1,6 +1,7 @@
 "use client";
 
 import { markdown } from "@codemirror/lang-markdown";
+import { EditorView } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import {
   AlertCircle,
@@ -12,11 +13,15 @@ import {
   Circle,
   Clock3,
   Command,
+  Eye,
   FilePlus,
+  FileStack,
   FileText,
   Folder,
   FolderOpen,
   FolderPlus,
+  GripVertical,
+  Highlighter,
   LayoutPanelLeft,
   Layers3,
   Loader2,
@@ -26,11 +31,15 @@ import {
   PanelRightClose,
   PanelRightOpen,
   Pencil,
+  Pin,
+  PinOff,
+  RotateCw,
   Search,
   Settings,
   ShieldCheck,
   Sparkles,
-  Trash2
+  Trash2,
+  X
 } from "lucide-react";
 import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { MarkdownPreview } from "@/components/markdown";
@@ -50,6 +59,7 @@ type NoteView = "write" | "preview" | "split";
 type Toast = { id: number; tone: "success" | "info" | "error"; message: string };
 type VaultMenu = { kind: "folder" | "note"; id: string; x: number; y: number } | null;
 type DragItem = { kind: "folder" | "note"; id: string } | null;
+type SourceRef = { noteId: string; noteTitle: string; excerpt: string; similarity: number };
 
 export function Workspace() {
   const [data, setData] = useState<Bootstrap | null>(null);
@@ -60,12 +70,17 @@ export function Workspace() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
+  const [leftWidth, setLeftWidth] = useState(() => readStoredNumber("studyos:leftWidth", 300, 240, 420));
+  const [rightWidth, setRightWidth] = useState(() => readStoredNumber("studyos:rightWidth", 410, 340, 560));
   const [noteView, setNoteView] = useState<NoteView>("write");
   const [draftTitle, setDraftTitle] = useState("");
+  const [openNoteIds, setOpenNoteIds] = useState<string[]>([]);
+  const [pinnedNoteIds, setPinnedNoteIds] = useState<string[]>(() => readStoredJson("studyos:pinnedNotes", []));
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<Toast | null>(null);
   const [vaultMenu, setVaultMenu] = useState<VaultMenu>(null);
   const [dragItem, setDragItem] = useState<DragItem>(null);
+  const [sourcePeek, setSourcePeek] = useState<SourceRef | null>(null);
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const next = { id: Date.now(), tone, message };
@@ -94,6 +109,10 @@ export function Workspace() {
   }, [refresh]);
 
   useEffect(() => {
+    window.localStorage.setItem("studyos:pinnedNotes", JSON.stringify(pinnedNoteIds));
+  }, [pinnedNoteIds]);
+
+  useEffect(() => {
     const close = () => setVaultMenu(null);
     const closeOnEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") close();
@@ -107,6 +126,27 @@ export function Workspace() {
   }, []);
 
   const activeNote = useMemo(() => data?.notes.find((note) => note.id === activeNoteId) ?? null, [data, activeNoteId]);
+  const openNotes = useMemo(
+    () =>
+      [
+        ...(activeNote ? [activeNote] : []),
+        ...openNoteIds.map((id) => data?.notes.find((note) => note.id === id)).filter((note): note is Note => Boolean(note))
+      ].filter((note, index, notes) => notes.findIndex((item) => item.id === note.id) === index),
+    [activeNote, data?.notes, openNoteIds]
+  );
+  const pinnedNotes = useMemo(
+    () => pinnedNoteIds.map((id) => data?.notes.find((note) => note.id === id)).filter((note): note is Note => Boolean(note)),
+    [data?.notes, pinnedNoteIds]
+  );
+  const recentNotes = useMemo(
+    () => (data?.notes ?? []).filter((note) => !pinnedNoteIds.includes(note.id)).slice(0, 5),
+    [data?.notes, pinnedNoteIds]
+  );
+  const selectNote = useCallback((noteId: string) => {
+    setActiveNoteId(noteId);
+    setScope({ type: "note", noteId });
+    setOpenNoteIds((current) => [noteId, ...current.filter((id) => id !== noteId)].slice(0, 8));
+  }, []);
   const openNoteFromSource = useCallback(
     (noteId: string) => {
       const note = data?.notes.find((item) => item.id === noteId);
@@ -115,23 +155,25 @@ export function Workspace() {
         return;
       }
 
-      setActiveNoteId(noteId);
-      setScope({ type: "note", noteId });
+      selectNote(noteId);
       notify(`Opened ${note.title}`, "info");
     },
-    [data?.notes, notify]
+    [data?.notes, notify, selectNote]
   );
+  const togglePinNote = useCallback((note: Note) => {
+    setPinnedNoteIds((current) => (current.includes(note.id) ? current.filter((id) => id !== note.id) : [note.id, ...current]));
+  }, []);
   const noteFolder = useMemo(
     () => data?.folders.find((folder) => folder.id === activeNote?.folderId)?.name ?? "No folder",
     [activeNote, data]
   );
   const workspaceGridStyle = useMemo<CSSProperties>(() => {
-    const left = leftOpen ? "300px" : "0px";
-    const right = rightOpen ? "410px" : "0px";
+    const left = leftOpen ? `${leftWidth}px` : "0px";
+    const right = rightOpen ? `${rightWidth}px` : "0px";
     return {
       gridTemplateColumns: `${left} minmax(0, 1fr) ${right}`
     };
-  }, [leftOpen, rightOpen]);
+  }, [leftOpen, leftWidth, rightOpen, rightWidth]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -156,7 +198,7 @@ export function Workspace() {
     });
     const note = (await response.json()) as Note;
     await refresh();
-    setActiveNoteId(note.id);
+    selectNote(note.id);
     notify("Note created", "success");
   }
 
@@ -174,16 +216,58 @@ export function Workspace() {
     setSaving(false);
   }
 
-  async function createFolder() {
-    const name = window.prompt("Folder or class name");
+  async function createFolder(parentId: string | null = null) {
+    const name = window.prompt(parentId ? "Folder name" : "Folder or class name");
     if (!name) return;
+    await createFolderWithName(name, parentId);
+  }
+
+  async function createFolderWithName(name: string, parentId: string | null = null) {
     await fetch("/api/folders", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name })
+      body: JSON.stringify({ name, parentId })
     });
     await refresh();
     notify("Folder created", "success");
+  }
+
+  async function createLectureWorkflow(folder: FolderType) {
+    const lectureName = window.prompt("Lecture folder name", `Lecture ${new Date().toLocaleDateString()}`);
+    if (!lectureName?.trim()) return;
+    const folderResponse = await fetch("/api/folders", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: lectureName.trim(), parentId: folder.id })
+    });
+    const lectureFolder = (await folderResponse.json()) as FolderType;
+    const templates = [
+      {
+        title: `${lectureName.trim()} - Slides`,
+        markdownContent: `# ${lectureName.trim()} - Slides\n\nAdd slide facts here. Keep each slide as source text the assistant can cite.\n\n## Slide 1\n\n- `
+      },
+      {
+        title: `${lectureName.trim()} - Notes`,
+        markdownContent: `# ${lectureName.trim()} - Notes\n\n## Key ideas\n\n- \n\n## Questions\n\n- `
+      },
+      {
+        title: `${lectureName.trim()} - Revision`,
+        markdownContent: `# ${lectureName.trim()} - Revision\n\n## Things to remember\n\n- \n\n## Practice questions\n\n- `
+      }
+    ];
+    let firstNote: Note | null = null;
+    for (const template of templates) {
+      const response = await fetch("/api/notes", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...template, folderId: lectureFolder.id })
+      });
+      firstNote ??= (await response.json()) as Note;
+    }
+    await refresh();
+    setCollapsedFolders((current) => ({ ...current, [folder.id]: false, [lectureFolder.id]: false }));
+    if (firstNote) selectNote(firstNote.id);
+    notify("Lecture workspace created", "success");
   }
 
   async function renameFolderById(folder: FolderType) {
@@ -280,6 +364,9 @@ export function Workspace() {
   async function deleteNoteById(note: Note) {
     if (!window.confirm(`Delete "${note.title}"?`)) return;
     await fetch(`/api/notes/${note.id}`, { method: "DELETE" });
+    setOpenNoteIds((current) => current.filter((id) => id !== note.id));
+    setPinnedNoteIds((current) => current.filter((id) => id !== note.id));
+    setSourcePeek((current) => (current?.noteId === note.id ? null : current));
     await refresh();
     if (activeNoteId === note.id) setActiveNoteId(data?.notes.find((item) => item.id !== note.id)?.id ?? null);
     notify("Note deleted", "info");
@@ -288,6 +375,53 @@ export function Workspace() {
   async function deleteActiveNote() {
     if (!activeNote) return;
     await deleteNoteById(activeNote);
+  }
+
+  async function reindexScope(input: { noteId?: string; folderId?: string | null }, label: string) {
+    notify(`Indexing ${label}`, "info");
+    const response = await fetch("/api/index", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input)
+    });
+    if (!response.ok) {
+      notify("Indexing failed", "error");
+      return;
+    }
+    await refresh();
+    notify(`${label} indexed`, "success");
+  }
+
+  function resizePanel(side: "left" | "right", event: MouseEvent<HTMLButtonElement>) {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = side === "left" ? leftWidth : rightWidth;
+    let lastWidth = startWidth;
+    const onMove = (moveEvent: globalThis.MouseEvent) => {
+      const delta = moveEvent.clientX - startX;
+      const next = side === "left" ? clamp(startWidth + delta, 240, 420) : clamp(startWidth - delta, 340, 560);
+      lastWidth = next;
+      if (side === "left") setLeftWidth(next);
+      else setRightWidth(next);
+    };
+    const onUp = () => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      const leftValue = side === "left" ? lastWidth : undefined;
+      const rightValue = side === "right" ? lastWidth : undefined;
+      if (leftValue !== undefined) window.localStorage.setItem("studyos:leftWidth", String(leftValue));
+      if (rightValue !== undefined) window.localStorage.setItem("studyos:rightWidth", String(rightValue));
+    };
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
+
+  function closeNoteTab(noteId: string) {
+    setOpenNoteIds((current) => {
+      const next = current.filter((id) => id !== noteId);
+      if (activeNoteId === noteId) setActiveNoteId(next[0] ?? data?.notes.find((note) => note.id !== noteId)?.id ?? null);
+      return next;
+    });
   }
 
   if (!data) {
@@ -317,9 +451,12 @@ export function Workspace() {
           onClick={() => setScope({ type: "folder", folderId: folder.id })}
           onToggle={() => setCollapsedFolders((current) => ({ ...current, [folder.id]: !collapsed }))}
           onCreate={() => createNote(folder.id)}
+          onCreateFolder={() => createFolder(folder.id)}
+          onCreateLecture={() => createLectureWorkflow(folder)}
           onRename={() => renameFolderById(folder)}
           onDelete={() => deleteFolderById(folder)}
           onMove={() => chooseFolderForFolder(folder)}
+          onReindex={() => reindexScope({ folderId: folder.id }, folder.name)}
           onDragStart={() => setDragItem({ kind: "folder", id: folder.id })}
           onDrop={() => handleDropOnFolder(folder)}
           onMenu={(event) => {
@@ -336,13 +473,13 @@ export function Workspace() {
                 key={note.id}
                 note={note}
                 active={activeNoteId === note.id}
-                onClick={() => {
-                  setActiveNoteId(note.id);
-                  setScope({ type: "note", noteId: note.id });
-                }}
+                pinned={pinnedNoteIds.includes(note.id)}
+                onClick={() => selectNote(note.id)}
+                onTogglePin={() => togglePinNote(note)}
                 onRename={() => renameNoteById(note)}
                 onDelete={() => deleteNoteById(note)}
                 onMove={() => chooseFolderForNote(note)}
+                onReindex={() => reindexScope({ noteId: note.id }, note.title)}
                 onDragStart={() => setDragItem({ kind: "note", id: note.id })}
                 onMenu={(event) => {
                   event.preventDefault();
@@ -372,7 +509,7 @@ export function Workspace() {
         notify={notify}
       />
       <div className="grid h-[calc(100vh-61px)] overflow-hidden transition-[grid-template-columns] duration-300 ease-premium" style={workspaceGridStyle}>
-        <aside className={`panel-shell min-h-0 overflow-hidden border-r transition-opacity duration-200 ${leftOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}>
+        <aside className={`panel-shell relative min-h-0 overflow-hidden border-r transition-opacity duration-200 ${leftOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}>
           <div className="flex h-16 items-center justify-between border-b border-ink-700/80 px-4">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-300/75">Vault</div>
@@ -406,6 +543,54 @@ export function Workspace() {
               </span>
               <span className="rounded-full bg-white/6 px-2 py-0.5 text-xs text-ink-300">{data.notes.length}</span>
             </button>
+
+            {pinnedNotes.length ? (
+              <div className="mb-5">
+                <SectionLabel label="Pinned" />
+                <div className="space-y-1">
+                  {pinnedNotes.map((note) => (
+                    <NoteRow
+                      key={note.id}
+                      note={note}
+                      active={activeNoteId === note.id}
+                      pinned
+                      onClick={() => selectNote(note.id)}
+                      onTogglePin={() => togglePinNote(note)}
+                      onRename={() => renameNoteById(note)}
+                      onDelete={() => deleteNoteById(note)}
+                      onMove={() => chooseFolderForNote(note)}
+                      onReindex={() => reindexScope({ noteId: note.id }, note.title)}
+                      onDragStart={() => setDragItem({ kind: "note", id: note.id })}
+                      onMenu={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setVaultMenu({ kind: "note", id: note.id, x: event.clientX, y: event.clientY });
+                      }}
+                    />
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
+            {recentNotes.length ? (
+              <div className="mb-5">
+                <SectionLabel label="Recent" />
+                <div className="space-y-1">
+                  {recentNotes.slice(0, 3).map((note) => (
+                    <button
+                      key={note.id}
+                      onClick={() => selectNote(note.id)}
+                      className={`flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs ${
+                        activeNoteId === note.id ? "bg-accent-500/10 text-accent-200" : "text-ink-500 hover:bg-white/[0.04] hover:text-ink-200"
+                      }`}
+                    >
+                      <Clock3 className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{note.title}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : null}
 
             <div
               onDragOver={(event) => event.preventDefault()}
@@ -442,13 +627,13 @@ export function Workspace() {
                       key={note.id}
                       note={note}
                       active={activeNoteId === note.id}
-                      onClick={() => {
-                        setActiveNoteId(note.id);
-                        setScope({ type: "note", noteId: note.id });
-                      }}
+                      pinned={pinnedNoteIds.includes(note.id)}
+                      onClick={() => selectNote(note.id)}
+                      onTogglePin={() => togglePinNote(note)}
                       onRename={() => renameNoteById(note)}
                       onDelete={() => deleteNoteById(note)}
                       onMove={() => chooseFolderForNote(note)}
+                      onReindex={() => reindexScope({ noteId: note.id }, note.title)}
                       onDragStart={() => setDragItem({ kind: "note", id: note.id })}
                       onMenu={(event) => {
                         event.preventDefault();
@@ -460,9 +645,10 @@ export function Workspace() {
               </div>
             </div>
           </div>
+          <ResizeHandle side="left" onPointerDown={(event) => resizePanel("left", event)} />
         </aside>
 
-        <section className="grid min-h-0 min-w-0 grid-rows-[auto_45px_minmax(0,1fr)] overflow-hidden bg-ink-925">
+        <section className="grid min-h-0 min-w-0 grid-rows-[auto_42px_45px_minmax(0,1fr)] overflow-hidden bg-ink-925">
           {activeNote ? (
             <>
               <div className="min-w-0 border-b border-ink-700/80 bg-ink-925/95 px-5 py-3">
@@ -499,13 +685,25 @@ export function Workspace() {
                   <Pill icon={<ShieldCheck className="h-3.5 w-3.5" />} label="Source of truth" accent />
                 </div>
               </div>
-              <NoteViewTabs value={noteView} onChange={setNoteView} />
+              <EditorNoteTabs
+                notes={openNotes}
+                activeNoteId={activeNote.id}
+                pinnedNoteIds={pinnedNoteIds}
+                onSelect={selectNote}
+                onClose={closeNoteTab}
+                onTogglePin={(note) => togglePinNote(note)}
+              />
+              <NoteViewTabs
+                value={noteView}
+                onChange={setNoteView}
+                onInsertSnippet={(snippet) => updateNote(activeNote.id, { markdownContent: `${activeNote.markdownContent}${snippet}` })}
+              />
               <div className={`min-h-0 min-w-0 ${noteView === "split" ? "grid grid-cols-2" : "grid grid-cols-1"}`}>
                 {(noteView === "write" || noteView === "split") ? (
                 <div className={`min-h-0 min-w-0 bg-ink-900/50 ${noteView === "split" ? "border-r border-ink-700/80" : ""}`}>
                   <CodeMirror
                     value={activeNote.markdownContent}
-                    extensions={[markdown()]}
+                    extensions={[markdown(), EditorView.lineWrapping]}
                     theme="dark"
                     basicSetup={{ foldGutter: false, highlightActiveLine: true }}
                     onChange={(value) => updateNote(activeNote.id, { markdownContent: value })}
@@ -520,7 +718,7 @@ export function Workspace() {
               </div>
             </>
           ) : (
-            <div className="row-span-3 grid h-full place-items-center p-8">
+            <div className="row-span-4 grid h-full place-items-center p-8">
               <EmptyState action="Create note" onAction={() => createNote()}>
                 Create a Markdown note, then reindex it for source-grounded study tools.
               </EmptyState>
@@ -528,7 +726,8 @@ export function Workspace() {
           )}
         </section>
 
-        <div className={`min-w-0 overflow-hidden transition-opacity duration-200 ${rightOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}>
+        <div className={`relative min-w-0 overflow-hidden transition-opacity duration-200 ${rightOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}>
+          <ResizeHandle side="right" onPointerDown={(event) => resizePanel("right", event)} />
           <AssistantPanel
               tab={tab}
               setTab={setTab}
@@ -538,6 +737,9 @@ export function Workspace() {
               activeNote={activeNote}
               notify={notify}
               onOpenNote={openNoteFromSource}
+              sourcePeek={sourcePeek}
+              onPeekSource={setSourcePeek}
+              onCloseSourcePeek={() => setSourcePeek(null)}
               onHide={() => setRightOpen(false)}
             />
         </div>
@@ -549,12 +751,18 @@ export function Workspace() {
         notes={data.notes}
         onClose={() => setVaultMenu(null)}
         onNewNote={(folderId) => createNote(folderId)}
+        onNewFolder={(parentId) => createFolder(parentId)}
+        onNewLecture={createLectureWorkflow}
         onMoveFolder={chooseFolderForFolder}
         onRenameFolder={renameFolderById}
         onDeleteFolder={deleteFolderById}
+        onReindexFolder={(folder) => reindexScope({ folderId: folder.id }, folder.name)}
         onMoveNote={chooseFolderForNote}
         onRenameNote={renameNoteById}
         onDeleteNote={deleteNoteById}
+        onReindexNote={(note) => reindexScope({ noteId: note.id }, note.title)}
+        onTogglePinNote={togglePinNote}
+        pinnedNoteIds={pinnedNoteIds}
       />
       {toast ? <ToastView toast={toast} /> : null}
     </main>
@@ -643,7 +851,58 @@ function TopBar({
   );
 }
 
-function NoteViewTabs({ value, onChange }: { value: NoteView; onChange: (value: NoteView) => void }) {
+function EditorNoteTabs({
+  notes,
+  activeNoteId,
+  pinnedNoteIds,
+  onSelect,
+  onClose,
+  onTogglePin
+}: {
+  notes: Note[];
+  activeNoteId: string;
+  pinnedNoteIds: string[];
+  onSelect: (noteId: string) => void;
+  onClose: (noteId: string) => void;
+  onTogglePin: (note: Note) => void;
+}) {
+  return (
+    <div className="flex min-w-0 items-end gap-1 overflow-x-auto border-b border-ink-700/80 bg-ink-950/60 px-3 pt-1">
+      {notes.map((note) => {
+        const active = note.id === activeNoteId;
+        const pinned = pinnedNoteIds.includes(note.id);
+        return (
+          <div
+            key={note.id}
+            className={`group flex h-9 min-w-[140px] max-w-[220px] items-center gap-2 rounded-t-lg border border-b-0 px-2.5 ${
+              active ? "border-accent-500/35 bg-ink-925 text-white shadow-glow" : "border-ink-700/60 bg-ink-900/50 text-ink-400 hover:bg-ink-850/80 hover:text-ink-100"
+            }`}
+          >
+            <button onClick={() => onTogglePin(note)} aria-label={pinned ? `Unpin ${note.title}` : `Pin ${note.title}`} className="shrink-0 text-ink-500 hover:text-accent-300">
+              {pinned ? <Pin className="h-3.5 w-3.5 text-accent-300" /> : <FileText className="h-3.5 w-3.5" />}
+            </button>
+            <button onClick={() => onSelect(note.id)} className="min-w-0 flex-1 truncate text-left text-xs font-medium">
+              {note.title}
+            </button>
+            <button onClick={() => onClose(note.id)} aria-label={`Close ${note.title}`} className="grid h-5 w-5 shrink-0 place-items-center rounded text-ink-500 opacity-0 hover:bg-white/8 hover:text-white group-hover:opacity-100">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function NoteViewTabs({
+  value,
+  onChange,
+  onInsertSnippet
+}: {
+  value: NoteView;
+  onChange: (value: NoteView) => void;
+  onInsertSnippet: (snippet: string) => void;
+}) {
   const tabs: Array<{ id: NoteView; label: string }> = [
     { id: "write", label: "Write" },
     { id: "preview", label: "Preview" },
@@ -667,7 +926,20 @@ function NoteViewTabs({ value, onChange }: { value: NoteView; onChange: (value: 
           </button>
         ))}
       </div>
-      <div className="hidden truncate pb-2 text-xs text-ink-500 2xl:block">Markdown / rendered views</div>
+      <div className="hidden items-center gap-1 pb-1.5 lg:flex">
+        <button onClick={() => onInsertSnippet("\n\n## Heading\n\n")} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+          H2
+        </button>
+        <button onClick={() => onInsertSnippet("\n\n- ")} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+          List
+        </button>
+        <button onClick={() => onInsertSnippet("\n\n> Source quote\n\n")} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+          Quote
+        </button>
+        <button onClick={() => onInsertSnippet("\n\n```text\n\n```\n")} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+          Code
+        </button>
+      </div>
     </div>
   );
 }
@@ -681,6 +953,9 @@ function AssistantPanel(props: {
   activeNote: Note | null;
   notify: (message: string, tone?: Toast["tone"]) => void;
   onOpenNote: (noteId: string) => void;
+  sourcePeek: SourceRef | null;
+  onPeekSource: (source: SourceRef) => void;
+  onCloseSourcePeek: () => void;
   onHide: () => void;
 }) {
   const tabs: Array<[Tab, string, React.ReactNode]> = [
@@ -724,11 +999,12 @@ function AssistantPanel(props: {
       </div>
       <div className="min-h-0 overflow-auto p-4">
         <div key={props.tab} className="animate-[fadeIn_220ms_ease-out]">
-          {props.tab === "ask" ? <AskTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} /> : null}
-          {props.tab === "find" ? <FindTool onOpenNote={props.onOpenNote} /> : null}
-          {props.tab === "quiz" ? <QuizTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} /> : null}
-          {props.tab === "flashcards" ? <FlashcardTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} /> : null}
-          {props.tab === "summary" ? <SummaryTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} /> : null}
+          {props.sourcePeek ? <SourcePeekCard source={props.sourcePeek} onOpenNote={props.onOpenNote} onClose={props.onCloseSourcePeek} /> : null}
+          {props.tab === "ask" ? <AskTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} onPeekSource={props.onPeekSource} /> : null}
+          {props.tab === "find" ? <FindTool onOpenNote={props.onOpenNote} onPeekSource={props.onPeekSource} /> : null}
+          {props.tab === "quiz" ? <QuizTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} onPeekSource={props.onPeekSource} /> : null}
+          {props.tab === "flashcards" ? <FlashcardTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} onPeekSource={props.onPeekSource} /> : null}
+          {props.tab === "summary" ? <SummaryTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} onPeekSource={props.onPeekSource} /> : null}
         </div>
       </div>
     </aside>
@@ -776,11 +1052,13 @@ function ScopeSelect({
 function AskTool({
   scope,
   notify,
-  onOpenNote
+  onOpenNote,
+  onPeekSource
 }: {
   scope: Scope;
   notify: (message: string, tone?: Toast["tone"]) => void;
   onOpenNote: (noteId: string) => void;
+  onPeekSource: (source: SourceRef) => void;
 }) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<AnswerResult | null>(null);
@@ -818,6 +1096,11 @@ function AskTool({
       {busy ? <SkeletonStack /> : null}
       {answer ? (
         <div className="space-y-3">
+          <div className="grid grid-cols-3 gap-2">
+            <MetricPill label="Sources" value={String(answer.citations.length)} />
+            <MetricPill label="Scope" value={scopeLabel(scope)} />
+            <MetricPill label="Mode" value={answer.unsupported ? "Related" : "Grounded"} />
+          </div>
           <div
             className={`rounded-xl border p-4 text-sm leading-6 ${
               answer.unsupported ? "border-danger-400/30 bg-danger-400/10 text-ink-100" : "border-accent-500/20 bg-accent-500/10 text-ink-100"
@@ -837,14 +1120,14 @@ function AskTool({
               </div>
             </div>
           ) : null}
-          <SourceList sources={answer.citations} onOpenNote={onOpenNote} />
+          <SourceList sources={answer.citations} onOpenNote={onOpenNote} onPeekSource={onPeekSource} />
         </div>
       ) : null}
     </div>
   );
 }
 
-function FindTool({ onOpenNote }: { onOpenNote: (noteId: string) => void }) {
+function FindTool({ onOpenNote, onPeekSource }: { onOpenNote: (noteId: string) => void; onPeekSource: (source: SourceRef) => void }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Array<{ noteId: string; noteTitle: string; excerpt: string }>>([]);
   useEffect(() => {
@@ -868,7 +1151,12 @@ function FindTool({ onOpenNote }: { onOpenNote: (noteId: string) => void }) {
           className="min-w-0 flex-1 bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500"
         />
       </div>
-      <SourceList sources={results.map((result) => ({ ...result, chunkId: result.noteId, similarity: 1 }))} empty="No exact matches yet." onOpenNote={onOpenNote} />
+      <SourceList
+        sources={results.map((result) => ({ ...result, chunkId: result.noteId, similarity: 1 }))}
+        empty="No exact matches yet."
+        onOpenNote={onOpenNote}
+        onPeekSource={onPeekSource}
+      />
     </div>
   );
 }
@@ -876,11 +1164,13 @@ function FindTool({ onOpenNote }: { onOpenNote: (noteId: string) => void }) {
 function QuizTool({
   scope,
   notify,
-  onOpenNote
+  onOpenNote,
+  onPeekSource
 }: {
   scope: Scope;
   notify: (message: string, tone?: Toast["tone"]) => void;
   onOpenNote: (noteId: string) => void;
+  onPeekSource: (source: SourceRef) => void;
 }) {
   const [items, setItems] = useState<QuizQuestion[]>([]);
   const [open, setOpen] = useState<Record<number, boolean>>({});
@@ -911,7 +1201,7 @@ function QuizTool({
                   <div className="mt-3 rounded-lg border border-ink-700/80 bg-ink-950/40 p-3 text-sm leading-6 text-ink-300">{item.answer}</div>
                 </div>
               </div>
-              <SourceList sources={[item.source]} compact onOpenNote={onOpenNote} />
+              <SourceList sources={[item.source]} compact onOpenNote={onOpenNote} onPeekSource={onPeekSource} />
             </div>
           ))}
         </div>
@@ -923,11 +1213,13 @@ function QuizTool({
 function FlashcardTool({
   scope,
   notify,
-  onOpenNote
+  onOpenNote,
+  onPeekSource
 }: {
   scope: Scope;
   notify: (message: string, tone?: Toast["tone"]) => void;
   onOpenNote: (noteId: string) => void;
+  onPeekSource: (source: SourceRef) => void;
 }) {
   const [items, setItems] = useState<Flashcard[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
@@ -966,7 +1258,7 @@ function FlashcardTool({
                   <div className="mt-3 rounded-lg border border-success-400/25 bg-success-400/10 p-3 text-sm leading-6 text-ink-200">{item.answer}</div>
                 </div>
               </div>
-              <SourceList sources={[item.source]} compact onOpenNote={onOpenNote} />
+              <SourceList sources={[item.source]} compact onOpenNote={onOpenNote} onPeekSource={onPeekSource} />
             </div>
           ))}
         </div>
@@ -978,11 +1270,13 @@ function FlashcardTool({
 function SummaryTool({
   scope,
   notify,
-  onOpenNote
+  onOpenNote,
+  onPeekSource
 }: {
   scope: Scope;
   notify: (message: string, tone?: Toast["tone"]) => void;
   onOpenNote: (noteId: string) => void;
+  onPeekSource: (source: SourceRef) => void;
 }) {
   const [items, setItems] = useState<Array<{ id: string; label: string; text: string; source: AnswerResult["citations"][number] }>>([]);
   return (
@@ -1001,7 +1295,7 @@ function SummaryTool({
             <div key={item.id} className="study-card">
               <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">{item.label}</div>
               <blockquote className="border-l-2 border-accent-400/70 pl-3 text-sm leading-6 text-ink-200">{item.text}</blockquote>
-              <SourceList sources={[item.source]} compact onOpenNote={onOpenNote} />
+              <SourceList sources={[item.source]} compact onOpenNote={onOpenNote} onPeekSource={onPeekSource} />
             </div>
           ))}
         </div>
@@ -1062,12 +1356,14 @@ function SourceList({
   sources,
   compact = false,
   empty = "No source excerpts found.",
-  onOpenNote
+  onOpenNote,
+  onPeekSource
 }: {
   sources: Array<{ chunkId: string; noteId?: string; noteTitle: string; excerpt: string; similarity: number }>;
   compact?: boolean;
   empty?: string;
   onOpenNote?: (noteId: string) => void;
+  onPeekSource?: (source: SourceRef) => void;
 }) {
   if (!sources.length) return <div className="surface-soft rounded-xl px-3 py-4 text-sm text-ink-500">{empty}</div>;
   return (
@@ -1087,16 +1383,28 @@ function SourceList({
             </div>
           </summary>
           <blockquote className="mt-3 border-l-2 border-accent-400/70 pl-3 text-xs leading-5 text-ink-300">{source.excerpt}</blockquote>
-          {source.noteId && onOpenNote ? (
-            <button
-              type="button"
-              onClick={() => onOpenNote(source.noteId!)}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-ink-700 bg-ink-950/40 px-2.5 py-1.5 text-xs font-medium text-ink-200 transition-colors hover:border-accent-500/40 hover:bg-accent-500/10 hover:text-accent-200 focus:outline-none focus:ring-2 focus:ring-accent-400/40"
-            >
-              <FileText className="h-3.5 w-3.5" />
-              Open note
-            </button>
-          ) : null}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {source.noteId && onPeekSource ? (
+              <button
+                type="button"
+                onClick={() => onPeekSource({ noteId: source.noteId!, noteTitle: source.noteTitle, excerpt: source.excerpt, similarity: source.similarity })}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink-700 bg-ink-950/40 px-2.5 py-1.5 text-xs font-medium text-ink-200 transition-colors hover:border-accent-500/40 hover:bg-accent-500/10 hover:text-accent-200 focus:outline-none focus:ring-2 focus:ring-accent-400/40"
+              >
+                <Eye className="h-3.5 w-3.5" />
+                Peek
+              </button>
+            ) : null}
+            {source.noteId && onOpenNote ? (
+              <button
+                type="button"
+                onClick={() => onOpenNote(source.noteId!)}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink-700 bg-ink-950/40 px-2.5 py-1.5 text-xs font-medium text-ink-200 transition-colors hover:border-accent-500/40 hover:bg-accent-500/10 hover:text-accent-200 focus:outline-none focus:ring-2 focus:ring-accent-400/40"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                Open note
+              </button>
+            ) : null}
+          </div>
         </details>
       ))}
     </div>
@@ -1111,9 +1419,12 @@ function FolderRow({
   onClick,
   onToggle,
   onCreate,
+  onCreateFolder,
+  onCreateLecture,
   onRename,
   onDelete,
   onMove,
+  onReindex,
   onDragStart,
   onDrop,
   dragActive,
@@ -1126,9 +1437,12 @@ function FolderRow({
   onClick: () => void;
   onToggle: () => void;
   onCreate: () => void;
+  onCreateFolder: () => void;
+  onCreateLecture: () => void;
   onRename: () => void;
   onDelete: () => void;
   onMove: () => void;
+  onReindex: () => void;
   onDragStart: () => void;
   onDrop: () => void;
   dragActive: boolean;
@@ -1161,6 +1475,9 @@ function FolderRow({
       <button onClick={onCreate} aria-label={`New note in ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
         <FilePlus className="h-3.5 w-3.5" />
       </button>
+      <button onClick={onCreateFolder} aria-label={`New folder in ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
+        <FolderPlus className="h-3.5 w-3.5" />
+      </button>
       <button onClick={onRename} aria-label={`Rename ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
         <Pencil className="h-3.5 w-3.5" />
       </button>
@@ -1168,6 +1485,8 @@ function FolderRow({
         <Trash2 className="h-3.5 w-3.5" />
       </button>
       <button onClick={onMove} aria-label={`Move ${folder.name}`} className="hidden" />
+      <button onClick={onReindex} aria-label={`Reindex ${folder.name}`} className="hidden" />
+      <button onClick={onCreateLecture} aria-label={`New lecture in ${folder.name}`} className="hidden" />
       <button
         onClick={(event) => {
           event.stopPropagation();
@@ -1185,19 +1504,25 @@ function FolderRow({
 function NoteRow({
   note,
   active,
+  pinned,
   onClick,
+  onTogglePin,
   onRename,
   onDelete,
   onMove,
+  onReindex,
   onDragStart,
   onMenu
 }: {
   note: Note;
   active: boolean;
+  pinned: boolean;
   onClick: () => void;
+  onTogglePin: () => void;
   onRename: () => void;
   onDelete: () => void;
   onMove: () => void;
+  onReindex: () => void;
   onDragStart: () => void;
   onMenu: (event: MouseEvent) => void;
 }) {
@@ -1211,11 +1536,14 @@ function NoteRow({
       }`}
     >
       <button onClick={onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-start gap-2 text-left">
-        <FileText className={`mt-0.5 h-4 w-4 shrink-0 ${active ? "text-accent-300" : "text-ink-500 group-hover:text-ink-300"}`} />
+        {pinned ? <Pin className="mt-0.5 h-4 w-4 shrink-0 text-accent-300" /> : <FileText className={`mt-0.5 h-4 w-4 shrink-0 ${active ? "text-accent-300" : "text-ink-500 group-hover:text-ink-300"}`} />}
         <span className="min-w-0 flex-1">
         <span className="block truncate text-sm font-medium">{note.title}</span>
         <span className="mt-1 block truncate text-xs text-ink-500">{new Date(note.updatedAt).toLocaleDateString()}</span>
         </span>
+      </button>
+      <button onClick={onTogglePin} aria-label={pinned ? `Unpin ${note.title}` : `Pin ${note.title}`} className="grid h-7 w-7 shrink-0 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
+        {pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
       </button>
       <button onClick={onRename} aria-label={`Rename ${note.title}`} className="grid h-7 w-7 shrink-0 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
         <Pencil className="h-3.5 w-3.5" />
@@ -1224,6 +1552,7 @@ function NoteRow({
         <Trash2 className="h-3.5 w-3.5" />
       </button>
       <button onClick={onMove} aria-label={`Move ${note.title}`} className="hidden" />
+      <button onClick={onReindex} aria-label={`Reindex ${note.title}`} className="hidden" />
       <button
         onClick={(event) => {
           event.stopPropagation();
@@ -1244,24 +1573,36 @@ function VaultContextMenu({
   notes,
   onClose,
   onNewNote,
+  onNewFolder,
+  onNewLecture,
   onMoveFolder,
   onRenameFolder,
   onDeleteFolder,
+  onReindexFolder,
   onMoveNote,
   onRenameNote,
-  onDeleteNote
+  onDeleteNote,
+  onReindexNote,
+  onTogglePinNote,
+  pinnedNoteIds
 }: {
   menu: VaultMenu;
   folders: FolderType[];
   notes: Note[];
   onClose: () => void;
   onNewNote: (folderId: string | null) => void;
+  onNewFolder: (parentId: string | null) => void;
+  onNewLecture: (folder: FolderType) => void;
   onMoveFolder: (folder: FolderType) => void;
   onRenameFolder: (folder: FolderType) => void;
   onDeleteFolder: (folder: FolderType) => void;
+  onReindexFolder: (folder: FolderType) => void;
   onMoveNote: (note: Note) => void;
   onRenameNote: (note: Note) => void;
   onDeleteNote: (note: Note) => void;
+  onReindexNote: (note: Note) => void;
+  onTogglePinNote: (note: Note) => void;
+  pinnedNoteIds: string[];
 }) {
   if (!menu) return null;
   const folder = menu.kind === "folder" ? folders.find((item) => item.id === menu.id) : null;
@@ -1271,7 +1612,7 @@ function VaultContextMenu({
   const viewportWidth = typeof window === "undefined" ? 1200 : window.innerWidth;
   const viewportHeight = typeof window === "undefined" ? 800 : window.innerHeight;
   const left = Math.max(8, Math.min(menu.x, viewportWidth - 230));
-  const top = Math.max(8, Math.min(menu.y, viewportHeight - 190));
+  const top = Math.max(8, Math.min(menu.y, viewportHeight - 330));
   const itemClass = "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-ink-200 hover:bg-accent-500/12 hover:text-white";
   const dangerClass = "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-danger-400 hover:bg-danger-400/10";
 
@@ -1301,6 +1642,26 @@ function VaultContextMenu({
             className={itemClass}
             onClick={() => {
               onClose();
+              onNewFolder(folder.id);
+            }}
+          >
+            <FolderPlus className="h-4 w-4 text-accent-300" />
+            New folder here
+          </button>
+          <button
+            className={itemClass}
+            onClick={() => {
+              onClose();
+              onNewLecture(folder);
+            }}
+          >
+            <FileStack className="h-4 w-4 text-accent-300" />
+            New lecture workspace
+          </button>
+          <button
+            className={itemClass}
+            onClick={() => {
+              onClose();
               onRenameFolder(folder);
             }}
           >
@@ -1316,6 +1677,16 @@ function VaultContextMenu({
           >
             <FolderOpen className="h-4 w-4 text-accent-300" />
             Move folder...
+          </button>
+          <button
+            className={itemClass}
+            onClick={() => {
+              onClose();
+              onReindexFolder(folder);
+            }}
+          >
+            <RotateCw className="h-4 w-4 text-accent-300" />
+            Reindex folder
           </button>
           <button
             className={dangerClass}
@@ -1335,6 +1706,16 @@ function VaultContextMenu({
             className={itemClass}
             onClick={() => {
               onClose();
+              onTogglePinNote(note);
+            }}
+          >
+            {pinnedNoteIds.includes(note.id) ? <PinOff className="h-4 w-4 text-accent-300" /> : <Pin className="h-4 w-4 text-accent-300" />}
+            {pinnedNoteIds.includes(note.id) ? "Unpin note" : "Pin note"}
+          </button>
+          <button
+            className={itemClass}
+            onClick={() => {
+              onClose();
               onRenameNote(note);
             }}
           >
@@ -1350,6 +1731,16 @@ function VaultContextMenu({
           >
             <FolderOpen className="h-4 w-4 text-accent-300" />
             Move note...
+          </button>
+          <button
+            className={itemClass}
+            onClick={() => {
+              onClose();
+              onReindexNote(note);
+            }}
+          >
+            <RotateCw className="h-4 w-4 text-accent-300" />
+            Reindex note
           </button>
           <button
             className={dangerClass}
@@ -1460,6 +1851,66 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="mb-1.5 block text-xs font-medium text-ink-400">{label}</span>
       {children}
     </label>
+  );
+}
+
+function SourcePeekCard({
+  source,
+  onOpenNote,
+  onClose
+}: {
+  source: SourceRef;
+  onOpenNote: (noteId: string) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="mb-4 rounded-xl border border-accent-500/30 bg-accent-500/10 p-3 shadow-glow">
+      <div className="mb-2 flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">
+            <Highlighter className="h-3.5 w-3.5" />
+            Source peek
+          </div>
+          <div className="mt-1 truncate text-sm font-semibold text-ink-100">{source.noteTitle}</div>
+        </div>
+        <button onClick={onClose} aria-label="Close source peek" className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-ink-500 hover:bg-white/8 hover:text-white">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <blockquote className="max-h-40 overflow-auto border-l-2 border-accent-400/70 pl-3 text-xs leading-5 text-ink-200">{source.excerpt}</blockquote>
+      <div className="mt-3 flex items-center justify-between gap-2">
+        <span className="rounded-full border border-accent-500/25 bg-ink-950/40 px-2 py-0.5 text-[11px] text-accent-200">
+          {Math.round(source.similarity * 100)}% related
+        </span>
+        <button onClick={() => onOpenNote(source.noteId)} className="inline-flex items-center gap-1.5 rounded-lg bg-accent-500 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-accent-400">
+          <FileText className="h-3.5 w-3.5" />
+          Open note
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function ResizeHandle({ side, onPointerDown }: { side: "left" | "right"; onPointerDown: (event: MouseEvent<HTMLButtonElement>) => void }) {
+  return (
+    <button
+      aria-label={`Resize ${side} panel`}
+      onMouseDown={onPointerDown}
+      className={`absolute top-0 z-20 hidden h-full w-2 cursor-col-resize place-items-center text-ink-600 hover:bg-accent-500/10 hover:text-accent-300 lg:grid ${
+        side === "left" ? "-right-1" : "-left-1"
+      }`}
+    >
+      <GripVertical className="h-4 w-4" />
+    </button>
+  );
+}
+
+function MetricPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-ink-700/80 bg-ink-950/35 px-2.5 py-2">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-500">{label}</div>
+      <div className="mt-0.5 truncate text-xs font-semibold text-ink-200">{value}</div>
+    </div>
   );
 }
 
@@ -1590,6 +2041,34 @@ function chooseFolderTarget(folders: FolderType[], currentFolderId: string | nul
   const index = Number.parseInt(choice, 10);
   if (Number.isNaN(index) || index < 0 || index > options.length) return { cancelled: true as const, folderId: null };
   return { cancelled: false as const, folderId: index === 0 ? null : options[index - 1].id };
+}
+
+function scopeLabel(scope: Scope) {
+  if (scope.type === "note") return "Note";
+  if (scope.type === "folder") return "Folder";
+  return "All";
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function readStoredNumber(key: string, fallback: number, min: number, max: number) {
+  if (typeof window === "undefined") return fallback;
+  const value = Number.parseInt(window.localStorage.getItem(key) ?? "", 10);
+  return Number.isNaN(value) ? fallback : clamp(value, min, max);
+}
+
+function readStoredJson<T>(key: string, fallback: T): T {
+  if (typeof window === "undefined") return fallback;
+  const value = window.localStorage.getItem(key);
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value) as T;
+  } catch {
+    window.localStorage.removeItem(key);
+    return fallback;
+  }
 }
 
 function apiScope(scope: Scope) {

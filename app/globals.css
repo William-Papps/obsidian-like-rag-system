@@ -20,9 +20,7 @@ body {
 
 body {
   background:
-    radial-gradient(circle at 20% 0%, rgba(139, 92, 246, 0.2), transparent 31rem),
-    radial-gradient(circle at 84% 10%, rgba(196, 181, 253, 0.1), transparent 28rem),
-    linear-gradient(180deg, rgba(25, 21, 38, 0.98), rgba(15, 13, 21, 1)),
+    linear-gradient(180deg, rgba(31, 24, 48, 0.98), rgba(15, 13, 21, 1)),
     #0f0d15;
   font-feature-settings: "cv02", "cv03", "cv04", "cv11";
   text-rendering: geometricPrecision;
