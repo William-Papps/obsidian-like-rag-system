@@ -9,7 +9,8 @@ const schema = z.object({
   apiKey: z.string().optional(),
   projectId: z.string().nullable().optional(),
   embeddingModel: z.string().min(1),
-  answerModel: z.string().min(1)
+  answerModel: z.string().min(1),
+  visionModel: z.string().nullable().optional()
 });
 
 export async function GET() {

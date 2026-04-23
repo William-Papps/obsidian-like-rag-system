@@ -23,7 +23,7 @@ export async function getProviderSettings(userId: string): Promise<ProviderSetti
     projectId: process.env.OPENAI_PROJECT_ID || null,
     embeddingModel: process.env.OPENAI_EMBEDDING_MODEL || "text-embedding-3-small",
     answerModel: process.env.OPENAI_ANSWER_MODEL || "gpt-4o-mini",
-    visionModel: null,
+    visionModel: process.env.OPENAI_VISION_MODEL || "gpt-4o-mini",
     createdAt: created,
     updatedAt: created
   };
@@ -59,7 +59,7 @@ export function readApiKey(userId: string): string | null {
 
 export async function saveProviderSettings(
   userId: string,
-  input: { apiKey?: string; projectId?: string | null; embeddingModel: string; answerModel: string }
+  input: { apiKey?: string; projectId?: string | null; embeddingModel: string; answerModel: string; visionModel?: string | null }
 ) {
   const existing = await getProviderSettings(userId);
   let maskedKey = existing.maskedKey;
@@ -70,13 +70,14 @@ export async function saveProviderSettings(
     localSecretRef = `file:data/secrets/${userId}-openai.key`;
   }
   await dbRun(
-    "update provider_settings set local_secret_ref = coalesce(?, local_secret_ref), masked_key = ?, project_id = ?, embedding_model = ?, answer_model = ?, updated_at = ? where id = ? and user_id = ?",
+    "update provider_settings set local_secret_ref = coalesce(?, local_secret_ref), masked_key = ?, project_id = ?, embedding_model = ?, answer_model = ?, vision_model = ?, updated_at = ? where id = ? and user_id = ?",
     [
       localSecretRef,
       maskedKey,
       input.projectId?.trim() || null,
       input.embeddingModel,
       input.answerModel,
+      input.visionModel?.trim() || null,
       now(),
       existing.id,
       userId

@@ -38,6 +38,9 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
 
       const data = await response.json();
       notify("Document converted successfully", "success");
+      for (const warning of (data.warnings as string[] | undefined) ?? []) {
+        notify(warning, "info");
+      }
       onImport(data.markdown, data.fileName);
       onClose();
     } catch (error) {
@@ -73,6 +76,9 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
 
       const data = await response.json();
       notify("Text converted to markdown", "success");
+      for (const warning of (data.warnings as string[] | undefined) ?? []) {
+        notify(warning, "info");
+      }
       onImport(data.markdown, "pasted-content");
       setText("");
       onClose();
@@ -97,7 +103,7 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
         <div className="flex items-center justify-between border-b border-ink-700/80 px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-ink-100">Import Document</h2>
-            <p className="mt-1 text-xs text-ink-500">Convert DOCX and plain text files into clean Markdown</p>
+            <p className="mt-1 text-xs text-ink-500">Convert DOCX, screenshots, and plain text into clean Markdown source notes</p>
           </div>
           <button
             onClick={onClose}
@@ -120,7 +126,7 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".docx,.txt,.md,.markdown,.text"
+                accept=".docx,.txt,.md,.markdown,.text,.png,.jpg,.jpeg,.webp,.gif,.bmp,.tif,.tiff"
                 onChange={handleFileSelect}
                 disabled={isLoading}
                 className="hidden"
@@ -129,9 +135,9 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
                 <div className="text-center">
                   <Upload className="mx-auto h-8 w-8 text-ink-500 mb-2" />
                   <p className="text-sm font-medium text-ink-300">
-                    {isLoading ? "Converting..." : "Click to upload a document"}
+                    {isLoading ? "Extracting..." : "Click to upload a document or screenshot"}
                   </p>
-                  <p className="mt-1 text-xs text-ink-500">DOCX, TXT, MD, and other plain text files</p>
+                  <p className="mt-1 text-xs text-ink-500">DOCX, screenshots, TXT, MD, and other plain text files</p>
                 </div>
               </div>
             </div>
@@ -147,6 +153,9 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
           {/* Text Input */}
           <div>
             <label className="mb-2 block text-sm font-medium text-ink-300">Paste Text</label>
+            <p className="mb-2 text-xs leading-5 text-ink-500">
+              Image text extraction uses your configured vision model and stores the extracted text inside the note so RAG stays grounded in saved note content.
+            </p>
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}

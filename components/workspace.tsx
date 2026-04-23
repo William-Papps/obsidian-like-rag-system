@@ -1808,11 +1808,12 @@ function SettingsModal({
   const [projectId, setProjectId] = useState(settings.projectId ?? "");
   const [embeddingModel, setEmbeddingModel] = useState(settings.embeddingModel);
   const [answerModel, setAnswerModel] = useState(settings.answerModel);
+  const [visionModel, setVisionModel] = useState(settings.visionModel ?? "");
   async function save() {
     await fetch("/api/settings", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ apiKey, projectId, embeddingModel, answerModel })
+      body: JSON.stringify({ apiKey, projectId, embeddingModel, answerModel, visionModel })
     });
     await onSaved();
     notify("Settings saved", "success");
@@ -1850,7 +1851,7 @@ function SettingsModal({
               className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
             />
           </Field>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
             <Field label="Embedding model">
               <input
                 value={embeddingModel}
@@ -1864,6 +1865,15 @@ function SettingsModal({
                 value={answerModel}
                 onKeyDown={allowNativeTextShortcuts}
                 onChange={(event) => setAnswerModel(event.target.value)}
+                className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
+              />
+            </Field>
+            <Field label="Vision model">
+              <input
+                value={visionModel}
+                onKeyDown={allowNativeTextShortcuts}
+                onChange={(event) => setVisionModel(event.target.value)}
+                placeholder="gpt-4o-mini"
                 className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
               />
             </Field>
