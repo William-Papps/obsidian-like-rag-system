@@ -13,6 +13,7 @@ function renderMarkdown(markdown: string) {
   const lines = markdown.split(/\r?\n/);
   const blocks: string[] = [];
   let list: string[] = [];
+  let quote: string[] = [];
   let code: string[] = [];
   let inCode = false;
 
@@ -20,6 +21,13 @@ function renderMarkdown(markdown: string) {
     if (list.length) {
       blocks.push(`<ul>${list.map((item) => `<li>${inline(item)}</li>`).join("")}</ul>`);
       list = [];
+    }
+  };
+
+  const flushQuote = () => {
+    if (quote.length) {
+      blocks.push(`<blockquote>${quote.map((item) => `<p>${inline(item)}</p>`).join("")}</blockquote>`);
+      quote = [];
     }
   };
 
@@ -42,11 +50,19 @@ function renderMarkdown(markdown: string) {
     }
     if (!line.trim()) {
       flushList();
+      flushQuote();
+      continue;
+    }
+    const blockquote = /^>\s?(.+)$/.exec(line);
+    if (blockquote) {
+      flushList();
+      quote.push(blockquote[1]);
       continue;
     }
     const heading = /^(#{1,3})\s+(.+)$/.exec(line);
     if (heading) {
       flushList();
+      flushQuote();
       blocks.push(`<h${heading[1].length}>${inline(heading[2])}</h${heading[1].length}>`);
       continue;
     }
@@ -56,9 +72,11 @@ function renderMarkdown(markdown: string) {
       continue;
     }
     flushList();
+    flushQuote();
     blocks.push(`<p>${inline(line)}</p>`);
   }
   flushList();
+  flushQuote();
   flushCode();
   return blocks.join("");
 }

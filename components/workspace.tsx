@@ -3,11 +3,19 @@
 import { markdown } from "@codemirror/lang-markdown";
 import CodeMirror from "@uiw/react-codemirror";
 import {
+  AlertCircle,
   BookOpen,
   Brain,
   Check,
   ChevronDown,
+  ChevronRight,
+  Circle,
+  Clock3,
+  Command,
   FilePlus,
+  FileText,
+  Folder,
+  FolderOpen,
   FolderPlus,
   Layers3,
   Loader2,
@@ -15,16 +23,17 @@ import {
   PanelRight,
   Search,
   Settings,
+  ShieldCheck,
   Sparkles,
   Trash2
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { MarkdownPreview } from "@/components/markdown";
-import type { AnswerResult, Flashcard, Folder, Note, ProviderSettings, QuizQuestion } from "@/lib/types";
+import type { AnswerResult, Flashcard, Folder as FolderType, Note, ProviderSettings, QuizQuestion } from "@/lib/types";
 
 type Bootstrap = {
   user: { id: string; email: string; name: string };
-  folders: Folder[];
+  folders: FolderType[];
   notes: Note[];
   settings: ProviderSettings;
   indexStatus: { notes: number; chunks: number; staleNotes: number };
@@ -32,6 +41,7 @@ type Bootstrap = {
 
 type Scope = { type: "all" } | { type: "note"; noteId: string } | { type: "folder"; folderId: string | null };
 type Tab = "ask" | "find" | "quiz" | "flashcards" | "summary";
+type Toast = { id: number; tone: "success" | "info" | "error"; message: string };
 
 export function Workspace() {
   const [data, setData] = useState<Bootstrap | null>(null);
@@ -40,6 +50,16 @@ export function Workspace() {
   const [scope, setScope] = useState<Scope>({ type: "all" });
   const [tab, setTab] = useState<Tab>("ask");
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
+  const [toast, setToast] = useState<Toast | null>(null);
+
+  const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
+    const next = { id: Date.now(), tone, message };
+    setToast(next);
+    window.setTimeout(() => {
+      setToast((current) => (current?.id === next.id ? null : current));
+    }, 2600);
+  }, []);
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/bootstrap");
@@ -54,11 +74,10 @@ export function Workspace() {
   }, [refresh]);
 
   const activeNote = useMemo(() => data?.notes.find((note) => note.id === activeNoteId) ?? null, [data, activeNoteId]);
-  const visibleNotes = useMemo(() => {
-    if (!data) return [];
-    if (scope.type === "folder") return data.notes.filter((note) => note.folderId === scope.folderId);
-    return data.notes;
-  }, [data, scope]);
+  const noteFolder = useMemo(
+    () => data?.folders.find((folder) => folder.id === activeNote?.folderId)?.name ?? "No folder",
+    [activeNote, data]
+  );
 
   async function createNote(folderId: string | null = scope.type === "folder" ? scope.folderId : null) {
     const response = await fetch("/api/notes", {
@@ -69,6 +88,7 @@ export function Workspace() {
     const note = (await response.json()) as Note;
     await refresh();
     setActiveNoteId(note.id);
+    notify("Note created", "success");
   }
 
   async function updateNote(noteId: string, input: Partial<Note>) {
@@ -94,6 +114,7 @@ export function Workspace() {
       body: JSON.stringify({ name })
     });
     await refresh();
+    notify("Folder created", "success");
   }
 
   async function deleteActiveNote() {
@@ -101,14 +122,15 @@ export function Workspace() {
     await fetch(`/api/notes/${activeNote.id}`, { method: "DELETE" });
     await refresh();
     setActiveNoteId(data?.notes.find((note) => note.id !== activeNote.id)?.id ?? null);
+    notify("Note deleted", "info");
   }
 
   if (!data) {
     return (
       <main className="grid min-h-screen place-items-center bg-ink-950 text-ink-100">
-        <div className="flex items-center gap-3 text-sm text-ink-300">
+        <div className="surface-soft shimmer flex w-72 items-center gap-3 rounded-lg px-4 py-3 text-sm text-ink-300 shadow-panel">
           <Loader2 className="h-4 w-4 animate-spin text-accent-400" />
-          Opening workspace
+          Opening study workspace
         </div>
       </main>
     );
@@ -116,15 +138,18 @@ export function Workspace() {
 
   return (
     <main className="h-screen overflow-hidden bg-ink-950 text-ink-100">
-      <TopBar data={data} onSettings={() => setSettingsOpen(true)} onReindexed={refresh} />
-      <div className="grid h-[calc(100vh-57px)] grid-cols-[288px_minmax(420px,1fr)_390px]">
-        <aside className="border-r border-white/10 bg-ink-900/92">
-          <div className="flex h-14 items-center justify-between border-b border-white/10 px-4">
+      <TopBar data={data} onSettings={() => setSettingsOpen(true)} onFind={() => setTab("find")} onReindexed={refresh} notify={notify} />
+      <div className="grid h-[calc(100vh-61px)] grid-cols-1 overflow-auto lg:grid-cols-[300px_minmax(430px,1fr)] xl:grid-cols-[300px_minmax(520px,1fr)_410px] xl:overflow-hidden">
+        <aside className="panel-shell min-h-[320px] border-b border-r lg:min-h-0">
+          <div className="flex h-16 items-center justify-between border-b border-ink-700/80 px-4">
             <div>
-              <div className="text-xs uppercase tracking-[0.18em] text-ink-500">Workspace</div>
-              <div className="text-sm font-semibold text-ink-100">Study Vault</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-500">Workspace</div>
+              <div className="mt-0.5 flex items-center gap-2 text-sm font-semibold text-ink-100">
+                <BookOpen className="h-4 w-4 text-accent-400" />
+                Study Vault
+              </div>
             </div>
-            <div className="flex gap-1">
+            <div className="flex gap-1.5">
               <IconButton label="New folder" onClick={createFolder}>
                 <FolderPlus className="h-4 w-4" />
               </IconButton>
@@ -133,88 +158,129 @@ export function Workspace() {
               </IconButton>
             </div>
           </div>
-          <div className="h-[calc(100%-56px)] overflow-auto px-3 py-4">
+
+          <div className="h-[calc(100%-64px)] overflow-auto px-3 py-4">
             <button
               onClick={() => setScope({ type: "all" })}
-              className={`mb-3 flex w-full items-center justify-between rounded-md px-3 py-2 text-left text-sm ${
-                scope.type === "all" ? "bg-accent-500/15 text-accent-300" : "text-ink-300 hover:bg-white/5"
+              className={`group mb-4 flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm ${
+                scope.type === "all"
+                  ? "border border-accent-500/30 bg-accent-500/10 text-accent-300 shadow-glow"
+                  : "control-soft text-ink-300"
               }`}
             >
               <span className="flex items-center gap-2">
                 <Layers3 className="h-4 w-4" />
                 All notes
               </span>
-              <span className="text-xs text-ink-500">{data.notes.length}</span>
+              <span className="rounded-full bg-white/6 px-2 py-0.5 text-xs text-ink-300">{data.notes.length}</span>
             </button>
-            <div className="space-y-1">
-              {data.folders.map((folder) => (
-                <FolderRow
-                  key={folder.id}
-                  folder={folder}
-                  count={data.notes.filter((note) => note.folderId === folder.id).length}
-                  active={scope.type === "folder" && scope.folderId === folder.id}
-                  onClick={() => setScope({ type: "folder", folderId: folder.id })}
-                  onCreate={() => createNote(folder.id)}
-                  onRefresh={refresh}
-                />
-              ))}
-            </div>
-            <div className="mt-5 border-t border-white/10 pt-4">
-              <div className="mb-2 px-2 text-xs uppercase tracking-[0.16em] text-ink-500">Notes</div>
-              <div className="space-y-1">
-                {visibleNotes.map((note) => (
-                  <button
-                    key={note.id}
-                    onClick={() => {
-                      setActiveNoteId(note.id);
-                      setScope({ type: "note", noteId: note.id });
-                    }}
-                    className={`w-full rounded-md px-3 py-2 text-left ${
-                      activeNoteId === note.id ? "bg-white/10 text-white" : "text-ink-300 hover:bg-white/5"
-                    }`}
-                  >
-                    <div className="truncate text-sm font-medium">{note.title}</div>
-                    <div className="mt-1 truncate text-xs text-ink-500">{new Date(note.updatedAt).toLocaleString()}</div>
-                  </button>
-                ))}
-                {visibleNotes.length === 0 ? (
-                  <div className="rounded-md border border-dashed border-white/12 px-3 py-5 text-sm text-ink-500">
-                    No notes in this scope.
+
+            <SectionLabel label="Classes" />
+            <div className="space-y-1.5">
+              {data.folders.map((folder) => {
+                const folderNotes = data.notes.filter((note) => note.folderId === folder.id);
+                const collapsed = collapsedFolders[folder.id] ?? false;
+                return (
+                  <div key={folder.id} className="rounded-lg">
+                    <FolderRow
+                      folder={folder}
+                      count={folderNotes.length}
+                      collapsed={collapsed}
+                      active={scope.type === "folder" && scope.folderId === folder.id}
+                      onClick={() => setScope({ type: "folder", folderId: folder.id })}
+                      onToggle={() => setCollapsedFolders((current) => ({ ...current, [folder.id]: !collapsed }))}
+                      onCreate={() => createNote(folder.id)}
+                      onRefresh={refresh}
+                      notify={notify}
+                    />
+                    <div
+                      className={`overflow-hidden pl-4 transition-[max-height,opacity] duration-300 ease-premium ${
+                        collapsed ? "max-h-0 opacity-0" : "max-h-96 opacity-100"
+                      }`}
+                    >
+                      <div className="ml-2 mt-1 space-y-1 border-l border-ink-700/70 pl-2">
+                        {folderNotes.map((note) => (
+                          <NoteRow
+                            key={note.id}
+                            note={note}
+                            active={activeNoteId === note.id}
+                            onClick={() => {
+                              setActiveNoteId(note.id);
+                              setScope({ type: "note", noteId: note.id });
+                            }}
+                          />
+                        ))}
+                        {folderNotes.length === 0 ? (
+                          <div className="px-2 py-2 text-xs text-ink-500">No notes yet</div>
+                        ) : null}
+                      </div>
+                    </div>
                   </div>
-                ) : null}
+                );
+              })}
+              {data.folders.length === 0 ? (
+                <EmptyState action="Create folder" onAction={createFolder}>
+                  Group notes by class, exam, or topic.
+                </EmptyState>
+              ) : null}
+            </div>
+
+            <div className="mt-5">
+              <SectionLabel label="Unfiled notes" />
+              <div className="space-y-1">
+                {data.notes
+                  .filter((note) => !note.folderId)
+                  .map((note) => (
+                    <NoteRow
+                      key={note.id}
+                      note={note}
+                      active={activeNoteId === note.id}
+                      onClick={() => {
+                        setActiveNoteId(note.id);
+                        setScope({ type: "note", noteId: note.id });
+                      }}
+                    />
+                  ))}
               </div>
             </div>
           </div>
         </aside>
 
-        <section className="grid min-w-0 grid-rows-[56px_1fr] bg-ink-850">
+        <section className="grid min-h-[720px] min-w-0 grid-rows-[86px_1fr] bg-ink-925 lg:min-h-0">
           {activeNote ? (
             <>
-              <div className="flex items-center gap-3 border-b border-white/10 px-5">
-                <input
-                  value={activeNote.title}
-                  onChange={(event) => updateNote(activeNote.id, { title: event.target.value })}
-                  className="min-w-0 flex-1 bg-transparent text-lg font-semibold text-white outline-none"
-                />
-                <select
-                  value={activeNote.folderId ?? ""}
-                  onChange={(event) => updateNote(activeNote.id, { folderId: event.target.value || null })}
-                  className="rounded-md border border-white/10 bg-ink-900 px-2 py-1 text-xs text-ink-300 outline-none"
-                >
-                  <option value="">No folder</option>
-                  {data.folders.map((folder) => (
-                    <option key={folder.id} value={folder.id}>
-                      {folder.name}
-                    </option>
-                  ))}
-                </select>
-                <span className="w-14 text-xs text-ink-500">{saving ? "Saving" : "Saved"}</span>
-                <IconButton label="Delete note" onClick={deleteActiveNote}>
-                  <Trash2 className="h-4 w-4" />
-                </IconButton>
+              <div className="border-b border-ink-700/80 bg-ink-925/95 px-5 py-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    value={activeNote.title}
+                    onChange={(event) => updateNote(activeNote.id, { title: event.target.value })}
+                    className="min-w-0 flex-1 rounded-md bg-transparent px-1 text-xl font-semibold text-white outline-none placeholder:text-ink-500"
+                  />
+                  <select
+                    value={activeNote.folderId ?? ""}
+                    onChange={(event) => updateNote(activeNote.id, { folderId: event.target.value || null })}
+                    className="control-soft hidden rounded-md px-2.5 py-1.5 text-xs text-ink-300 outline-none sm:block"
+                  >
+                    <option value="">No folder</option>
+                    {data.folders.map((folder) => (
+                      <option key={folder.id} value={folder.id}>
+                        {folder.name}
+                      </option>
+                    ))}
+                  </select>
+                  <SaveBadge saving={saving} stale={data.indexStatus.staleNotes > 0} />
+                  <IconButton label="Delete note" onClick={deleteActiveNote} tone="danger">
+                    <Trash2 className="h-4 w-4" />
+                  </IconButton>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-ink-500">
+                  <Pill icon={<Folder className="h-3.5 w-3.5" />} label={noteFolder} />
+                  <Pill icon={<Clock3 className="h-3.5 w-3.5" />} label={`Updated ${new Date(activeNote.updatedAt).toLocaleString()}`} />
+                  <Pill icon={<ShieldCheck className="h-3.5 w-3.5" />} label="Notes are source of truth" accent />
+                </div>
               </div>
-              <div className="grid min-h-0 grid-cols-2">
-                <div className="min-w-0 border-r border-white/10">
+              <div className="grid min-h-0 grid-cols-1 xl:grid-cols-2">
+                <div className="min-h-[360px] min-w-0 border-b border-ink-700/80 bg-ink-900/50 xl:border-b-0 xl:border-r">
                   <CodeMirror
                     value={activeNote.markdownContent}
                     extensions={[markdown()]}
@@ -223,63 +289,87 @@ export function Workspace() {
                     onChange={(value) => updateNote(activeNote.id, { markdownContent: value })}
                   />
                 </div>
-                <MarkdownPreview markdown={activeNote.markdownContent} />
+                <div className="min-h-[360px] bg-ink-925">
+                  <MarkdownPreview markdown={activeNote.markdownContent} />
+                </div>
               </div>
             </>
           ) : (
-            <div className="grid h-full place-items-center text-ink-400">
-              <button onClick={() => createNote()} className="rounded-md border border-white/10 px-4 py-2 hover:bg-white/5">
-                Create your first note
-              </button>
+            <div className="grid h-full place-items-center p-8">
+              <EmptyState action="Create note" onAction={() => createNote()}>
+                Create a Markdown note, then reindex it for source-grounded study tools.
+              </EmptyState>
             </div>
           )}
         </section>
 
-        <AssistantPanel
-          tab={tab}
-          setTab={setTab}
-          scope={scope}
-          setScope={setScope}
-          data={data}
-          activeNote={activeNote}
-          onReindexed={refresh}
-        />
+        <AssistantPanel tab={tab} setTab={setTab} scope={scope} setScope={setScope} data={data} activeNote={activeNote} notify={notify} />
       </div>
-      {settingsOpen ? <SettingsModal settings={data.settings} onClose={() => setSettingsOpen(false)} onSaved={refresh} /> : null}
+      {settingsOpen ? <SettingsModal settings={data.settings} onClose={() => setSettingsOpen(false)} onSaved={refresh} notify={notify} /> : null}
+      {toast ? <ToastView toast={toast} /> : null}
     </main>
   );
 }
 
-function TopBar({ data, onSettings, onReindexed }: { data: Bootstrap; onSettings: () => void; onReindexed: () => void }) {
+function TopBar({
+  data,
+  onSettings,
+  onFind,
+  onReindexed,
+  notify
+}: {
+  data: Bootstrap;
+  onSettings: () => void;
+  onFind: () => void;
+  onReindexed: () => void;
+  notify: (message: string, tone?: Toast["tone"]) => void;
+}) {
   const [busy, setBusy] = useState(false);
   async function reindex() {
     setBusy(true);
-    await fetch("/api/index", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
-    setBusy(false);
-    onReindexed();
+    try {
+      await fetch("/api/index", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+      notify("Index refreshed", "success");
+      onReindexed();
+    } catch {
+      notify("Indexing failed", "error");
+    } finally {
+      setBusy(false);
+    }
   }
   return (
-    <header className="flex h-[57px] items-center justify-between border-b border-white/10 bg-ink-950/95 px-4">
-      <div className="flex items-center gap-3">
-        <div className="grid h-8 w-8 place-items-center rounded-md bg-accent-500/15 text-accent-300">
+    <header className="flex h-[61px] items-center justify-between border-b border-ink-700/80 bg-ink-950/90 px-4 backdrop-blur-xl">
+      <div className="flex min-w-0 items-center gap-3">
+        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-lg border border-accent-500/20 bg-accent-500/10 text-accent-300 shadow-glow">
           <BookOpen className="h-4 w-4" />
         </div>
-        <div>
-          <div className="text-sm font-semibold">StudyOS Notes</div>
-          <div className="text-xs text-ink-500">{data.user.email}</div>
+        <div className="min-w-0">
+          <div className="truncate text-sm font-semibold text-ink-100">StudyOS Notes</div>
+          <div className="truncate text-xs text-ink-500">{data.user.email}</div>
         </div>
       </div>
-      <div className="flex items-center gap-3">
-        <div className="rounded-md border border-white/10 bg-white/[0.03] px-3 py-1.5 text-xs text-ink-300">
-          {data.indexStatus.chunks} chunks · {data.indexStatus.staleNotes} stale
-        </div>
+
+      <button
+        onClick={onFind}
+        className="control-soft mx-4 hidden h-9 min-w-[280px] max-w-xl flex-1 items-center gap-2 rounded-lg px-3 text-left text-sm text-ink-500 lg:flex"
+      >
+        <Search className="h-4 w-4 text-ink-500" />
+        Search notes and excerpts
+        <span className="ml-auto flex items-center gap-1 rounded border border-ink-700/80 px-1.5 py-0.5 text-[11px] text-ink-500">
+          <Command className="h-3 w-3" />
+          Find
+        </span>
+      </button>
+
+      <div className="flex items-center gap-2">
+        <IndexBadge status={data.indexStatus} busy={busy} />
         <button
           onClick={reindex}
           disabled={busy}
-          className="flex items-center gap-2 rounded-md bg-accent-500 px-3 py-1.5 text-sm font-semibold text-ink-950 disabled:opacity-60"
+          className="flex h-9 items-center gap-2 rounded-lg bg-accent-500 px-3 text-sm font-semibold text-ink-950 shadow-glow hover:bg-accent-400 disabled:opacity-60"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          Reindex
+          <span className="hidden sm:inline">Reindex</span>
         </button>
         <IconButton label="Settings" onClick={onSettings}>
           <Settings className="h-4 w-4" />
@@ -296,7 +386,7 @@ function AssistantPanel(props: {
   setScope: (scope: Scope) => void;
   data: Bootstrap;
   activeNote: Note | null;
-  onReindexed: () => void;
+  notify: (message: string, tone?: Toast["tone"]) => void;
 }) {
   const tabs: Array<[Tab, string, React.ReactNode]> = [
     ["ask", "Ask", <MessageSquareText className="h-4 w-4" key="ask" />],
@@ -307,34 +397,39 @@ function AssistantPanel(props: {
   ];
 
   return (
-    <aside className="grid min-h-0 grid-rows-[56px_48px_1fr] border-l border-white/10 bg-ink-900/96">
-      <div className="flex items-center justify-between border-b border-white/10 px-4">
-        <div>
-          <div className="text-sm font-semibold">Study tools</div>
-          <div className="text-xs text-ink-500">Grounded in indexed notes</div>
+    <aside className="panel-shell grid min-h-[620px] grid-rows-[72px_54px_1fr] border-t border-l xl:min-h-0 xl:border-t-0">
+      <div className="flex items-center justify-between gap-3 border-b border-ink-700/80 px-4">
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-ink-100">Study tools</div>
+          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-500">
+            <ShieldCheck className="h-3.5 w-3.5 text-accent-400" />
+            Grounded in source excerpts
+          </div>
         </div>
         <ScopeSelect {...props} />
       </div>
-      <div className="grid grid-cols-5 border-b border-white/10">
+      <div className="relative grid grid-cols-5 border-b border-ink-700/80 bg-ink-950/25 p-1.5">
         {tabs.map(([id, label, icon]) => (
           <button
             key={id}
             onClick={() => props.setTab(id)}
-            className={`flex items-center justify-center gap-1 text-xs ${
-              props.tab === id ? "bg-white/8 text-accent-300" : "text-ink-400 hover:bg-white/5"
+            className={`relative flex items-center justify-center gap-1 rounded-md text-xs font-medium transition-all duration-200 ease-premium ${
+              props.tab === id ? "bg-ink-800 text-accent-300 shadow-sm" : "text-ink-500 hover:bg-white/[0.04] hover:text-ink-100"
             }`}
           >
             {icon}
-            {label}
+            <span className="hidden sm:inline xl:inline">{label}</span>
           </button>
         ))}
       </div>
       <div className="min-h-0 overflow-auto p-4">
-        {props.tab === "ask" ? <AskTool scope={props.scope} /> : null}
-        {props.tab === "find" ? <FindTool /> : null}
-        {props.tab === "quiz" ? <QuizTool scope={props.scope} /> : null}
-        {props.tab === "flashcards" ? <FlashcardTool scope={props.scope} /> : null}
-        {props.tab === "summary" ? <SummaryTool scope={props.scope} /> : null}
+        <div key={props.tab} className="animate-[fadeIn_220ms_ease-out]">
+          {props.tab === "ask" ? <AskTool scope={props.scope} notify={props.notify} /> : null}
+          {props.tab === "find" ? <FindTool /> : null}
+          {props.tab === "quiz" ? <QuizTool scope={props.scope} notify={props.notify} /> : null}
+          {props.tab === "flashcards" ? <FlashcardTool scope={props.scope} notify={props.notify} /> : null}
+          {props.tab === "summary" ? <SummaryTool scope={props.scope} notify={props.notify} /> : null}
+        </div>
       </div>
     </aside>
   );
@@ -353,7 +448,7 @@ function ScopeSelect({
 }) {
   const value = scope.type === "all" ? "all" : scope.type === "note" ? `note:${scope.noteId}` : `folder:${scope.folderId ?? ""}`;
   return (
-    <div className="relative">
+    <div className="relative shrink-0">
       <select
         value={value}
         onChange={(event) => {
@@ -362,7 +457,8 @@ function ScopeSelect({
           if (next.startsWith("note:")) setScope({ type: "note", noteId: next.slice(5) });
           if (next.startsWith("folder:")) setScope({ type: "folder", folderId: next.slice(7) || null });
         }}
-        className="w-36 appearance-none rounded-md border border-white/10 bg-ink-850 py-1.5 pl-2 pr-7 text-xs text-ink-200 outline-none"
+        className="control-soft w-36 appearance-none rounded-lg py-2 pl-3 pr-8 text-xs text-ink-200 outline-none"
+        aria-label="Study scope"
       >
         <option value="all">All notes</option>
         {activeNote ? <option value={`note:${activeNote.id}`}>Current note</option> : null}
@@ -372,41 +468,57 @@ function ScopeSelect({
           </option>
         ))}
       </select>
-      <ChevronDown className="pointer-events-none absolute right-2 top-2 h-3.5 w-3.5 text-ink-500" />
+      <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-3.5 w-3.5 text-ink-500" />
     </div>
   );
 }
 
-function AskTool({ scope }: { scope: Scope }) {
+function AskTool({ scope, notify }: { scope: Scope; notify: (message: string, tone?: Toast["tone"]) => void }) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<AnswerResult | null>(null);
   const [busy, setBusy] = useState(false);
   async function ask() {
     if (!question.trim()) return;
     setBusy(true);
-    const response = await fetch("/api/ask", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ question, scope: apiScope(scope) })
-    });
-    setAnswer(await response.json());
-    setBusy(false);
+    setAnswer(null);
+    try {
+      const response = await fetch("/api/ask", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ question, scope: apiScope(scope) })
+      });
+      setAnswer(await response.json());
+    } catch {
+      notify("Ask request failed", "error");
+    } finally {
+      setBusy(false);
+    }
   }
   return (
     <div className="space-y-4">
+      <ToolHeader title="Ask your notes" description="Answers are limited to indexed source excerpts." />
       <textarea
         value={question}
         onChange={(event) => setQuestion(event.target.value)}
-        placeholder="Ask from your indexed notes..."
-        className="h-28 w-full resize-none rounded-md border border-white/10 bg-ink-850 p-3 text-sm text-ink-100 outline-none placeholder:text-ink-500"
+        placeholder="Ask a question supported by your notes..."
+        className="control-soft h-32 w-full resize-none rounded-xl p-3 text-sm leading-6 text-ink-100 outline-none placeholder:text-ink-500"
       />
-      <button onClick={ask} disabled={busy} className="w-full rounded-md bg-accent-500 py-2 text-sm font-semibold text-ink-950">
-        {busy ? "Retrieving..." : "Ask notes"}
+      <button onClick={ask} disabled={busy || !question.trim()} className="primary-action w-full">
+        {busy ? "Retrieving sources..." : "Answer from selected sources"}
       </button>
+      {busy ? <SkeletonStack /> : null}
       {answer ? (
         <div className="space-y-3">
-          <div className="whitespace-pre-wrap rounded-md border border-white/10 bg-white/[0.035] p-3 text-sm leading-6 text-ink-100">
-            {answer.answer}
+          <div
+            className={`rounded-xl border p-4 text-sm leading-6 ${
+              answer.unsupported ? "border-danger-400/30 bg-danger-400/10 text-ink-100" : "border-accent-500/20 bg-accent-500/10 text-ink-100"
+            }`}
+          >
+            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">
+              {answer.unsupported ? <AlertCircle className="h-4 w-4 text-danger-400" /> : <ShieldCheck className="h-4 w-4" />}
+              Grounded answer
+            </div>
+            <div className="whitespace-pre-wrap">{answer.answer}</div>
           </div>
           <SourceList sources={answer.citations} />
         </div>
@@ -427,36 +539,52 @@ function FindTool() {
     return () => window.clearTimeout(timer);
   }, [query]);
   return (
-    <div className="space-y-3">
-      <input
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-        placeholder="Exact text search..."
-        className="w-full rounded-md border border-white/10 bg-ink-850 px-3 py-2 text-sm outline-none placeholder:text-ink-500"
-      />
-      <SourceList sources={results.map((result) => ({ ...result, chunkId: result.noteId, similarity: 1 }))} />
+    <div className="space-y-4">
+      <ToolHeader title="Find exact text" description="Search stored Markdown without semantic expansion." />
+      <div className="control-soft flex items-center gap-2 rounded-xl px-3 py-2.5">
+        <Search className="h-4 w-4 text-ink-500" />
+        <input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder="Search source text..."
+          className="min-w-0 flex-1 bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500"
+        />
+      </div>
+      <SourceList sources={results.map((result) => ({ ...result, chunkId: result.noteId, similarity: 1 }))} empty="No exact matches yet." />
     </div>
   );
 }
 
-function QuizTool({ scope }: { scope: Scope }) {
+function QuizTool({ scope, notify }: { scope: Scope; notify: (message: string, tone?: Toast["tone"]) => void }) {
   const [items, setItems] = useState<QuizQuestion[]>([]);
   const [open, setOpen] = useState<Record<number, boolean>>({});
   return (
     <StudyList
-      label="Generate quiz"
+      title="Quiz mode"
+      description="Questions and answers are extracted from selected sources."
+      label="Generate source quiz"
       mode="quiz"
       scope={scope}
+      notify={notify}
       onResult={setItems}
-      render={() => (
+      render={(busy) => (
         <div className="space-y-3">
+          {busy ? <SkeletonStack /> : null}
           {items.map((item, index) => (
-            <div key={index} className="rounded-md border border-white/10 bg-white/[0.03] p-3">
-              <div className="text-sm font-medium text-ink-100">{item.question}</div>
-              <button onClick={() => setOpen({ ...open, [index]: !open[index] })} className="mt-3 text-xs text-accent-300">
-                {open[index] ? "Hide answer" : "Reveal answer"}
+            <div key={index} className="study-card">
+              <div className="mb-3 flex items-center justify-between text-xs text-ink-500">
+                <span>Question {index + 1} of {items.length}</span>
+                <span>{item.source.noteTitle}</span>
+              </div>
+              <div className="text-sm font-medium leading-6 text-ink-100">{item.question}</div>
+              <button onClick={() => setOpen({ ...open, [index]: !open[index] })} className="mt-3 text-xs font-semibold text-accent-300">
+                {open[index] ? "Hide source answer" : "Reveal source answer"}
               </button>
-              {open[index] ? <div className="mt-2 text-sm leading-6 text-ink-300">{item.answer}</div> : null}
+              <div className={`grid transition-all duration-300 ease-premium ${open[index] ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                <div className="overflow-hidden">
+                  <div className="mt-3 rounded-lg border border-ink-700/80 bg-ink-950/40 p-3 text-sm leading-6 text-ink-300">{item.answer}</div>
+                </div>
+              </div>
               <SourceList sources={[item.source]} compact />
             </div>
           ))}
@@ -466,31 +594,43 @@ function QuizTool({ scope }: { scope: Scope }) {
   );
 }
 
-function FlashcardTool({ scope }: { scope: Scope }) {
+function FlashcardTool({ scope, notify }: { scope: Scope; notify: (message: string, tone?: Toast["tone"]) => void }) {
   const [items, setItems] = useState<Flashcard[]>([]);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [open, setOpen] = useState<Record<number, boolean>>({});
   return (
     <StudyList
+      title="Flashcards"
+      description="Type an answer, then reveal the source-backed version."
       label="Generate flashcards"
       mode="flashcards"
       scope={scope}
+      notify={notify}
       onResult={setItems}
-      render={() => (
+      render={(busy) => (
         <div className="space-y-3">
+          {busy ? <SkeletonStack /> : null}
           {items.map((item, index) => (
-            <div key={index} className="rounded-md border border-white/10 bg-white/[0.03] p-3">
-              <div className="text-sm font-medium text-ink-100">{item.prompt}</div>
+            <div key={index} className="study-card">
+              <div className="mb-3 flex items-center justify-between text-xs text-ink-500">
+                <span>Card {index + 1} of {items.length}</span>
+                <span className="rounded-full bg-amber-400/10 px-2 py-0.5 text-amber-400">Review</span>
+              </div>
+              <div className="text-sm font-medium leading-6 text-ink-100">{item.prompt}</div>
               <input
                 value={answers[index] ?? ""}
                 onChange={(event) => setAnswers({ ...answers, [index]: event.target.value })}
                 placeholder="Type your answer..."
-                className="mt-3 w-full rounded-md border border-white/10 bg-ink-850 px-3 py-2 text-sm outline-none"
+                className="control-soft mt-3 w-full rounded-lg px-3 py-2.5 text-sm outline-none placeholder:text-ink-500"
               />
-              <button onClick={() => setOpen({ ...open, [index]: !open[index] })} className="mt-3 text-xs text-accent-300">
+              <button onClick={() => setOpen({ ...open, [index]: !open[index] })} className="mt-3 text-xs font-semibold text-accent-300">
                 Reveal source answer
               </button>
-              {open[index] ? <div className="mt-2 text-sm leading-6 text-ink-300">{item.answer}</div> : null}
+              <div className={`grid transition-all duration-300 ease-premium ${open[index] ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+                <div className="overflow-hidden">
+                  <div className="mt-3 rounded-lg border border-success-400/25 bg-success-400/10 p-3 text-sm leading-6 text-ink-200">{item.answer}</div>
+                </div>
+              </div>
               <SourceList sources={[item.source]} compact />
             </div>
           ))}
@@ -500,20 +640,24 @@ function FlashcardTool({ scope }: { scope: Scope }) {
   );
 }
 
-function SummaryTool({ scope }: { scope: Scope }) {
+function SummaryTool({ scope, notify }: { scope: Scope; notify: (message: string, tone?: Toast["tone"]) => void }) {
   const [items, setItems] = useState<Array<{ id: string; label: string; text: string; source: AnswerResult["citations"][number] }>>([]);
   return (
     <StudyList
-      label="Extract summary"
+      title="Extractive summary"
+      description="Summary items are direct excerpts from selected notes."
+      label="Extract source summary"
       mode="summary"
       scope={scope}
+      notify={notify}
       onResult={setItems}
-      render={() => (
+      render={(busy) => (
         <div className="space-y-3">
+          {busy ? <SkeletonStack /> : null}
           {items.map((item) => (
-            <div key={item.id} className="rounded-md border border-white/10 bg-white/[0.03] p-3">
+            <div key={item.id} className="study-card">
               <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">{item.label}</div>
-              <div className="text-sm leading-6 text-ink-200">{item.text}</div>
+              <blockquote className="border-l-2 border-accent-400/70 pl-3 text-sm leading-6 text-ink-200">{item.text}</blockquote>
               <SourceList sources={[item.source]} compact />
             </div>
           ))}
@@ -524,57 +668,81 @@ function SummaryTool({ scope }: { scope: Scope }) {
 }
 
 function StudyList<T>({
+  title,
+  description,
   label,
   mode,
   scope,
+  notify,
   onResult,
   render
 }: {
+  title: string;
+  description: string;
   label: string;
   mode: "quiz" | "flashcards" | "summary";
   scope: Scope;
+  notify: (message: string, tone?: Toast["tone"]) => void;
   onResult: (items: T[]) => void;
-  render: () => React.ReactNode;
+  render: (busy: boolean) => React.ReactNode;
 }) {
   const [busy, setBusy] = useState(false);
   async function run() {
     setBusy(true);
-    const response = await fetch("/api/study", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ mode, scope: apiScope(scope) })
-    });
-    onResult(await response.json());
-    setBusy(false);
+    try {
+      const response = await fetch("/api/study", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ mode, scope: apiScope(scope) })
+      });
+      const items = (await response.json()) as T[];
+      onResult(items);
+      notify(`${items.length} source item${items.length === 1 ? "" : "s"} generated`, "success");
+    } catch {
+      notify("Study generation failed", "error");
+    } finally {
+      setBusy(false);
+    }
   }
   return (
     <div className="space-y-4">
-      <button onClick={run} disabled={busy} className="w-full rounded-md bg-accent-500 py-2 text-sm font-semibold text-ink-950">
+      <ToolHeader title={title} description={description} />
+      <button onClick={run} disabled={busy} className="primary-action w-full">
         {busy ? "Reading indexed notes..." : label}
       </button>
-      {render()}
+      {render(busy)}
     </div>
   );
 }
 
 function SourceList({
   sources,
-  compact = false
+  compact = false,
+  empty = "No source excerpts found."
 }: {
   sources: Array<{ chunkId: string; noteTitle: string; excerpt: string; similarity: number }>;
   compact?: boolean;
+  empty?: string;
 }) {
-  if (!sources.length) return <div className="text-sm text-ink-500">No source excerpts found.</div>;
+  if (!sources.length) return <div className="surface-soft rounded-xl px-3 py-4 text-sm text-ink-500">{empty}</div>;
   return (
-    <div className={`space-y-2 ${compact ? "mt-3" : ""}`}>
+    <div className={`space-y-2.5 ${compact ? "mt-3" : ""}`}>
       {sources.map((source, index) => (
-        <div key={`${source.chunkId}-${index}`} className="rounded-md border border-white/10 bg-ink-850 p-3">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <div className="truncate text-xs font-semibold text-accent-300">{source.noteTitle}</div>
-            <div className="text-[11px] text-ink-500">{Math.round(source.similarity * 100)}%</div>
-          </div>
-          <div className="text-xs leading-5 text-ink-300">{source.excerpt}</div>
-        </div>
+        <details key={`${source.chunkId}-${index}`} className="group rounded-xl border border-ink-700/80 bg-ink-850/80 p-3 open:shadow-glow" open={!compact}>
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="truncate text-xs font-semibold text-accent-300">{source.noteTitle}</div>
+              <div className="mt-1 text-[11px] text-ink-500">Source excerpt {index + 1}</div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="rounded-full border border-ink-700 bg-ink-950/40 px-2 py-0.5 text-[11px] text-ink-300">
+                {Math.round(source.similarity * 100)}%
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 text-ink-500 transition-transform group-open:rotate-180" />
+            </div>
+          </summary>
+          <blockquote className="mt-3 border-l-2 border-accent-400/70 pl-3 text-xs leading-5 text-ink-300">{source.excerpt}</blockquote>
+        </details>
       ))}
     </div>
   );
@@ -583,17 +751,23 @@ function SourceList({
 function FolderRow({
   folder,
   count,
+  collapsed,
   active,
   onClick,
+  onToggle,
   onCreate,
-  onRefresh
+  onRefresh,
+  notify
 }: {
-  folder: Folder;
+  folder: FolderType;
   count: number;
+  collapsed: boolean;
   active: boolean;
   onClick: () => void;
+  onToggle: () => void;
   onCreate: () => void;
   onRefresh: () => void;
+  notify: (message: string, tone?: Toast["tone"]) => void;
 }) {
   async function rename() {
     const name = window.prompt("Rename folder", folder.name);
@@ -604,28 +778,52 @@ function FolderRow({
       body: JSON.stringify({ name })
     });
     onRefresh();
+    notify("Folder renamed", "success");
   }
   return (
-    <div className={`group flex items-center rounded-md ${active ? "bg-accent-500/15" : "hover:bg-white/5"}`}>
-      <button onClick={onClick} onDoubleClick={rename} className="min-w-0 flex-1 px-3 py-2 text-left text-sm text-ink-200">
+    <div className={`group flex items-center rounded-lg border ${active ? "border-accent-500/25 bg-accent-500/10" : "border-transparent hover:bg-white/[0.04]"}`}>
+      <button onClick={onToggle} aria-label={collapsed ? "Expand folder" : "Collapse folder"} className="grid h-9 w-8 place-items-center text-ink-500 hover:text-ink-100">
+        {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+      </button>
+      <button onClick={onClick} onDoubleClick={rename} className="flex min-w-0 flex-1 items-center gap-2 py-2 text-left text-sm text-ink-200">
+        {collapsed ? <Folder className="h-4 w-4 text-blue-400" /> : <FolderOpen className="h-4 w-4 text-blue-400" />}
         <span className="truncate">{folder.name}</span>
       </button>
       <span className="px-2 text-xs text-ink-500">{count}</span>
-      <button onClick={onCreate} className="px-2 text-ink-500 opacity-0 group-hover:opacity-100">
+      <button onClick={onCreate} aria-label={`New note in ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
         <FilePlus className="h-3.5 w-3.5" />
       </button>
     </div>
   );
 }
 
+function NoteRow({ note, active, onClick }: { note: Note; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`group flex w-full items-start gap-2 rounded-lg border px-2.5 py-2 text-left transition-all duration-200 ease-premium ${
+        active ? "border-accent-500/30 bg-accent-500/10 text-white shadow-glow" : "border-transparent text-ink-300 hover:bg-white/[0.04] hover:text-ink-100"
+      }`}
+    >
+      <FileText className={`mt-0.5 h-4 w-4 shrink-0 ${active ? "text-accent-300" : "text-ink-500 group-hover:text-ink-300"}`} />
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-medium">{note.title}</span>
+        <span className="mt-1 block truncate text-xs text-ink-500">{new Date(note.updatedAt).toLocaleDateString()}</span>
+      </span>
+    </button>
+  );
+}
+
 function SettingsModal({
   settings,
   onClose,
-  onSaved
+  onSaved,
+  notify
 }: {
   settings: ProviderSettings;
   onClose: () => void;
   onSaved: () => void;
+  notify: (message: string, tone?: Toast["tone"]) => void;
 }) {
   const [apiKey, setApiKey] = useState("");
   const [projectId, setProjectId] = useState(settings.projectId ?? "");
@@ -638,17 +836,18 @@ function SettingsModal({
       body: JSON.stringify({ apiKey, projectId, embeddingModel, answerModel })
     });
     await onSaved();
+    notify("Settings saved", "success");
     onClose();
   }
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4">
-      <div className="w-full max-w-lg rounded-lg border border-white/10 bg-ink-900 p-5 shadow-panel">
-        <div className="mb-5 flex items-start justify-between">
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-xl rounded-xl border border-ink-700 bg-ink-900 p-5 shadow-panel">
+        <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <div className="text-lg font-semibold">Settings</div>
-            <div className="text-sm text-ink-500">Keys are masked in the UI and not returned by API routes.</div>
+            <div className="text-lg font-semibold text-ink-100">Settings</div>
+            <div className="mt-1 text-sm text-ink-500">Provider config stays local and masked in the interface.</div>
           </div>
-          <button onClick={onClose} className="rounded-md px-2 py-1 text-ink-400 hover:bg-white/5">
+          <button onClick={onClose} className="control-soft rounded-lg px-3 py-1.5 text-sm text-ink-300">
             Close
           </button>
         </div>
@@ -659,7 +858,7 @@ function SettingsModal({
               onChange={(event) => setApiKey(event.target.value)}
               placeholder="sk-..."
               type="password"
-              className="w-full rounded-md border border-white/10 bg-ink-850 px-3 py-2 text-sm outline-none"
+              className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
             />
           </Field>
           <Field label="OpenAI project ID">
@@ -667,30 +866,29 @@ function SettingsModal({
               value={projectId}
               onChange={(event) => setProjectId(event.target.value)}
               placeholder="Optional"
-              className="w-full rounded-md border border-white/10 bg-ink-850 px-3 py-2 text-sm outline-none"
+              className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
             />
           </Field>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="Embedding model">
               <input
                 value={embeddingModel}
                 onChange={(event) => setEmbeddingModel(event.target.value)}
-                className="w-full rounded-md border border-white/10 bg-ink-850 px-3 py-2 text-sm outline-none"
+                className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
               />
             </Field>
             <Field label="Answer model">
               <input
                 value={answerModel}
                 onChange={(event) => setAnswerModel(event.target.value)}
-                className="w-full rounded-md border border-white/10 bg-ink-850 px-3 py-2 text-sm outline-none"
+                className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
               />
             </Field>
           </div>
-          <div className="rounded-md border border-amber-400/30 bg-amber-400/8 p-3 text-xs leading-5 text-amber-400">
-            MVP local storage writes the key to an ignored file under data/secrets. Hosted deployment should replace this with
-            encrypted per-user secret storage and real authentication.
+          <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs leading-5 text-amber-400">
+            MVP local storage writes the key to an ignored file under data/secrets. Hosted deployment should replace this with encrypted per-user secret storage and real authentication.
           </div>
-          <button onClick={save} className="w-full rounded-md bg-accent-500 py-2 text-sm font-semibold text-ink-950">
+          <button onClick={save} className="primary-action w-full">
             Save settings
           </button>
         </div>
@@ -708,16 +906,114 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
-function IconButton({ label, onClick, children }: { label: string; onClick: () => void; children: React.ReactNode }) {
+function IconButton({
+  label,
+  onClick,
+  children,
+  tone = "default"
+}: {
+  label: string;
+  onClick: () => void;
+  children: React.ReactNode;
+  tone?: "default" | "danger";
+}) {
   return (
     <button
       title={label}
       aria-label={label}
       onClick={onClick}
-      className="grid h-8 w-8 place-items-center rounded-md border border-white/10 bg-white/[0.03] text-ink-300 hover:bg-white/8 hover:text-white"
+      className={`grid h-9 w-9 place-items-center rounded-lg border bg-white/[0.03] ${
+        tone === "danger"
+          ? "border-danger-400/20 text-ink-400 hover:bg-danger-400/10 hover:text-danger-400"
+          : "border-ink-700/80 text-ink-300 hover:border-accent-500/30 hover:bg-white/[0.06] hover:text-white"
+      }`}
     >
       {children}
     </button>
+  );
+}
+
+function SectionLabel({ label }: { label: string }) {
+  return <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">{label}</div>;
+}
+
+function ToolHeader({ title, description }: { title: string; description: string }) {
+  return (
+    <div>
+      <div className="text-sm font-semibold text-ink-100">{title}</div>
+      <div className="mt-1 text-xs leading-5 text-ink-500">{description}</div>
+    </div>
+  );
+}
+
+function EmptyState({ children, action, onAction }: { children: React.ReactNode; action: string; onAction: () => void }) {
+  return (
+    <div className="surface-soft rounded-xl p-4 text-sm leading-6 text-ink-400">
+      <div>{children}</div>
+      <button onClick={onAction} className="mt-3 rounded-lg border border-accent-500/30 bg-accent-500/10 px-3 py-1.5 text-xs font-semibold text-accent-300 hover:bg-accent-500/20">
+        {action}
+      </button>
+    </div>
+  );
+}
+
+function Pill({ icon, label, accent = false }: { icon: React.ReactNode; label: string; accent?: boolean }) {
+  return (
+    <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 ${accent ? "border-accent-500/25 bg-accent-500/10 text-accent-300" : "border-ink-700/80 bg-ink-850/70 text-ink-400"}`}>
+      {icon}
+      {label}
+    </span>
+  );
+}
+
+function SaveBadge({ saving, stale }: { saving: boolean; stale: boolean }) {
+  return (
+    <span
+      className={`hidden h-8 items-center gap-1.5 rounded-full border px-2.5 text-xs sm:inline-flex ${
+        stale ? "border-amber-400/25 bg-amber-400/10 text-amber-400" : "border-success-400/20 bg-success-400/10 text-success-400"
+      }`}
+    >
+      {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Circle className="h-2.5 w-2.5 fill-current" />}
+      {saving ? "Saving" : stale ? "Needs reindex" : "Indexed"}
+    </span>
+  );
+}
+
+function IndexBadge({ status, busy }: { status: Bootstrap["indexStatus"]; busy: boolean }) {
+  const stale = status.staleNotes > 0;
+  return (
+    <div
+      className={`hidden items-center gap-2 rounded-lg border px-3 py-1.5 text-xs md:flex ${
+        stale ? "border-amber-400/25 bg-amber-400/10 text-amber-400" : "border-success-400/20 bg-success-400/10 text-success-400"
+      }`}
+    >
+      {busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ShieldCheck className="h-3.5 w-3.5" />}
+      {status.chunks} chunks / {status.staleNotes} stale
+    </div>
+  );
+}
+
+function SkeletonStack() {
+  return (
+    <div className="space-y-2">
+      <div className="shimmer h-16 rounded-xl bg-white/[0.04]" />
+      <div className="shimmer h-24 rounded-xl bg-white/[0.035]" />
+      <div className="shimmer h-12 rounded-xl bg-white/[0.03]" />
+    </div>
+  );
+}
+
+function ToastView({ toast }: { toast: Toast }) {
+  const tone =
+    toast.tone === "success"
+      ? "border-success-400/25 bg-success-400/10 text-success-400"
+      : toast.tone === "error"
+        ? "border-danger-400/25 bg-danger-400/10 text-danger-400"
+        : "border-accent-500/25 bg-accent-500/10 text-accent-300";
+  return (
+    <div className={`fixed bottom-4 right-4 z-50 rounded-xl border px-4 py-3 text-sm shadow-panel animate-[toastIn_220ms_ease-out] ${tone}`}>
+      {toast.message}
+    </div>
   );
 }
 
