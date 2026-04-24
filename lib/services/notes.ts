@@ -63,6 +63,7 @@ export async function updateNote(
 }
 
 export async function deleteNote(userId: string, noteId: string) {
+  await dbRun("delete from chunks where user_id = ? and note_id = ?", [userId, noteId]);
   await dbRun("delete from notes where id = ? and user_id = ?", [noteId, userId]);
 }
 

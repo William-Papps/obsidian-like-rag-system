@@ -8,6 +8,7 @@ import { id, now, sha256 } from "@/lib/utils";
 
 export async function reindexNotes(userId: string, scope?: { noteId?: string; folderId?: string | null }) {
   const settings = await getProviderSettings(userId);
+  await purgeOrphanedChunks(userId);
   const folderIds = scope?.folderId ? await listDescendantFolderIds(userId, scope.folderId) : [];
   const notes = (await listNotes(userId)).filter((note) => {
     if (scope?.noteId) return note.id === scope.noteId;
@@ -60,4 +61,18 @@ export async function getIndexStatus(userId: string) {
     [userId]
   );
   return { notes: notes?.count ?? 0, chunks: chunks?.count ?? 0, staleNotes: stale?.count ?? 0 };
+}
+
+async function purgeOrphanedChunks(userId: string) {
+  await dbRun(
+    `delete from chunks
+     where user_id = ?
+       and not exists (
+         select 1
+         from notes
+         where notes.id = chunks.note_id
+           and notes.user_id = chunks.user_id
+       )`,
+    [userId]
+  );
 }
