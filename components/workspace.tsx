@@ -62,6 +62,13 @@ type Toast = { id: number; tone: "success" | "info" | "error"; message: string }
 type VaultMenu = { kind: "folder" | "note"; id: string; x: number; y: number } | null;
 type DragItem = { kind: "folder" | "note"; id: string } | null;
 type SourceRef = { noteId: string; noteTitle: string; excerpt: string; similarity: number };
+type ConfirmState = {
+  title: string;
+  description: string;
+  confirmLabel: string;
+  tone?: "danger" | "default";
+  onConfirm: () => Promise<void> | void;
+} | null;
 
 export function Workspace() {
   const [data, setData] = useState<Bootstrap | null>(null);
@@ -84,6 +91,7 @@ export function Workspace() {
   const [dragItem, setDragItem] = useState<DragItem>(null);
   const [sourcePeek, setSourcePeek] = useState<SourceRef | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [confirmState, setConfirmState] = useState<ConfirmState>(null);
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const next = { id: Date.now(), tone, message };
@@ -306,13 +314,22 @@ export function Workspace() {
   }
 
   async function deleteFolderById(folder: FolderType) {
-    const count = data?.notes.filter((note) => note.folderId === folder.id).length ?? 0;
-    const detail = count ? ` ${count} note${count === 1 ? "" : "s"} will move to Unfiled notes.` : "";
-    if (!window.confirm(`Delete folder "${folder.name}"?${detail}`)) return;
     await fetch(`/api/folders/${folder.id}`, { method: "DELETE" });
     if (scope.type === "folder" && scope.folderId === folder.id) setScope({ type: "all" });
     await refresh();
     notify("Folder deleted", "info");
+  }
+
+  function requestDeleteFolder(folder: FolderType) {
+    const count = data?.notes.filter((note) => note.folderId === folder.id).length ?? 0;
+    const detail = count ? `${count} note${count === 1 ? "" : "s"} will move to Unfiled notes.` : "This removes the folder from your workspace.";
+    setConfirmState({
+      title: `Delete "${folder.name}"?`,
+      description: detail,
+      confirmLabel: "Delete folder",
+      tone: "danger",
+      onConfirm: () => deleteFolderById(folder)
+    });
   }
 
   async function moveFolderById(folder: FolderType, parentId: string | null) {
@@ -385,7 +402,6 @@ export function Workspace() {
   }
 
   async function deleteNoteById(note: Note) {
-    if (!window.confirm(`Delete "${note.title}"?`)) return;
     await fetch(`/api/notes/${note.id}`, { method: "DELETE" });
     setOpenNoteIds((current) => current.filter((id) => id !== note.id));
     setPinnedNoteIds((current) => current.filter((id) => id !== note.id));
@@ -395,9 +411,19 @@ export function Workspace() {
     notify("Note deleted", "info");
   }
 
+  function requestDeleteNote(note: Note) {
+    setConfirmState({
+      title: `Delete "${note.title}"?`,
+      description: "This removes the note and its indexed chunks from your workspace.",
+      confirmLabel: "Delete note",
+      tone: "danger",
+      onConfirm: () => deleteNoteById(note)
+    });
+  }
+
   async function deleteActiveNote() {
     if (!activeNote) return;
-    await deleteNoteById(activeNote);
+    requestDeleteNote(activeNote);
   }
 
   async function reindexScope(input: { noteId?: string; folderId?: string | null }, label: string) {
@@ -477,7 +503,7 @@ export function Workspace() {
           onCreateFolder={() => createFolder(folder.id)}
           onCreateLecture={() => createLectureWorkflow(folder)}
           onRename={() => renameFolderById(folder)}
-          onDelete={() => deleteFolderById(folder)}
+          onDelete={() => requestDeleteFolder(folder)}
           onMove={() => chooseFolderForFolder(folder)}
           onReindex={() => reindexScope({ folderId: folder.id }, folder.name)}
           onDragStart={() => setDragItem({ kind: "folder", id: folder.id })}
@@ -500,7 +526,7 @@ export function Workspace() {
                 onClick={() => selectNote(note.id)}
                 onTogglePin={() => togglePinNote(note)}
                 onRename={() => renameNoteById(note)}
-                onDelete={() => deleteNoteById(note)}
+                onDelete={() => requestDeleteNote(note)}
                 onMove={() => chooseFolderForNote(note)}
                 onReindex={() => reindexScope({ noteId: note.id }, note.title)}
                 onDragStart={() => setDragItem({ kind: "note", id: note.id })}
@@ -581,7 +607,7 @@ export function Workspace() {
                       onClick={() => selectNote(note.id)}
                       onTogglePin={() => togglePinNote(note)}
                       onRename={() => renameNoteById(note)}
-                      onDelete={() => deleteNoteById(note)}
+                      onDelete={() => requestDeleteNote(note)}
                       onMove={() => chooseFolderForNote(note)}
                       onReindex={() => reindexScope({ noteId: note.id }, note.title)}
                       onDragStart={() => setDragItem({ kind: "note", id: note.id })}
@@ -655,7 +681,7 @@ export function Workspace() {
                       onClick={() => selectNote(note.id)}
                       onTogglePin={() => togglePinNote(note)}
                       onRename={() => renameNoteById(note)}
-                      onDelete={() => deleteNoteById(note)}
+                      onDelete={() => requestDeleteNote(note)}
                       onMove={() => chooseFolderForNote(note)}
                       onReindex={() => reindexScope({ noteId: note.id }, note.title)}
                       onDragStart={() => setDragItem({ kind: "note", id: note.id })}
@@ -775,6 +801,10 @@ export function Workspace() {
         onImport={importDocument}
         notify={notify}
       />
+      <ConfirmModal
+        confirmState={confirmState}
+        onClose={() => setConfirmState(null)}
+      />
       <VaultContextMenu
         menu={vaultMenu}
         folders={data.folders}
@@ -785,11 +815,11 @@ export function Workspace() {
         onNewLecture={createLectureWorkflow}
         onMoveFolder={chooseFolderForFolder}
         onRenameFolder={renameFolderById}
-        onDeleteFolder={deleteFolderById}
+        onDeleteFolder={requestDeleteFolder}
         onReindexFolder={(folder) => reindexScope({ folderId: folder.id }, folder.name)}
         onMoveNote={chooseFolderForNote}
         onRenameNote={renameNoteById}
-        onDeleteNote={deleteNoteById}
+        onDeleteNote={requestDeleteNote}
         onReindexNote={(note) => reindexScope({ noteId: note.id }, note.title)}
         onTogglePinNote={togglePinNote}
         pinnedNoteIds={pinnedNoteIds}
@@ -1896,6 +1926,60 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
       <span className="mb-1.5 block text-xs font-medium text-ink-400">{label}</span>
       {children}
     </label>
+  );
+}
+
+function ConfirmModal({
+  confirmState,
+  onClose
+}: {
+  confirmState: ConfirmState;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  if (!confirmState) return null;
+  const dialog = confirmState;
+
+  async function handleConfirm() {
+    setBusy(true);
+    try {
+      await dialog.onConfirm();
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl border border-ink-700 bg-ink-900 shadow-panel">
+        <div className="border-b border-ink-700/80 px-5 py-4">
+          <div className="text-lg font-semibold text-ink-100">{confirmState.title}</div>
+          <div className="mt-1 text-sm leading-6 text-ink-400">{confirmState.description}</div>
+        </div>
+        <div className="flex items-center justify-end gap-3 px-5 py-4">
+          <button
+            onClick={() => {
+              setBusy(false);
+              onClose();
+            }}
+            disabled={busy}
+            className="rounded-lg border border-ink-700/80 px-4 py-2 text-sm font-medium text-ink-300 hover:bg-ink-800 disabled:opacity-60"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleConfirm}
+            disabled={busy}
+            className={`rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 ${
+              dialog.tone === "danger" ? "bg-danger-400 hover:bg-red-400" : "bg-accent-500 hover:bg-accent-400"
+            }`}
+          >
+            {busy ? "Working..." : dialog.confirmLabel}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
