@@ -314,6 +314,14 @@ export function Workspace() {
   }
 
   async function deleteFolderById(folder: FolderType) {
+    setData((current) =>
+      current
+        ? {
+            ...current,
+            folders: current.folders.filter((item) => item.id !== folder.id)
+          }
+        : current
+    );
     await fetch(`/api/folders/${folder.id}`, { method: "DELETE" });
     if (scope.type === "folder" && scope.folderId === folder.id) setScope({ type: "all" });
     await refresh();
@@ -402,12 +410,23 @@ export function Workspace() {
   }
 
   async function deleteNoteById(note: Note) {
+    setData((current) =>
+      current
+        ? {
+            ...current,
+            notes: current.notes.filter((item) => item.id !== note.id)
+          }
+        : current
+    );
     await fetch(`/api/notes/${note.id}`, { method: "DELETE" });
     setOpenNoteIds((current) => current.filter((id) => id !== note.id));
     setPinnedNoteIds((current) => current.filter((id) => id !== note.id));
     setSourcePeek((current) => (current?.noteId === note.id ? null : current));
+    if (activeNoteId === note.id) {
+      const nextActiveId = data?.notes.find((item) => item.id !== note.id)?.id ?? null;
+      setActiveNoteId(nextActiveId);
+    }
     await refresh();
-    if (activeNoteId === note.id) setActiveNoteId(data?.notes.find((item) => item.id !== note.id)?.id ?? null);
     notify("Note deleted", "info");
   }
 
