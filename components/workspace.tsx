@@ -1,7 +1,8 @@
 "use client";
 
 import { markdown } from "@codemirror/lang-markdown";
-import { EditorView } from "@codemirror/view";
+import { RangeSetBuilder } from "@codemirror/state";
+import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import {
   AlertCircle,
@@ -13,7 +14,6 @@ import {
   Circle,
   Clock3,
   Command,
-  Eye,
   FilePlus,
   FileStack,
   FileText,
@@ -21,7 +21,6 @@ import {
   FolderOpen,
   FolderPlus,
   GripVertical,
-  Highlighter,
   LayoutPanelLeft,
   Layers3,
   Loader2,
@@ -42,10 +41,10 @@ import {
   Upload,
   X
 } from "lucide-react";
-import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MarkdownPreview } from "@/components/markdown";
 import { DocumentImportModal } from "@/components/document-import-modal";
-import type { AnswerResult, Flashcard, Folder as FolderType, Note, ProviderSettings, QuizQuestion } from "@/lib/types";
+import type { AnswerResult, Flashcard, Folder as FolderType, Note, ProviderSettings, QuizEvaluation, QuizQuestion } from "@/lib/types";
 
 type Bootstrap = {
   user: { id: string; email: string; name: string };
@@ -62,6 +61,24 @@ type Toast = { id: number; tone: "success" | "info" | "error"; message: string }
 type VaultMenu = { kind: "folder" | "note"; id: string; x: number; y: number } | null;
 type DragItem = { kind: "folder" | "note"; id: string } | null;
 type SourceRef = { noteId: string; noteTitle: string; excerpt: string; similarity: number };
+type SourceHighlight = SourceRef & { token: number };
+type InputDialogState = {
+  title: string;
+  label: string;
+  placeholder?: string;
+  value: string;
+  submitLabel: string;
+  onSubmit: (value: string) => Promise<void> | void;
+} | null;
+type MoveDialogState = {
+  title: string;
+  description: string;
+  submitLabel: string;
+  currentFolderId: string | null | undefined;
+  allowRootLabel: string;
+  options: FolderType[];
+  onSubmit: (folderId: string | null) => Promise<void> | void;
+} | null;
 type ConfirmState = {
   title: string;
   description: string;
@@ -89,8 +106,11 @@ export function Workspace() {
   const [toast, setToast] = useState<Toast | null>(null);
   const [vaultMenu, setVaultMenu] = useState<VaultMenu>(null);
   const [dragItem, setDragItem] = useState<DragItem>(null);
-  const [sourcePeek, setSourcePeek] = useState<SourceRef | null>(null);
+  const [sourceHighlight, setSourceHighlight] = useState<SourceHighlight | null>(null);
+  const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [inputDialog, setInputDialog] = useState<InputDialogState>(null);
+  const [moveDialog, setMoveDialog] = useState<MoveDialogState>(null);
   const [confirmState, setConfirmState] = useState<ConfirmState>(null);
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
@@ -153,20 +173,24 @@ export function Workspace() {
     () => (data?.notes ?? []).filter((note) => !pinnedNoteIds.includes(note.id)).slice(0, 5),
     [data?.notes, pinnedNoteIds]
   );
-  const selectNote = useCallback((noteId: string) => {
+  const selectNote = useCallback((noteId: string, options?: { updateScope?: boolean }) => {
     setActiveNoteId(noteId);
-    setScope({ type: "note", noteId });
+    if (options?.updateScope !== false) {
+      setScope({ type: "note", noteId });
+    }
     setOpenNoteIds((current) => [noteId, ...current.filter((id) => id !== noteId)].slice(0, 8));
   }, []);
   const openNoteFromSource = useCallback(
-    (noteId: string) => {
-      const note = data?.notes.find((item) => item.id === noteId);
+    (source: SourceRef) => {
+      const note = data?.notes.find((item) => item.id === source.noteId);
       if (!note) {
         notify("Source note is no longer available", "error");
         return;
       }
 
-      selectNote(noteId);
+      setNoteView("write");
+      selectNote(source.noteId, { updateScope: false });
+      setSourceHighlight({ ...source, token: Date.now() });
       notify(`Opened ${note.title}`, "info");
     },
     [data?.notes, notify, selectNote]
@@ -201,16 +225,60 @@ export function Workspace() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeNote?.id, activeNote?.title, draftTitle]);
 
-  async function createNote(folderId: string | null = scope.type === "folder" ? scope.folderId : null) {
+  useEffect(() => {
+    if (!sourceHighlight) return;
+    const timer = window.setTimeout(() => {
+      setSourceHighlight((current) => (current?.token === sourceHighlight.token ? null : current));
+    }, 5000);
+    return () => window.clearTimeout(timer);
+  }, [sourceHighlight]);
+
+  const editorHighlight = useMemo(() => {
+    if (!activeNote || sourceHighlight?.noteId !== activeNote.id) return null;
+    return sourceHighlight;
+  }, [activeNote, sourceHighlight]);
+
+  const editorExtensions = useMemo(() => {
+    const extensions = [markdown(), EditorView.lineWrapping];
+    if (!editorHighlight?.excerpt.trim()) return extensions;
+    return [...extensions, createSourceHighlightExtension(editorHighlight.excerpt)];
+  }, [editorHighlight]);
+
+  useEffect(() => {
+    if (!editorView || !activeNote || !editorHighlight) return;
+    const frame = window.requestAnimationFrame(() => {
+      const range = findExcerptRange(editorView.state.doc.toString(), editorHighlight.excerpt);
+      if (!range) return;
+      editorView.dispatch({
+        effects: EditorView.scrollIntoView(range.from, { y: "center" })
+      });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [activeNote, editorHighlight, editorView]);
+
+  async function createNoteWithTitle(title: string, folderId: string | null = scope.type === "folder" ? scope.folderId : null) {
     const response = await fetch("/api/notes", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title: "Untitled note", folderId })
+      body: JSON.stringify({ title, folderId })
     });
     const note = (await response.json()) as Note;
     await refresh();
     selectNote(note.id);
     notify("Note created", "success");
+  }
+
+  function createNote(folderId: string | null = scope.type === "folder" ? scope.folderId : null) {
+    setInputDialog({
+      title: "Create note",
+      label: "Note name",
+      placeholder: "e.g. Lecture 03 - Networks",
+      value: "",
+      submitLabel: "Create note",
+      onSubmit: async (value) => {
+        await createNoteWithTitle(value.trim() || "Untitled note", folderId);
+      }
+    });
   }
 
   async function updateNote(noteId: string, input: Partial<Note>) {
@@ -247,10 +315,17 @@ export function Workspace() {
     notify(`Document imported as "${title}"`, "success");
   }
 
-  async function createFolder(parentId: string | null = null) {
-    const name = window.prompt(parentId ? "Folder name" : "Folder or class name");
-    if (!name) return;
-    await createFolderWithName(name, parentId);
+  function createFolder(parentId: string | null = null) {
+    setInputDialog({
+      title: parentId ? "Create nested folder" : "Create folder",
+      label: parentId ? "Folder name" : "Folder or class name",
+      placeholder: parentId ? "e.g. Week 04" : "e.g. SDV503",
+      value: "",
+      submitLabel: "Create folder",
+      onSubmit: async (value) => {
+        await createFolderWithName(value.trim() || "Untitled folder", parentId);
+      }
+    });
   }
 
   async function createFolderWithName(name: string, parentId: string | null = null) {
@@ -263,9 +338,22 @@ export function Workspace() {
     notify("Folder created", "success");
   }
 
-  async function createLectureWorkflow(folder: FolderType) {
-    const lectureName = window.prompt("Lecture folder name", `Lecture ${new Date().toLocaleDateString()}`);
-    if (!lectureName?.trim()) return;
+  function createLectureWorkflow(folder: FolderType) {
+    setInputDialog({
+      title: "Create lecture workspace",
+      label: "Lecture folder name",
+      placeholder: `Lecture ${new Date().toLocaleDateString()}`,
+      value: `Lecture ${new Date().toLocaleDateString()}`,
+      submitLabel: "Create lecture",
+      onSubmit: async (lectureName) => {
+        const trimmedName = lectureName.trim();
+        if (!trimmedName) return;
+        await createLectureWorkspace(folder, trimmedName);
+      }
+    });
+  }
+
+  async function createLectureWorkspace(folder: FolderType, lectureName: string) {
     const folderResponse = await fetch("/api/folders", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -301,16 +389,24 @@ export function Workspace() {
     notify("Lecture workspace created", "success");
   }
 
-  async function renameFolderById(folder: FolderType) {
-    const name = window.prompt("Rename folder", folder.name);
-    if (!name?.trim()) return;
-    await fetch(`/api/folders/${folder.id}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name })
+  function renameFolderById(folder: FolderType) {
+    setInputDialog({
+      title: "Rename folder",
+      label: "Folder name",
+      placeholder: folder.name,
+      value: folder.name,
+      submitLabel: "Rename folder",
+      onSubmit: async (name) => {
+        if (!name.trim()) return;
+        await fetch(`/api/folders/${folder.id}`, {
+          method: "PATCH",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name })
+        });
+        await refresh();
+        notify("Folder renamed", "success");
+      }
     });
-    await refresh();
-    notify("Folder renamed", "success");
   }
 
   async function deleteFolderById(folder: FolderType) {
@@ -362,19 +458,32 @@ export function Workspace() {
     notify(folderId ? "Note moved" : "Note moved to Unfiled notes", "success");
   }
 
-  async function chooseFolderForNote(note: Note) {
-    const target = chooseFolderTarget(data?.folders ?? [], note.folderId);
-    if (target.cancelled) return;
-    await moveNoteToFolder(note, target.folderId);
+  function chooseFolderForNote(note: Note) {
+    setMoveDialog({
+      title: `Move "${note.title}"`,
+      description: "Choose a destination folder for this note.",
+      submitLabel: "Move note",
+      currentFolderId: note.folderId,
+      allowRootLabel: "Vault root / Unfiled notes",
+      options: data?.folders ?? [],
+      onSubmit: async (folderId) => {
+        await moveNoteToFolder(note, folderId);
+      }
+    });
   }
 
-  async function chooseFolderForFolder(folder: FolderType) {
-    const target = chooseFolderTarget(
-      (data?.folders ?? []).filter((item) => item.id !== folder.id),
-      folder.parentId
-    );
-    if (target.cancelled) return;
-    await moveFolderById(folder, target.folderId);
+  function chooseFolderForFolder(folder: FolderType) {
+    setMoveDialog({
+      title: `Move "${folder.name}"`,
+      description: "Choose a destination folder for this folder.",
+      submitLabel: "Move folder",
+      currentFolderId: folder.parentId,
+      allowRootLabel: "Vault root",
+      options: (data?.folders ?? []).filter((item) => item.id !== folder.id),
+      onSubmit: async (folderId) => {
+        await moveFolderById(folder, folderId);
+      }
+    });
   }
 
   async function handleDropOnFolder(targetFolder: FolderType) {
@@ -401,12 +510,20 @@ export function Workspace() {
     setDragItem(null);
   }
 
-  async function renameNoteById(note: Note) {
-    const title = window.prompt("Rename note", note.title);
-    if (!title?.trim()) return;
-    await updateNote(note.id, { title });
-    if (activeNoteId === note.id) setDraftTitle(title);
-    notify("Note renamed", "success");
+  function renameNoteById(note: Note) {
+    setInputDialog({
+      title: "Rename note",
+      label: "Note name",
+      placeholder: note.title,
+      value: note.title,
+      submitLabel: "Rename note",
+      onSubmit: async (title) => {
+        if (!title.trim()) return;
+        await updateNote(note.id, { title });
+        if (activeNoteId === note.id) setDraftTitle(title);
+        notify("Note renamed", "success");
+      }
+    });
   }
 
   async function deleteNoteById(note: Note) {
@@ -421,7 +538,6 @@ export function Workspace() {
     await fetch(`/api/notes/${note.id}`, { method: "DELETE" });
     setOpenNoteIds((current) => current.filter((id) => id !== note.id));
     setPinnedNoteIds((current) => current.filter((id) => id !== note.id));
-    setSourcePeek((current) => (current?.noteId === note.id ? null : current));
     if (activeNoteId === note.id) {
       const nextActiveId = data?.notes.find((item) => item.id !== note.id)?.id ?? null;
       setActiveNoteId(nextActiveId);
@@ -588,7 +704,7 @@ export function Workspace() {
               </div>
             </div>
             <div className="flex gap-1.5">
-              <IconButton label="New folder" onClick={createFolder}>
+              <IconButton label="New folder" onClick={() => createFolder()}>
                 <FolderPlus className="h-4 w-4" />
               </IconButton>
               <IconButton label="New note" onClick={() => createNote()}>
@@ -673,7 +789,7 @@ export function Workspace() {
             <div className="space-y-1.5">
               {rootFolders.map((folder) => renderFolderNode(folder))}
               {rootFolders.length === 0 ? (
-                <EmptyState action="Create folder" onAction={createFolder}>
+                <EmptyState action="Create folder" onAction={() => createFolder()}>
                   Group notes by class, exam, or topic.
                 </EmptyState>
               ) : null}
@@ -767,12 +883,15 @@ export function Workspace() {
                 onChange={setNoteView}
                 onInsertSnippet={(snippet) => updateNote(activeNote.id, { markdownContent: `${activeNote.markdownContent}${snippet}` })}
               />
-              <div className={`min-h-0 min-w-0 ${noteView === "split" ? "grid grid-cols-2" : "grid grid-cols-1"}`}>
+              <div className={`h-full min-h-0 min-w-0 overflow-hidden ${noteView === "split" ? "grid grid-cols-2" : "grid grid-cols-1"}`}>
                 {(noteView === "write" || noteView === "split") ? (
-                <div className={`min-h-0 min-w-0 bg-ink-900/50 ${noteView === "split" ? "border-r border-ink-700/80" : ""}`}>
+                <div className={`h-full min-h-0 min-w-0 overflow-hidden bg-ink-900/50 ${noteView === "split" ? "border-r border-ink-700/80" : ""}`}>
                   <CodeMirror
+                    className="h-full"
+                    height="100%"
+                    onCreateEditor={setEditorView}
                     value={activeNote.markdownContent}
-                    extensions={[markdown(), EditorView.lineWrapping]}
+                    extensions={editorExtensions}
                     theme="dark"
                     basicSetup={{ foldGutter: false, highlightActiveLine: true }}
                     onChange={(value) => updateNote(activeNote.id, { markdownContent: value })}
@@ -806,9 +925,6 @@ export function Workspace() {
               activeNote={activeNote}
               notify={notify}
               onOpenNote={openNoteFromSource}
-              sourcePeek={sourcePeek}
-              onPeekSource={setSourcePeek}
-              onCloseSourcePeek={() => setSourcePeek(null)}
               onHide={() => setRightOpen(false)}
             />
         </div>
@@ -819,6 +935,21 @@ export function Workspace() {
         onClose={() => setImportModalOpen(false)}
         onImport={importDocument}
         notify={notify}
+      />
+      <TextInputModal
+        state={inputDialog}
+        onClose={() => setInputDialog(null)}
+        onChange={(value) => setInputDialog((current) => (current ? { ...current, value } : current))}
+        onSubmit={async () => {
+          if (!inputDialog?.value.trim()) return;
+          await inputDialog.onSubmit(inputDialog.value);
+          setInputDialog(null);
+        }}
+      />
+      <MoveTargetModal
+        key={moveDialog ? `${moveDialog.title}:${moveDialog.currentFolderId ?? "__root__"}` : "move-dialog"}
+        state={moveDialog}
+        onClose={() => setMoveDialog(null)}
       />
       <ConfirmModal
         confirmState={confirmState}
@@ -994,8 +1125,8 @@ function NoteViewTabs({
   ];
 
   return (
-    <div className="flex min-w-0 items-end justify-between gap-3 overflow-hidden border-b border-ink-700/80 bg-ink-950/45 px-5">
-      <div className="flex h-full items-end gap-1">
+    <div className="flex min-w-0 items-end justify-between gap-3 overflow-x-auto overflow-y-hidden border-b border-ink-700/80 bg-ink-950/45 px-5">
+      <div className="flex h-full min-w-max items-end gap-1">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -1010,7 +1141,7 @@ function NoteViewTabs({
           </button>
         ))}
       </div>
-      <div className="hidden items-center gap-1 pb-1.5 lg:flex">
+      <div className="hidden min-w-max items-center gap-1 pb-1.5 lg:flex">
         <button onClick={() => onInsertSnippet("\n\n## Heading\n\n")} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
           H2
         </button>
@@ -1036,10 +1167,7 @@ function AssistantPanel(props: {
   data: Bootstrap;
   activeNote: Note | null;
   notify: (message: string, tone?: Toast["tone"]) => void;
-  onOpenNote: (noteId: string) => void;
-  sourcePeek: SourceRef | null;
-  onPeekSource: (source: SourceRef) => void;
-  onCloseSourcePeek: () => void;
+  onOpenNote: (source: SourceRef) => void;
   onHide: () => void;
 }) {
   const tabs: Array<[Tab, string, React.ReactNode]> = [
@@ -1067,12 +1195,12 @@ function AssistantPanel(props: {
           </IconButton>
         </div>
       </div>
-      <div className="relative grid min-w-0 grid-cols-5 gap-1 overflow-hidden border-b border-ink-700/80 bg-ink-950/25 p-1.5">
+      <div className="relative flex min-w-0 gap-1 overflow-x-auto overflow-y-hidden border-b border-ink-700/80 bg-ink-950/25 p-1.5">
         {tabs.map(([id, label, icon]) => (
           <button
             key={id}
             onClick={() => props.setTab(id)}
-            className={`relative flex min-w-0 items-center justify-center gap-1 rounded-md px-1 text-xs font-medium transition-all duration-200 ease-premium ${
+            className={`relative flex min-w-[3rem] shrink-0 items-center justify-center gap-1 rounded-md px-2 text-xs font-medium transition-all duration-200 ease-premium ${
               props.tab === id ? "bg-ink-800 text-accent-300 shadow-sm" : "text-ink-500 hover:bg-white/[0.04] hover:text-ink-100"
             }`}
           >
@@ -1083,12 +1211,29 @@ function AssistantPanel(props: {
       </div>
       <div className="min-h-0 overflow-auto p-4">
         <div key={props.tab} className="animate-[fadeIn_220ms_ease-out]">
-          {props.sourcePeek ? <SourcePeekCard source={props.sourcePeek} onOpenNote={props.onOpenNote} onClose={props.onCloseSourcePeek} /> : null}
-          {props.tab === "ask" ? <AskTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} onPeekSource={props.onPeekSource} /> : null}
-          {props.tab === "find" ? <FindTool onOpenNote={props.onOpenNote} onPeekSource={props.onPeekSource} /> : null}
-          {props.tab === "quiz" ? <QuizTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} onPeekSource={props.onPeekSource} /> : null}
-          {props.tab === "flashcards" ? <FlashcardTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} onPeekSource={props.onPeekSource} /> : null}
-          {props.tab === "summary" ? <SummaryTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} onPeekSource={props.onPeekSource} /> : null}
+          {props.tab === "ask" ? <AskTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} /> : null}
+          {props.tab === "find" ? <FindTool onOpenNote={props.onOpenNote} /> : null}
+          {props.tab === "quiz" ? (
+            <QuizTool
+              key={`quiz:${scopeKey(props.scope)}`}
+              scope={props.scope}
+              data={props.data}
+              activeNote={props.activeNote}
+              notify={props.notify}
+              onOpenNote={props.onOpenNote}
+            />
+          ) : null}
+          {props.tab === "flashcards" ? (
+            <FlashcardTool
+              key={`flashcards:${scopeKey(props.scope)}`}
+              scope={props.scope}
+              data={props.data}
+              activeNote={props.activeNote}
+              notify={props.notify}
+              onOpenNote={props.onOpenNote}
+            />
+          ) : null}
+          {props.tab === "summary" ? <SummaryTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} /> : null}
         </div>
       </div>
     </aside>
@@ -1106,29 +1251,192 @@ function ScopeSelect({
   data: Bootstrap;
   activeNote: Note | null;
 }) {
-  const value = scope.type === "all" ? "all" : scope.type === "note" ? `note:${scope.noteId}` : `folder:${scope.folderId ?? ""}`;
   return (
-    <div className="relative shrink-0">
-      <select
-        value={value}
-        onChange={(event) => {
-          const next = event.target.value;
-          if (next === "all") setScope({ type: "all" });
-          if (next.startsWith("note:")) setScope({ type: "note", noteId: next.slice(5) });
-          if (next.startsWith("folder:")) setScope({ type: "folder", folderId: next.slice(7) || null });
-        }}
-        className="control-soft w-36 appearance-none rounded-lg py-2 pl-3 pr-8 text-xs text-ink-200 outline-none"
-        aria-label="Study scope"
+    <div className="shrink-0">
+      <SearchableScopePicker scope={scope} setScope={setScope} data={data} activeNote={activeNote} ariaLabel="Study scope" compact />
+    </div>
+  );
+}
+
+function StudyScopePicker({
+  scope,
+  setScope,
+  data,
+  activeNote,
+  label
+}: {
+  scope: Scope;
+  setScope: (scope: Scope) => void;
+  data: Bootstrap;
+  activeNote: Note | null;
+  label: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">{label}</label>
+      <SearchableScopePicker scope={scope} setScope={setScope} data={data} activeNote={activeNote} ariaLabel={label} />
+    </div>
+  );
+}
+
+function SearchableScopePicker({
+  scope,
+  setScope,
+  data,
+  activeNote,
+  ariaLabel,
+  compact = false
+}: {
+  scope: Scope;
+  setScope: (scope: Scope) => void;
+  data: Bootstrap;
+  activeNote: Note | null;
+  ariaLabel: string;
+  compact?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const rootRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function handlePointer(event: globalThis.MouseEvent) {
+      if (rootRef.current?.contains(event.target as Node)) return;
+      setOpen(false);
+    }
+    function handleEscape(event: globalThis.KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("mousedown", handlePointer);
+    window.addEventListener("keydown", handleEscape);
+    return () => {
+      window.removeEventListener("mousedown", handlePointer);
+      window.removeEventListener("keydown", handleEscape);
+    };
+  }, [open]);
+
+  const options = useMemo(() => {
+    const base: Array<{ id: string; label: string; kind: "all" | "folder" | "note"; scope: Scope; group: string }> = [
+      { id: "all", label: "All notes", kind: "all", scope: { type: "all" }, group: "Quick access" }
+    ];
+    if (activeNote) {
+      base.push({
+        id: `note:${activeNote.id}`,
+        label: `Current note: ${activeNote.title}`,
+        kind: "note",
+        scope: { type: "note", noteId: activeNote.id },
+        group: "Quick access"
+      });
+    }
+    for (const folder of data.folders) {
+      base.push({
+        id: `folder:${folder.id}`,
+        label: folderPath(folder.id, data.folders),
+        kind: "folder",
+        scope: { type: "folder", folderId: folder.id },
+        group: "Folders"
+      });
+    }
+    for (const note of data.notes) {
+      const folderName = note.folderId ? folderPath(note.folderId, data.folders) : "Unfiled";
+      base.push({
+        id: `note:${note.id}`,
+        label: `${note.title} (${folderName})`,
+        kind: "note",
+        scope: { type: "note", noteId: note.id },
+        group: "Notes"
+      });
+    }
+    return base;
+  }, [activeNote, data.folders, data.notes]);
+
+  const filtered = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return options;
+    return options.filter((option) => option.label.toLowerCase().includes(normalized));
+  }, [options, query]);
+
+  const groups = useMemo(() => {
+    const entries = new Map<string, typeof filtered>();
+    for (const option of filtered) {
+      const current = entries.get(option.group) ?? [];
+      current.push(option);
+      entries.set(option.group, current);
+    }
+    return Array.from(entries.entries());
+  }, [filtered]);
+
+  const selectedLabel = useMemo(() => scopeDisplayLabel(scope, activeNote, data.folders, data.notes), [scope, activeNote, data.folders, data.notes]);
+
+  function choose(next: Scope) {
+    setScope(next);
+    setOpen(false);
+    setQuery("");
+  }
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        type="button"
+        aria-label={ariaLabel}
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+        className={`control-soft inline-flex w-full items-center justify-between gap-2 rounded-lg pr-3 text-left text-ink-200 ${
+          compact ? "min-w-[9rem] py-2 pl-3 text-xs" : "py-2.5 pl-3 text-sm"
+        }`}
       >
-        <option value="all">All notes</option>
-        {activeNote ? <option value={`note:${activeNote.id}`}>Current note</option> : null}
-        {data.folders.map((folder) => (
-          <option key={folder.id} value={`folder:${folder.id}`}>
-            {folder.name}
-          </option>
-        ))}
-      </select>
-      <ChevronDown className="pointer-events-none absolute right-2.5 top-2.5 h-3.5 w-3.5 text-ink-500" />
+        <span className="truncate">{selectedLabel}</span>
+        <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-ink-500 transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open ? (
+        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-40 overflow-hidden rounded-xl border border-ink-700/90 bg-ink-925 shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
+          <div className="border-b border-ink-700/80 p-3">
+            <div className="control-soft flex items-center gap-2 rounded-lg px-3 py-2">
+              <Search className="h-4 w-4 text-ink-500" />
+              <input
+                autoFocus
+                value={query}
+                onKeyDown={allowNativeTextShortcuts}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search folders or notes..."
+                className="min-w-0 flex-1 bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500"
+              />
+            </div>
+          </div>
+          <div className="max-h-72 overflow-auto p-2">
+            {groups.length ? (
+              <div className="space-y-3">
+                {groups.map(([group, groupOptions]) => (
+                  <div key={group} className="space-y-1">
+                    <div className="px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-500">{group}</div>
+                    {groupOptions.map((option) => {
+                      const active = scopeKey(option.scope) === scopeKey(scope);
+                      return (
+                        <button
+                          key={option.id}
+                          type="button"
+                          onClick={() => choose(option.scope)}
+                          className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm ${
+                            active ? "bg-accent-500/14 text-accent-200" : "text-ink-200 hover:bg-white/[0.04]"
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <div className="truncate">{option.label}</div>
+                            <div className="mt-0.5 text-xs text-ink-500">{option.kind === "folder" ? "Folder scope" : option.kind === "note" ? "Single note" : "Full vault"}</div>
+                          </div>
+                          {active ? <Check className="h-4 w-4 shrink-0" /> : null}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="surface-soft rounded-lg px-3 py-4 text-sm text-ink-400">No matching folders or notes.</div>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -1136,13 +1444,11 @@ function ScopeSelect({
 function AskTool({
   scope,
   notify,
-  onOpenNote,
-  onPeekSource
+  onOpenNote
 }: {
   scope: Scope;
   notify: (message: string, tone?: Toast["tone"]) => void;
-  onOpenNote: (noteId: string) => void;
-  onPeekSource: (source: SourceRef) => void;
+  onOpenNote: (source: SourceRef) => void;
 }) {
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<AnswerResult | null>(null);
@@ -1204,14 +1510,14 @@ function AskTool({
               </div>
             </div>
           ) : null}
-          <SourceList sources={answer.citations} onOpenNote={onOpenNote} onPeekSource={onPeekSource} />
+          <SourceList sources={answer.citations} onOpenNote={onOpenNote} />
         </div>
       ) : null}
     </div>
   );
 }
 
-function FindTool({ onOpenNote, onPeekSource }: { onOpenNote: (noteId: string) => void; onPeekSource: (source: SourceRef) => void }) {
+function FindTool({ onOpenNote }: { onOpenNote: (source: SourceRef) => void }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<Array<{ noteId: string; noteTitle: string; excerpt: string }>>([]);
   useEffect(() => {
@@ -1239,7 +1545,6 @@ function FindTool({ onOpenNote, onPeekSource }: { onOpenNote: (noteId: string) =
         sources={results.map((result) => ({ ...result, chunkId: result.noteId, similarity: 1 }))}
         empty="No exact matches yet."
         onOpenNote={onOpenNote}
-        onPeekSource={onPeekSource}
       />
     </div>
   );
@@ -1247,47 +1552,126 @@ function FindTool({ onOpenNote, onPeekSource }: { onOpenNote: (noteId: string) =
 
 function QuizTool({
   scope,
+  data,
+  activeNote,
   notify,
-  onOpenNote,
-  onPeekSource
+  onOpenNote
 }: {
   scope: Scope;
+  data: Bootstrap;
+  activeNote: Note | null;
   notify: (message: string, tone?: Toast["tone"]) => void;
-  onOpenNote: (noteId: string) => void;
-  onPeekSource: (source: SourceRef) => void;
+  onOpenNote: (source: SourceRef) => void;
 }) {
   const [items, setItems] = useState<QuizQuestion[]>([]);
-  const [open, setOpen] = useState<Record<number, boolean>>({});
+  const [localScope, setLocalScope] = useState<Scope>(scope);
+  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [grading, setGrading] = useState<Record<number, boolean>>({});
+  const [results, setResults] = useState<Record<number, QuizEvaluation>>({});
+  async function grade(item: QuizQuestion, index: number) {
+    const userAnswer = answers[index]?.trim();
+    if (!userAnswer) return;
+    setGrading((current) => ({ ...current, [index]: true }));
+    try {
+      const response = await fetch("/api/study/evaluate", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          question: item.question,
+          userAnswer,
+          expectedAnswer: item.answer,
+          sourceExcerpt: item.source.excerpt
+        })
+      });
+      const evaluation = (await response.json()) as QuizEvaluation;
+      setResults((current) => ({ ...current, [index]: evaluation }));
+    } catch {
+      notify("Quiz grading failed", "error");
+    } finally {
+      setGrading((current) => ({ ...current, [index]: false }));
+    }
+  }
+  function handleItems(next: QuizQuestion[]) {
+    setItems(next.slice(0, 1));
+    setAnswers({});
+    setGrading({});
+    setResults({});
+  }
+  const currentIndex = 0;
+  const currentItem = items[0];
   return (
     <StudyList
       title="Quiz mode"
-      description="Questions and answers are extracted from selected sources."
-      label="Generate source quiz"
+      description="Type your answer, then compare it against the source-backed answer."
+      label="Generate question"
       mode="quiz"
-      scope={scope}
+      scope={localScope}
+      controls={<StudyScopePicker scope={localScope} setScope={setLocalScope} data={data} activeNote={activeNote} label="Question source" />}
       notify={notify}
-      onResult={setItems}
-      render={(busy) => (
+      onResult={handleItems}
+      render={(busy, rerun) => (
         <div className="space-y-3">
           {busy ? <SkeletonStack /> : null}
-          {items.map((item, index) => (
-            <div key={index} className="study-card">
+          {!busy && !currentItem ? <EmptyToolState message="Generate one quiz question at a time from your indexed notes." /> : null}
+          {currentItem ? (
+            <div className="study-card">
               <div className="mb-3 flex items-center justify-between text-xs text-ink-500">
-                <span>Question {index + 1} of {items.length}</span>
-                <span>{item.source.noteTitle}</span>
+                <span>Question</span>
+                <span>{currentItem.source.noteTitle}</span>
               </div>
-              <div className="text-sm font-medium leading-6 text-ink-100">{item.question}</div>
-              <button onClick={() => setOpen({ ...open, [index]: !open[index] })} className="mt-3 text-xs font-semibold text-accent-300">
-                {open[index] ? "Hide source answer" : "Reveal source answer"}
-              </button>
-              <div className={`grid transition-all duration-300 ease-premium ${open[index] ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
-                <div className="overflow-hidden">
-                  <div className="mt-3 rounded-lg border border-ink-700/80 bg-ink-950/40 p-3 text-sm leading-6 text-ink-300">{item.answer}</div>
+              <div className="text-sm font-medium leading-6 text-ink-100">{currentItem.question}</div>
+              <textarea
+                value={answers[currentIndex] ?? ""}
+                onKeyDown={allowNativeTextShortcuts}
+                onChange={(event) => setAnswers((current) => ({ ...current, [currentIndex]: event.target.value }))}
+                placeholder="Type your answer from memory..."
+                className="control-soft mt-5 min-h-[104px] w-full resize-none rounded-lg px-3 py-2.5 text-sm leading-6 text-ink-100 outline-none placeholder:text-ink-500"
+              />
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => void grade(currentItem, currentIndex)}
+                  disabled={grading[currentIndex] || !(answers[currentIndex] ?? "").trim()}
+                  className="primary-action px-4"
+                >
+                  {grading[currentIndex] ? "Checking..." : "Check answer"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void rerun()}
+                  disabled={busy}
+                  className="rounded-xl border border-ink-700 bg-ink-950/40 px-4 py-2 text-sm font-semibold text-ink-200 hover:border-accent-500/30 hover:bg-accent-500/10 hover:text-white disabled:opacity-60"
+                >
+                  New question
+                </button>
+                {results[currentIndex] ? (
+                  <span
+                    className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                      results[currentIndex].verdict === "correct"
+                        ? "border-success-400/25 bg-success-400/10 text-success-400"
+                        : results[currentIndex].verdict === "partial"
+                          ? "border-amber-400/25 bg-amber-400/10 text-amber-400"
+                          : "border-danger-400/25 bg-danger-400/10 text-danger-400"
+                    }`}
+                  >
+                    {results[currentIndex].verdict === "correct" ? "Correct" : results[currentIndex].verdict === "partial" ? "Close" : "Not yet"}
+                  </span>
+                ) : null}
+              </div>
+              {results[currentIndex] ? (
+                <div className="mt-3 rounded-lg border border-ink-700/80 bg-ink-950/40 p-3 text-sm leading-6 text-ink-300">
+                  <div className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">Feedback</div>
+                  <div>{results[currentIndex].feedback}</div>
                 </div>
-              </div>
-              <SourceList sources={[item.source]} compact onOpenNote={onOpenNote} onPeekSource={onPeekSource} />
+              ) : null}
+              {results[currentIndex] ? (
+                <div className="mt-3 rounded-lg border border-ink-700/80 bg-ink-950/30 p-3">
+                  <div className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">Source answer</div>
+                  <div className="text-sm leading-6 text-ink-300">{currentItem.answer}</div>
+                </div>
+              ) : null}
+              <SourceList sources={[currentItem.source]} compact onOpenNote={onOpenNote} />
             </div>
-          ))}
+          ) : null}
         </div>
       )}
     />
@@ -1296,55 +1680,68 @@ function QuizTool({
 
 function FlashcardTool({
   scope,
+  data,
+  activeNote,
   notify,
-  onOpenNote,
-  onPeekSource
+  onOpenNote
 }: {
   scope: Scope;
+  data: Bootstrap;
+  activeNote: Note | null;
   notify: (message: string, tone?: Toast["tone"]) => void;
-  onOpenNote: (noteId: string) => void;
-  onPeekSource: (source: SourceRef) => void;
+  onOpenNote: (source: SourceRef) => void;
 }) {
   const [items, setItems] = useState<Flashcard[]>([]);
-  const [answers, setAnswers] = useState<Record<number, string>>({});
+  const [localScope, setLocalScope] = useState<Scope>(scope);
   const [open, setOpen] = useState<Record<number, boolean>>({});
+  function handleItems(next: Flashcard[]) {
+    setItems(next.slice(0, 1));
+    setOpen({});
+  }
+  const currentIndex = 0;
+  const currentItem = items[0];
   return (
     <StudyList
       title="Flashcards"
-      description="Type an answer, then reveal the source-backed version."
-      label="Generate flashcards"
+      description="Recall the answer mentally, then reveal the source-backed version."
+      label="Generate flashcard"
       mode="flashcards"
-      scope={scope}
+      scope={localScope}
+      controls={<StudyScopePicker scope={localScope} setScope={setLocalScope} data={data} activeNote={activeNote} label="Flashcard source" />}
       notify={notify}
-      onResult={setItems}
-      render={(busy) => (
+      onResult={handleItems}
+      render={(busy, rerun) => (
         <div className="space-y-3">
           {busy ? <SkeletonStack /> : null}
-          {items.map((item, index) => (
-            <div key={index} className="study-card">
+          {!busy && !currentItem ? <EmptyToolState message="Generate one flashcard at a time from your indexed notes." /> : null}
+          {currentItem ? (
+            <div className="study-card">
               <div className="mb-3 flex items-center justify-between text-xs text-ink-500">
-                <span>Card {index + 1} of {items.length}</span>
+                <span>Flashcard</span>
                 <span className="rounded-full bg-amber-400/10 px-2 py-0.5 text-amber-400">Review</span>
               </div>
-              <div className="text-sm font-medium leading-6 text-ink-100">{item.prompt}</div>
-              <input
-                value={answers[index] ?? ""}
-                onKeyDown={allowNativeTextShortcuts}
-                onChange={(event) => setAnswers({ ...answers, [index]: event.target.value })}
-                placeholder="Type your answer..."
-                className="control-soft mt-3 w-full rounded-lg px-3 py-2.5 text-sm outline-none placeholder:text-ink-500"
-              />
-              <button onClick={() => setOpen({ ...open, [index]: !open[index] })} className="mt-3 text-xs font-semibold text-accent-300">
-                Reveal source answer
+              <div className="text-sm font-medium leading-6 text-ink-100">{currentItem.prompt}</div>
+              <button onClick={() => setOpen({ ...open, [currentIndex]: !open[currentIndex] })} className="mt-5 text-xs font-semibold text-accent-300">
+                {open[currentIndex] ? "Hide answer" : "Reveal answer"}
               </button>
-              <div className={`grid transition-all duration-300 ease-premium ${open[index] ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+              <div className={`grid transition-all duration-300 ease-premium ${open[currentIndex] ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
                 <div className="overflow-hidden">
-                  <div className="mt-3 rounded-lg border border-success-400/25 bg-success-400/10 p-3 text-sm leading-6 text-ink-200">{item.answer}</div>
+                  <div className="mt-3 rounded-lg border border-success-400/25 bg-success-400/10 p-3 text-sm leading-6 text-ink-200">{currentItem.answer}</div>
                 </div>
               </div>
-              <SourceList sources={[item.source]} compact onOpenNote={onOpenNote} onPeekSource={onPeekSource} />
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => void rerun()}
+                  disabled={busy}
+                  className="rounded-xl border border-ink-700 bg-ink-950/40 px-4 py-2 text-sm font-semibold text-ink-200 hover:border-accent-500/30 hover:bg-accent-500/10 hover:text-white disabled:opacity-60"
+                >
+                  New flashcard
+                </button>
+              </div>
+              <SourceList sources={[currentItem.source]} compact onOpenNote={onOpenNote} />
             </div>
-          ))}
+          ) : null}
         </div>
       )}
     />
@@ -1354,13 +1751,11 @@ function FlashcardTool({
 function SummaryTool({
   scope,
   notify,
-  onOpenNote,
-  onPeekSource
+  onOpenNote
 }: {
   scope: Scope;
   notify: (message: string, tone?: Toast["tone"]) => void;
-  onOpenNote: (noteId: string) => void;
-  onPeekSource: (source: SourceRef) => void;
+  onOpenNote: (source: SourceRef) => void;
 }) {
   const [items, setItems] = useState<Array<{ id: string; label: string; text: string; source: AnswerResult["citations"][number] }>>([]);
   return (
@@ -1379,7 +1774,7 @@ function SummaryTool({
             <div key={item.id} className="study-card">
               <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">{item.label}</div>
               <blockquote className="border-l-2 border-accent-400/70 pl-3 text-sm leading-6 text-ink-200">{item.text}</blockquote>
-              <SourceList sources={[item.source]} compact onOpenNote={onOpenNote} onPeekSource={onPeekSource} />
+              <SourceList sources={[item.source]} compact onOpenNote={onOpenNote} />
             </div>
           ))}
         </div>
@@ -1396,7 +1791,8 @@ function StudyList<T>({
   scope,
   notify,
   onResult,
-  render
+  render,
+  controls
 }: {
   title: string;
   description: string;
@@ -1405,7 +1801,8 @@ function StudyList<T>({
   scope: Scope;
   notify: (message: string, tone?: Toast["tone"]) => void;
   onResult: (items: T[]) => void;
-  render: (busy: boolean) => React.ReactNode;
+  render: (busy: boolean, rerun: () => Promise<void>) => React.ReactNode;
+  controls?: React.ReactNode;
 }) {
   const [busy, setBusy] = useState(false);
   async function run() {
@@ -1428,10 +1825,11 @@ function StudyList<T>({
   return (
     <div className="space-y-4">
       <ToolHeader title={title} description={description} />
+      {controls}
       <button onClick={run} disabled={busy} className="primary-action w-full">
         {busy ? "Reading indexed notes..." : label}
       </button>
-      {render(busy)}
+      {render(busy, run)}
     </div>
   );
 }
@@ -1440,14 +1838,12 @@ function SourceList({
   sources,
   compact = false,
   empty = "No source excerpts found.",
-  onOpenNote,
-  onPeekSource
+  onOpenNote
 }: {
   sources: Array<{ chunkId: string; noteId?: string; noteTitle: string; excerpt: string; similarity: number }>;
   compact?: boolean;
   empty?: string;
-  onOpenNote?: (noteId: string) => void;
-  onPeekSource?: (source: SourceRef) => void;
+  onOpenNote?: (source: SourceRef) => void;
 }) {
   if (!sources.length) return <div className="surface-soft rounded-xl px-3 py-4 text-sm text-ink-500">{empty}</div>;
   return (
@@ -1457,7 +1853,7 @@ function SourceList({
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="truncate text-xs font-semibold text-accent-300">{source.noteTitle}</div>
-              <div className="mt-1 text-[11px] text-ink-500">Source excerpt {index + 1}</div>
+              <div className="mt-1 text-[11px] text-ink-500">{sourceContextLabel(source, index)}</div>
             </div>
             <div className="flex items-center gap-2">
               <span className="rounded-full border border-ink-700 bg-ink-950/40 px-2 py-0.5 text-[11px] text-ink-300">
@@ -1468,24 +1864,21 @@ function SourceList({
           </summary>
           <blockquote className="mt-3 border-l-2 border-accent-400/70 pl-3 text-xs leading-5 text-ink-300">{source.excerpt}</blockquote>
           <div className="mt-3 flex flex-wrap gap-2">
-            {source.noteId && onPeekSource ? (
-              <button
-                type="button"
-                onClick={() => onPeekSource({ noteId: source.noteId!, noteTitle: source.noteTitle, excerpt: source.excerpt, similarity: source.similarity })}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink-700 bg-ink-950/40 px-2.5 py-1.5 text-xs font-medium text-ink-200 transition-colors hover:border-accent-500/40 hover:bg-accent-500/10 hover:text-accent-200 focus:outline-none focus:ring-2 focus:ring-accent-400/40"
-              >
-                <Eye className="h-3.5 w-3.5" />
-                Peek
-              </button>
-            ) : null}
             {source.noteId && onOpenNote ? (
               <button
                 type="button"
-                onClick={() => onOpenNote(source.noteId!)}
+                onClick={() =>
+                  onOpenNote({
+                    noteId: source.noteId!,
+                    noteTitle: source.noteTitle,
+                    excerpt: source.excerpt,
+                    similarity: source.similarity
+                  })
+                }
                 className="inline-flex items-center gap-1.5 rounded-lg border border-ink-700 bg-ink-950/40 px-2.5 py-1.5 text-xs font-medium text-ink-200 transition-colors hover:border-accent-500/40 hover:bg-accent-500/10 hover:text-accent-200 focus:outline-none focus:ring-2 focus:ring-accent-400/40"
               >
                 <FileText className="h-3.5 w-3.5" />
-                Open note
+                Open note and highlight source
               </button>
             ) : null}
           </div>
@@ -1948,6 +2341,154 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   );
 }
 
+function TextInputModal({
+  state,
+  onClose,
+  onChange,
+  onSubmit
+}: {
+  state: InputDialogState;
+  onClose: () => void;
+  onChange: (value: string) => void;
+  onSubmit: () => Promise<void> | void;
+}) {
+  const [busy, setBusy] = useState(false);
+
+  if (!state) return null;
+  const draft = state;
+
+  async function handleSubmit() {
+    if (!draft.value.trim()) return;
+    setBusy(true);
+    try {
+      await onSubmit();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl border border-ink-700 bg-ink-900 shadow-panel">
+        <div className="border-b border-ink-700/80 px-5 py-4">
+          <div className="text-lg font-semibold text-ink-100">{draft.title}</div>
+          <div className="mt-1 text-sm text-ink-500">Folders help group notes by class, lecture, or topic.</div>
+        </div>
+        <div className="px-5 py-4">
+          <label className="block">
+            <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-ink-500">{draft.label}</span>
+            <input
+              autoFocus
+              value={draft.value}
+              onKeyDown={(event) => {
+                allowNativeTextShortcuts(event);
+                if (event.key === "Enter") {
+                  event.preventDefault();
+                  void handleSubmit();
+                }
+              }}
+              onChange={(event) => onChange(event.target.value)}
+              placeholder={draft.placeholder ?? "Enter a value"}
+              className="control-soft w-full rounded-lg px-3 py-2.5 text-sm text-ink-100 outline-none placeholder:text-ink-500"
+            />
+          </label>
+        </div>
+        <div className="flex items-center justify-end gap-3 border-t border-ink-700/80 px-5 py-4">
+          <button
+            onClick={onClose}
+            disabled={busy}
+            className="rounded-lg border border-ink-700/80 px-4 py-2 text-sm font-medium text-ink-300 hover:bg-ink-800 disabled:opacity-60"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => void handleSubmit()}
+            disabled={busy || !draft.value.trim()}
+            className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-400 disabled:opacity-60"
+          >
+            {busy ? "Saving..." : draft.submitLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MoveTargetModal({
+  state,
+  onClose
+}: {
+  state: MoveDialogState;
+  onClose: () => void;
+}) {
+  const [selectedId, setSelectedId] = useState<string>(state?.currentFolderId ?? "__root__");
+  const [busy, setBusy] = useState(false);
+
+  if (!state) return null;
+  const dialog = state;
+  const options = dialog.options.filter((folder) => folder.id !== dialog.currentFolderId);
+
+  async function handleSubmit() {
+    setBusy(true);
+    try {
+      await dialog.onSubmit(selectedId === "__root__" ? null : selectedId);
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl border border-ink-700 bg-ink-900 shadow-panel">
+        <div className="border-b border-ink-700/80 px-5 py-4">
+          <div className="text-lg font-semibold text-ink-100">{dialog.title}</div>
+          <div className="mt-1 text-sm text-ink-500">{dialog.description}</div>
+        </div>
+        <div className="max-h-[340px] space-y-2 overflow-auto px-5 py-4">
+          <button
+            onClick={() => setSelectedId("__root__")}
+            className={`flex w-full items-center justify-between rounded-lg border px-3 py-3 text-left text-sm ${
+              selectedId === "__root__" ? "border-accent-500/40 bg-accent-500/10 text-accent-200" : "border-ink-700/80 bg-ink-950/35 text-ink-300 hover:bg-ink-850"
+            }`}
+          >
+            <span>{dialog.allowRootLabel}</span>
+            {selectedId === "__root__" ? <Check className="h-4 w-4" /> : null}
+          </button>
+          {options.map((folder) => (
+            <button
+              key={folder.id}
+              onClick={() => setSelectedId(folder.id)}
+              className={`flex w-full items-center justify-between rounded-lg border px-3 py-3 text-left text-sm ${
+                selectedId === folder.id ? "border-accent-500/40 bg-accent-500/10 text-accent-200" : "border-ink-700/80 bg-ink-950/35 text-ink-300 hover:bg-ink-850"
+              }`}
+            >
+              <span className="truncate">{folder.name}</span>
+              {selectedId === folder.id ? <Check className="h-4 w-4" /> : null}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center justify-end gap-3 border-t border-ink-700/80 px-5 py-4">
+          <button
+            onClick={onClose}
+            disabled={busy}
+            className="rounded-lg border border-ink-700/80 px-4 py-2 text-sm font-medium text-ink-300 hover:bg-ink-800 disabled:opacity-60"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => void handleSubmit()}
+            disabled={busy}
+            className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-400 disabled:opacity-60"
+          >
+            {busy ? "Moving..." : dialog.submitLabel}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ConfirmModal({
   confirmState,
   onClose
@@ -2002,41 +2543,8 @@ function ConfirmModal({
   );
 }
 
-function SourcePeekCard({
-  source,
-  onOpenNote,
-  onClose
-}: {
-  source: SourceRef;
-  onOpenNote: (noteId: string) => void;
-  onClose: () => void;
-}) {
-  return (
-    <div className="mb-4 rounded-xl border border-accent-500/30 bg-accent-500/10 p-3 shadow-glow">
-      <div className="mb-2 flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">
-            <Highlighter className="h-3.5 w-3.5" />
-            Source peek
-          </div>
-          <div className="mt-1 truncate text-sm font-semibold text-ink-100">{source.noteTitle}</div>
-        </div>
-        <button onClick={onClose} aria-label="Close source peek" className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-ink-500 hover:bg-white/8 hover:text-white">
-          <X className="h-4 w-4" />
-        </button>
-      </div>
-      <blockquote className="max-h-40 overflow-auto border-l-2 border-accent-400/70 pl-3 text-xs leading-5 text-ink-200">{source.excerpt}</blockquote>
-      <div className="mt-3 flex items-center justify-between gap-2">
-        <span className="rounded-full border border-accent-500/25 bg-ink-950/40 px-2 py-0.5 text-[11px] text-accent-200">
-          {Math.round(source.similarity * 100)}% related
-        </span>
-        <button onClick={() => onOpenNote(source.noteId)} className="inline-flex items-center gap-1.5 rounded-lg bg-accent-500 px-2.5 py-1.5 text-xs font-semibold text-white hover:bg-accent-400">
-          <FileText className="h-3.5 w-3.5" />
-          Open note
-        </button>
-      </div>
-    </div>
-  );
+function EmptyToolState({ message }: { message: string }) {
+  return <div className="surface-soft rounded-xl px-3 py-4 text-sm leading-6 text-ink-400">{message}</div>;
 }
 
 function ResizeHandle({ side, onPointerDown }: { side: "left" | "right"; onPointerDown: (event: MouseEvent<HTMLButtonElement>) => void }) {
@@ -2181,20 +2689,102 @@ function allowNativeTextShortcuts(event: KeyboardEvent<HTMLInputElement | HTMLTe
   }
 }
 
-function chooseFolderTarget(folders: FolderType[], currentFolderId: string | null | undefined) {
-  const options = folders.filter((folder) => folder.id !== currentFolderId);
-  const list = ["0. Vault root / Unfiled", ...options.map((folder, index) => `${index + 1}. ${folder.name}`)].join("\n");
-  const choice = window.prompt(`Move to:\n\n${list}\n\nEnter a number`, "0");
-  if (choice === null) return { cancelled: true as const, folderId: null };
-  const index = Number.parseInt(choice, 10);
-  if (Number.isNaN(index) || index < 0 || index > options.length) return { cancelled: true as const, folderId: null };
-  return { cancelled: false as const, folderId: index === 0 ? null : options[index - 1].id };
+function createSourceHighlightExtension(excerpt: string) {
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
+
+      constructor(view: EditorView) {
+        this.decorations = buildSourceDecorations(view.state.doc.toString(), excerpt);
+      }
+
+      update(update: ViewUpdate) {
+        if (update.docChanged || update.viewportChanged) {
+          this.decorations = buildSourceDecorations(update.state.doc.toString(), excerpt);
+        }
+      }
+    },
+    {
+      decorations: (value) => value.decorations
+    }
+  );
+}
+
+function buildSourceDecorations(content: string, excerpt: string) {
+  const range = findExcerptRange(content, excerpt);
+  if (!range) return Decoration.none;
+
+  const builder = new RangeSetBuilder<Decoration>();
+  const lineFrom = lineStart(content, range.from);
+  const lineTo = lineEnd(content, range.to);
+  builder.add(lineFrom, lineTo, Decoration.mark({ class: "cm-source-highlight" }));
+  return builder.finish();
+}
+
+function findExcerptRange(content: string, excerpt: string) {
+  const candidates = Array.from(
+    new Set([
+      excerpt.trim(),
+      ...excerpt
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter((line) => line.length >= 20)
+    ])
+  );
+
+  for (const candidate of candidates) {
+    if (!candidate) continue;
+    const from = content.indexOf(candidate);
+    if (from >= 0) return { from, to: from + candidate.length };
+  }
+
+  return null;
+}
+
+function lineStart(content: string, index: number) {
+  const lineBreak = content.lastIndexOf("\n", Math.max(0, index) - 1);
+  return lineBreak >= 0 ? lineBreak + 1 : 0;
+}
+
+function lineEnd(content: string, index: number) {
+  const lineBreak = content.indexOf("\n", index);
+  return lineBreak >= 0 ? lineBreak : content.length;
 }
 
 function scopeLabel(scope: Scope) {
   if (scope.type === "note") return "Note";
   if (scope.type === "folder") return "Folder";
   return "All";
+}
+
+function scopeDisplayLabel(scope: Scope, activeNote: Note | null, folders: FolderType[], notes: Note[]) {
+  if (scope.type === "all") return "All notes";
+  if (scope.type === "note") {
+    if (activeNote && activeNote.id === scope.noteId) return "Current note";
+    return notes.find((note) => note.id === scope.noteId)?.title ?? "Selected note";
+  }
+  if (!scope.folderId) return "Unfiled notes";
+  return folderPath(scope.folderId, folders);
+}
+
+function folderPath(folderId: string, folders: FolderType[]) {
+  const byId = new Map(folders.map((folder) => [folder.id, folder]));
+  const parts: string[] = [];
+  let current = byId.get(folderId) ?? null;
+  while (current) {
+    parts.unshift(current.name);
+    current = current.parentId ? byId.get(current.parentId) ?? null : null;
+  }
+  return parts.join(" / ") || "Folder";
+}
+
+function sourceContextLabel(
+  source: { excerpt: string; similarity: number },
+  index: number
+) {
+  const section = source.excerpt.match(/^Section:\s*(.+)$/m)?.[1]?.trim();
+  if (section) return `Section: ${section}`;
+  return `Matching excerpt ${index + 1}`;
 }
 
 function clamp(value: number, min: number, max: number) {
@@ -2223,4 +2813,10 @@ function apiScope(scope: Scope) {
   if (scope.type === "note") return { noteId: scope.noteId };
   if (scope.type === "folder") return { folderId: scope.folderId };
   return {};
+}
+
+function scopeKey(scope: Scope) {
+  if (scope.type === "note") return `note:${scope.noteId}`;
+  if (scope.type === "folder") return `folder:${scope.folderId ?? ""}`;
+  return "all";
 }

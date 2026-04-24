@@ -66,6 +66,12 @@ export type QuizQuestion = {
   source: RetrievedChunk;
 };
 
+export type QuizEvaluation = {
+  correct: boolean;
+  verdict: "correct" | "partial" | "incorrect";
+  feedback: string;
+};
+
 export type Flashcard = {
   prompt: string;
   answer: string;
