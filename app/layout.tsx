@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "StudyOS Notes",
+  title: "EternalNotes",
   description: "A local Obsidian-like study workspace with grounded RAG tools."
 };
 

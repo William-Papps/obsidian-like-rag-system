@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { getProviderSettings, readApiKey } from "@/lib/services/settings";
+import { getProviderSettings, readUserApiKey } from "@/lib/services/settings";
 
 export type QuizEvaluation = {
   correct: boolean;
@@ -20,7 +20,7 @@ export async function evaluateQuizAnswer(
     };
   }
 
-  const apiKey = readApiKey(userId);
+  const apiKey = readUserApiKey(userId);
   if (!apiKey) return evaluateHeuristically(trimmedAnswer, input.expectedAnswer, input.question);
 
   const settings = await getProviderSettings(userId);

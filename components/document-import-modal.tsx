@@ -6,13 +6,15 @@ import { useRef, useState } from "react";
 type DocumentImportModalProps = {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (markdown: string, fileName: string) => void;
+  onImport: (markdown: string, fileName: string, options: { importMode: "single" | "split"; title?: string }) => void;
   notify: (message: string, tone?: "success" | "info" | "error") => void;
 };
 
 export function DocumentImportModal({ isOpen, onClose, onImport, notify }: DocumentImportModalProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [text, setText] = useState("");
+  const [importMode, setImportMode] = useState<"single" | "split">("single");
+  const [title, setTitle] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -41,7 +43,7 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
       for (const warning of (data.warnings as string[] | undefined) ?? []) {
         notify(warning, "info");
       }
-      onImport(data.markdown, data.fileName);
+      onImport(data.markdown, data.fileName, { importMode, title: title.trim() || undefined });
       onClose();
     } catch (error) {
       notify(error instanceof Error ? error.message : "Failed to convert document", "error");
@@ -79,7 +81,7 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
       for (const warning of (data.warnings as string[] | undefined) ?? []) {
         notify(warning, "info");
       }
-      onImport(data.markdown, "pasted-content");
+      onImport(data.markdown, "pasted-content", { importMode, title: title.trim() || undefined });
       setText("");
       onClose();
     } catch (error) {
@@ -117,6 +119,37 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
         {/* Content */}
         <div className="space-y-4 px-6 py-4">
           {/* File Upload */}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-ink-300">Import mode</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setImportMode("single")}
+                className={`rounded-lg border px-3 py-2 text-sm ${importMode === "single" ? "border-accent-500/40 bg-accent-500/10 text-accent-200" : "border-ink-700/80 text-ink-400 hover:bg-ink-800"}`}
+              >
+                Single note
+              </button>
+              <button
+                type="button"
+                onClick={() => setImportMode("split")}
+                className={`rounded-lg border px-3 py-2 text-sm ${importMode === "split" ? "border-accent-500/40 bg-accent-500/10 text-accent-200" : "border-ink-700/80 text-ink-400 hover:bg-ink-800"}`}
+              >
+                Split by headings
+              </button>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-2 block text-sm font-medium text-ink-300">Note title override</label>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Optional custom note title"
+              disabled={isLoading}
+              className="w-full rounded-lg border border-ink-700/50 bg-ink-850 px-3 py-2 text-sm text-ink-100 placeholder-ink-500 focus:border-accent-500/50 focus:outline-none"
+            />
+          </div>
+
           <div>
             <label className="mb-2 block text-sm font-medium text-ink-300">Upload File</label>
             <div

@@ -1,13 +1,18 @@
 import OpenAI from "openai";
-import { readApiKey } from "@/lib/services/settings";
+import type { AiContext } from "@/lib/types";
 
 const localDimensions = 192;
 
-export async function embedText(userId: string, text: string, model: string): Promise<{ vector: number[]; provider: "openai" | "local" }> {
-  const apiKey = readApiKey(userId);
+export async function embedText(
+  userId: string,
+  text: string,
+  model: string,
+  context?: AiContext
+): Promise<{ vector: number[]; provider: "openai" | "local" }> {
+  const apiKey = context?.apiKey ?? null;
   if (!apiKey) return { vector: localEmbedding(text), provider: "local" };
 
-  const client = new OpenAI({ apiKey });
+  const client = new OpenAI({ apiKey, project: context?.projectId || undefined });
   const response = await client.embeddings.create({ model, input: text });
   return { vector: response.data[0].embedding, provider: "openai" };
 }

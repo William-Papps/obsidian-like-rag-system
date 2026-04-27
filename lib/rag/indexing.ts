@@ -1,13 +1,13 @@
 import { dbGet, dbRun } from "@/lib/db";
 import { listDescendantFolderIds } from "@/lib/services/folders";
 import { listNotes } from "@/lib/services/notes";
-import { getProviderSettings } from "@/lib/services/settings";
+import { resolveAiContext } from "@/lib/services/ai-access";
 import { chunkNote } from "@/lib/rag/chunking";
 import { embedText } from "@/lib/rag/embeddings";
 import { id, now, sha256 } from "@/lib/utils";
 
 export async function reindexNotes(userId: string, scope?: { noteId?: string; folderId?: string | null }) {
-  const settings = await getProviderSettings(userId);
+  const ai = await resolveAiContext(userId, "index");
   await purgeOrphanedChunks(userId);
   const folderIds = scope?.folderId ? await listDescendantFolderIds(userId, scope.folderId) : [];
   const notes = (await listNotes(userId)).filter((note) => {
@@ -28,7 +28,7 @@ export async function reindexNotes(userId: string, scope?: { noteId?: string; fo
     const chunks = chunkNote(note);
     for (let index = 0; index < chunks.length; index += 1) {
       const text = chunks[index];
-      const embedding = await embedText(userId, text, settings.embeddingModel);
+      const embedding = await embedText(userId, text, ai.settings.embeddingModel, ai);
       const chunkId = id();
       await dbRun(
         "insert into chunks (id, user_id, note_id, chunk_text, chunk_index, content_hash, embedded, vector_id, vector_json, created_at, updated_at) values (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)",

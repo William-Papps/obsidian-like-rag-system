@@ -1,13 +1,14 @@
 import OpenAI from "openai";
 import type { SqlValue } from "sql.js";
-import type { Flashcard, QuizQuestion, RetrievedChunk } from "@/lib/types";
+import type { AiContext, Flashcard, QuizQuestion, RetrievedChunk } from "@/lib/types";
 import { dbAll } from "@/lib/db";
 import { listDescendantFolderIds } from "@/lib/services/folders";
 import { retrieveChunks } from "@/lib/rag/retrieval";
-import { getProviderSettings, readApiKey } from "@/lib/services/settings";
+import { resolveAiContext } from "@/lib/services/ai-access";
 
 export async function extractiveSummary(userId: string, scope: { noteId?: string; folderId?: string | null }) {
-  const chunks = await retrieveChunks(userId, "main definitions key concepts causes effects examples", { ...scope, limit: 7 });
+  const ai = await resolveAiContext(userId, "summary");
+  const chunks = await retrieveChunks(userId, "main definitions key concepts causes effects examples", { ...scope, limit: 7 }, ai);
   return chunks.map((source, index) => ({
     id: source.chunkId,
     label: `Excerpt ${index + 1}`,
@@ -17,13 +18,14 @@ export async function extractiveSummary(userId: string, scope: { noteId?: string
 }
 
 export async function generateQuiz(userId: string, scope: { noteId?: string; folderId?: string | null }): Promise<QuizQuestion[]> {
+  const ai = await resolveAiContext(userId, "quiz");
   const source = await pickStudyChunk(userId, scope);
   if (!source) return [];
 
   const answer = bestSentence(source);
   return [
     {
-      question: await buildStudyPrompt(userId, source, answer, "quiz"),
+      question: await buildStudyPrompt(ai, source, answer, "quiz"),
       answer,
       source
     }
@@ -31,13 +33,14 @@ export async function generateQuiz(userId: string, scope: { noteId?: string; fol
 }
 
 export async function generateFlashcards(userId: string, scope: { noteId?: string; folderId?: string | null }): Promise<Flashcard[]> {
+  const ai = await resolveAiContext(userId, "flashcards");
   const source = await pickStudyChunk(userId, scope);
   if (!source) return [];
 
   const answer = bestSentence(source);
   return [
     {
-      prompt: await buildStudyPrompt(userId, source, answer, "flashcard"),
+      prompt: await buildStudyPrompt(ai, source, answer, "flashcard"),
       answer,
       source
     }
@@ -112,19 +115,17 @@ function bestSentence(source: RetrievedChunk) {
 }
 
 async function buildStudyPrompt(
-  userId: string,
+  ai: AiContext,
   source: RetrievedChunk,
   answer: string,
   mode: "quiz" | "flashcard"
 ) {
-  const apiKey = readApiKey(userId);
-  if (!apiKey) return fallbackPrompt(source, answer, mode);
+  if (!ai.apiKey) return fallbackPrompt(source, answer, mode);
 
   try {
-    const settings = await getProviderSettings(userId);
-    const client = new OpenAI({ apiKey, project: settings.projectId || undefined });
+    const client = new OpenAI({ apiKey: ai.apiKey, project: ai.projectId || undefined });
     const response = await client.chat.completions.create({
-      model: settings.answerModel,
+      model: ai.settings.answerModel,
       temperature: 0.2,
       response_format: { type: "json_object" },
       messages: [

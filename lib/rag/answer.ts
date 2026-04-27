@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 import type { AnswerResult, RetrievedChunk } from "@/lib/types";
-import { getProviderSettings, readApiKey } from "@/lib/services/settings";
+import { resolveAiContext } from "@/lib/services/ai-access";
 import { retrieveChunks } from "@/lib/rag/retrieval";
 
 export async function answerFromNotes(
@@ -8,7 +8,8 @@ export async function answerFromNotes(
   question: string,
   scope: { noteId?: string; folderId?: string | null } = {}
 ): Promise<AnswerResult> {
-  const citations = await retrieveChunks(userId, question, { ...scope, limit: 6 });
+  const ai = await resolveAiContext(userId, "ask");
+  const citations = await retrieveChunks(userId, question, { ...scope, limit: 6 }, ai);
   if (citations.length === 0 || citations[0].similarity < 0.08) {
     return {
       answer: "Not found in the indexed notes. Add or index notes that directly support this question, then try again.",
@@ -17,8 +18,7 @@ export async function answerFromNotes(
     };
   }
 
-  const apiKey = readApiKey(userId);
-  if (!apiKey) {
+  if (!ai.apiKey) {
     return {
       answer: `No OpenAI key is configured, so this local response is extractive only.\n\nMost relevant note evidence:\n${citations
         .slice(0, 3)
@@ -29,10 +29,9 @@ export async function answerFromNotes(
     };
   }
 
-  const settings = await getProviderSettings(userId);
-  const client = new OpenAI({ apiKey, project: settings.projectId || undefined });
+  const client = new OpenAI({ apiKey: ai.apiKey, project: ai.projectId || undefined });
   const response = await client.chat.completions.create({
-    model: settings.answerModel,
+    model: ai.settings.answerModel,
     temperature: 0.1,
     messages: [
       {

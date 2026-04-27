@@ -24,6 +24,7 @@ import {
   LayoutPanelLeft,
   Layers3,
   Loader2,
+  LogOut,
   MessageSquareText,
   MoreVertical,
   PanelRight,
@@ -60,7 +61,7 @@ type NoteView = "write" | "preview" | "split";
 type Toast = { id: number; tone: "success" | "info" | "error"; message: string };
 type VaultMenu = { kind: "folder" | "note"; id: string; x: number; y: number } | null;
 type DragItem = { kind: "folder" | "note"; id: string } | null;
-type SourceRef = { noteId: string; noteTitle: string; excerpt: string; similarity: number };
+type SourceRef = { noteId: string; noteTitle: string; excerpt: string; similarity: number; view?: NoteView };
 type SourceHighlight = SourceRef & { token: number };
 type InputDialogState = {
   title: string;
@@ -93,7 +94,6 @@ export function Workspace() {
   const [saving, setSaving] = useState(false);
   const [scope, setScope] = useState<Scope>({ type: "all" });
   const [tab, setTab] = useState<Tab>("ask");
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
   const [leftWidth, setLeftWidth] = useState(() => readStoredNumber("studyos:leftWidth", 300, 240, 420));
@@ -109,6 +109,8 @@ export function Workspace() {
   const [sourceHighlight, setSourceHighlight] = useState<SourceHighlight | null>(null);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
+  const [commandQuery, setCommandQuery] = useState("");
   const [inputDialog, setInputDialog] = useState<InputDialogState>(null);
   const [moveDialog, setMoveDialog] = useState<MoveDialogState>(null);
   const [confirmState, setConfirmState] = useState<ConfirmState>(null);
@@ -123,6 +125,10 @@ export function Workspace() {
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/bootstrap", { cache: "no-store" });
+    if (response.status === 401) {
+      window.location.href = "/auth";
+      return;
+    }
     const payload = (await response.json()) as Bootstrap;
     const [folders, notes, indexStatus] = await Promise.all([
       fetch("/api/folders", { cache: "no-store" }).then((result) => result.json() as Promise<FolderType[]>),
@@ -154,6 +160,17 @@ export function Workspace() {
       window.removeEventListener("click", close);
       window.removeEventListener("keydown", closeOnEscape);
     };
+  }, []);
+
+  useEffect(() => {
+    const onKeyDown = (event: globalThis.KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setCommandOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
   const activeNote = useMemo(() => data?.notes.find((note) => note.id === activeNoteId) ?? null, [data, activeNoteId]);
@@ -188,7 +205,7 @@ export function Workspace() {
         return;
       }
 
-      setNoteView("write");
+      setNoteView(source.view ?? "write");
       selectNote(source.noteId, { updateScope: false });
       setSourceHighlight({ ...source, token: Date.now() });
       notify(`Opened ${note.title}`, "info");
@@ -295,24 +312,30 @@ export function Workspace() {
     setSaving(false);
   }
 
-  async function importDocument(markdown: string, fileName: string) {
+  async function importDocument(markdown: string, fileName: string, options: { importMode: "single" | "split"; title?: string }) {
     // Extract title from filename or use first line of content
-    let title = fileName.replace(/\.[^/.]+$/, "").replace(/-/g, " ");
+    let title = options.title?.trim() || fileName.replace(/\.[^/.]+$/, "").replace(/-/g, " ");
     if (!title || title === "pasted-content") {
       const firstLine = markdown.split("\n")[0].replace(/^#+\s*/, "").trim();
       title = firstLine || "Imported document";
     }
 
     const folderId = scope.type === "folder" ? scope.folderId : null;
-    const response = await fetch("/api/notes", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title, folderId, markdownContent: markdown })
-    });
-    const note = (await response.json()) as Note;
+    const importedNotes =
+      options.importMode === "split" ? splitImportedMarkdown(markdown, title) : [{ title, markdownContent: markdown }];
+    let firstNote: Note | null = null;
+    for (const importedNote of importedNotes) {
+      const response = await fetch("/api/notes", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title: importedNote.title, folderId, markdownContent: importedNote.markdownContent })
+      });
+      const note = (await response.json()) as Note;
+      firstNote ??= note;
+    }
     await refresh();
-    selectNote(note.id);
-    notify(`Document imported as "${title}"`, "success");
+    if (firstNote) selectNote(firstNote.id);
+    notify(importedNotes.length > 1 ? `Imported ${importedNotes.length} notes` : `Document imported as "${title}"`, "success");
   }
 
   function createFolder(parentId: string | null = null) {
@@ -687,10 +710,16 @@ export function Workspace() {
         rightOpen={rightOpen}
         onToggleLeft={() => setLeftOpen((open) => !open)}
         onToggleRight={() => setRightOpen((open) => !open)}
-        onSettings={() => setSettingsOpen(true)}
-        onFind={() => setTab("find")}
+        onSettings={() => {
+          window.location.href = "/account";
+        }}
+        onFind={() => setCommandOpen(true)}
         onReindexed={refresh}
         onImport={() => setImportModalOpen(true)}
+        onLogout={async () => {
+          await fetch("/api/auth/logout", { method: "POST" });
+          window.location.href = "/auth";
+        }}
         notify={notify}
       />
       <div className="grid h-[calc(100vh-61px)] overflow-hidden transition-[grid-template-columns] duration-300 ease-premium" style={workspaceGridStyle}>
@@ -929,12 +958,52 @@ export function Workspace() {
             />
         </div>
       </div>
-      {settingsOpen ? <SettingsModal settings={data.settings} onClose={() => setSettingsOpen(false)} onSaved={refresh} notify={notify} /> : null}
       <DocumentImportModal
         isOpen={importModalOpen}
         onClose={() => setImportModalOpen(false)}
         onImport={importDocument}
         notify={notify}
+      />
+      <CommandPalette
+        open={commandOpen}
+        query={commandQuery}
+        onQueryChange={setCommandQuery}
+        onClose={() => {
+          setCommandOpen(false);
+          setCommandQuery("");
+        }}
+        notes={data.notes}
+        folders={data.folders}
+        onOpenNote={(noteId) => {
+          selectNote(noteId);
+          setCommandOpen(false);
+          setCommandQuery("");
+        }}
+        onCreateNote={() => {
+          createNote();
+          setCommandOpen(false);
+          setCommandQuery("");
+        }}
+        onCreateFolder={() => {
+          createFolder();
+          setCommandOpen(false);
+          setCommandQuery("");
+        }}
+        onOpenAccount={() => {
+          window.location.href = "/account";
+        }}
+        onOpenImport={() => {
+          setImportModalOpen(true);
+          setCommandOpen(false);
+          setCommandQuery("");
+        }}
+        onReindex={async () => {
+          await fetch("/api/index", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+          await refresh();
+          notify("Index refreshed", "success");
+          setCommandOpen(false);
+          setCommandQuery("");
+        }}
       />
       <TextInputModal
         state={inputDialog}
@@ -989,6 +1058,7 @@ function TopBar({
   onFind,
   onReindexed,
   onImport,
+  onLogout,
   notify
 }: {
   data: Bootstrap;
@@ -1000,17 +1070,20 @@ function TopBar({
   onFind: () => void;
   onReindexed: () => void;
   onImport: () => void;
+  onLogout: () => void | Promise<void>;
   notify: (message: string, tone?: Toast["tone"]) => void;
 }) {
   const [busy, setBusy] = useState(false);
   async function reindex() {
     setBusy(true);
     try {
-      await fetch("/api/index", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+      const response = await fetch("/api/index", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Indexing failed");
       notify("Index refreshed", "success");
       onReindexed();
-    } catch {
-      notify("Indexing failed", "error");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Indexing failed", "error");
     } finally {
       setBusy(false);
     }
@@ -1025,8 +1098,8 @@ function TopBar({
           <Sparkles className="h-4 w-4" />
         </div>
         <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-ink-100">StudyOS Vault</div>
-          <div className="truncate text-xs text-ink-500">Purple workspace / {data.user.email}</div>
+          <div className="truncate text-sm font-semibold text-ink-100">EternalNotes</div>
+          <div className="truncate text-xs text-ink-500">Private study workspace / {data.user.email}</div>
         </div>
       </div>
 
@@ -1055,8 +1128,11 @@ function TopBar({
         <IconButton label="Import document" onClick={onImport}>
           <Upload className="h-4 w-4" />
         </IconButton>
-        <IconButton label="Settings" onClick={onSettings}>
+        <IconButton label="Account" onClick={onSettings}>
           <Settings className="h-4 w-4" />
+        </IconButton>
+        <IconButton label="Sign out" onClick={onLogout}>
+          <LogOut className="h-4 w-4" />
         </IconButton>
         <IconButton label={rightOpen ? "Hide study panel" : "Show study panel"} onClick={onToggleRight}>
           {rightOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
@@ -1463,9 +1539,11 @@ function AskTool({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ question, scope: apiScope(scope) })
       });
-      setAnswer(await response.json());
-    } catch {
-      notify("Ask request failed", "error");
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Ask request failed");
+      setAnswer(body as AnswerResult);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Ask request failed", "error");
     } finally {
       setBusy(false);
     }
@@ -1813,11 +1891,13 @@ function StudyList<T>({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ mode, scope: apiScope(scope) })
       });
-      const items = (await response.json()) as T[];
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Study generation failed");
+      const items = body as T[];
       onResult(items);
       notify(`${items.length} source item${items.length === 1 ? "" : "s"} generated`, "success");
-    } catch {
-      notify("Study generation failed", "error");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Study generation failed", "error");
     } finally {
       setBusy(false);
     }
@@ -1862,24 +1942,43 @@ function SourceList({
               <ChevronDown className="h-3.5 w-3.5 text-ink-500 transition-transform group-open:rotate-180" />
             </div>
           </summary>
-          <blockquote className="mt-3 border-l-2 border-accent-400/70 pl-3 text-xs leading-5 text-ink-300">{source.excerpt}</blockquote>
+          <blockquote className="mt-3 border-l-2 border-accent-400/70 pl-3 text-xs leading-5 text-ink-300">{cleanSourceExcerpt(source.excerpt)}</blockquote>
           <div className="mt-3 flex flex-wrap gap-2">
             {source.noteId && onOpenNote ? (
-              <button
-                type="button"
-                onClick={() =>
-                  onOpenNote({
-                    noteId: source.noteId!,
-                    noteTitle: source.noteTitle,
-                    excerpt: source.excerpt,
-                    similarity: source.similarity
-                  })
-                }
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink-700 bg-ink-950/40 px-2.5 py-1.5 text-xs font-medium text-ink-200 transition-colors hover:border-accent-500/40 hover:bg-accent-500/10 hover:text-accent-200 focus:outline-none focus:ring-2 focus:ring-accent-400/40"
-              >
-                <FileText className="h-3.5 w-3.5" />
-                Open note and highlight source
-              </button>
+              <>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onOpenNote({
+                      noteId: source.noteId!,
+                      noteTitle: source.noteTitle,
+                      excerpt: source.excerpt,
+                      similarity: source.similarity,
+                      view: "write"
+                    })
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-ink-700 bg-ink-950/40 px-2.5 py-1.5 text-xs font-medium text-ink-200 transition-colors hover:border-accent-500/40 hover:bg-accent-500/10 hover:text-accent-200 focus:outline-none focus:ring-2 focus:ring-accent-400/40"
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Open in editor
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    onOpenNote({
+                      noteId: source.noteId!,
+                      noteTitle: source.noteTitle,
+                      excerpt: source.excerpt,
+                      similarity: source.similarity,
+                      view: "preview"
+                    })
+                  }
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-ink-700 bg-ink-950/40 px-2.5 py-1.5 text-xs font-medium text-ink-200 transition-colors hover:border-accent-500/40 hover:bg-accent-500/10 hover:text-accent-200 focus:outline-none focus:ring-2 focus:ring-accent-400/40"
+                >
+                  <BookOpen className="h-3.5 w-3.5" />
+                  Open in preview
+                </button>
+              </>
             ) : null}
           </div>
         </details>
@@ -2235,109 +2334,91 @@ function VaultContextMenu({
   );
 }
 
-function SettingsModal({
-  settings,
+function CommandPalette({
+  open,
+  query,
+  onQueryChange,
   onClose,
-  onSaved,
-  notify
+  notes,
+  folders,
+  onOpenNote,
+  onCreateNote,
+  onCreateFolder,
+  onOpenAccount,
+  onOpenImport,
+  onReindex
 }: {
-  settings: ProviderSettings;
+  open: boolean;
+  query: string;
+  onQueryChange: (value: string) => void;
   onClose: () => void;
-  onSaved: () => void;
-  notify: (message: string, tone?: Toast["tone"]) => void;
+  notes: Note[];
+  folders: FolderType[];
+  onOpenNote: (noteId: string) => void;
+  onCreateNote: () => void;
+  onCreateFolder: () => void;
+  onOpenAccount: () => void;
+  onOpenImport: () => void;
+  onReindex: () => Promise<void>;
 }) {
-  const [apiKey, setApiKey] = useState("");
-  const [projectId, setProjectId] = useState(settings.projectId ?? "");
-  const [embeddingModel, setEmbeddingModel] = useState(settings.embeddingModel);
-  const [answerModel, setAnswerModel] = useState(settings.answerModel);
-  const [visionModel, setVisionModel] = useState(settings.visionModel ?? "");
-  async function save() {
-    await fetch("/api/settings", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ apiKey, projectId, embeddingModel, answerModel, visionModel })
-    });
-    await onSaved();
-    notify("Settings saved", "success");
-    onClose();
-  }
+  if (!open) return null;
+  const normalized = query.trim().toLowerCase();
+  const filteredNotes = notes.filter((note) => !normalized || note.title.toLowerCase().includes(normalized)).slice(0, 8);
+  const filteredFolders = folders.filter((folder) => !normalized || folder.name.toLowerCase().includes(normalized)).slice(0, 4);
+  const actions = [
+    { label: "Create note", run: onCreateNote },
+    { label: "Create folder", run: onCreateFolder },
+    { label: "Import document", run: onOpenImport },
+    { label: "Open account", run: onOpenAccount },
+    { label: "Reindex vault", run: () => void onReindex() }
+  ].filter((item) => !normalized || item.label.toLowerCase().includes(normalized));
+
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-xl rounded-xl border border-ink-700 bg-ink-900 p-5 shadow-panel">
-        <div className="mb-5 flex items-start justify-between gap-4">
-          <div>
-            <div className="text-lg font-semibold text-ink-100">Settings</div>
-            <div className="mt-1 text-sm text-ink-500">Provider config stays local and masked in the interface.</div>
-          </div>
-          <button onClick={onClose} className="control-soft rounded-lg px-3 py-1.5 text-sm text-ink-300">
-            Close
-          </button>
+    <div className="fixed inset-0 z-[75] bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="mx-auto mt-[10vh] w-full max-w-2xl rounded-2xl border border-ink-700 bg-ink-900 shadow-panel" onClick={(event) => event.stopPropagation()}>
+        <div className="border-b border-ink-700/80 p-4">
+          <input
+            autoFocus
+            value={query}
+            onChange={(event) => onQueryChange(event.target.value)}
+            placeholder="Jump to a note or run a command..."
+            className="w-full bg-transparent text-base text-ink-100 outline-none placeholder:text-ink-500"
+          />
         </div>
-        <div className="space-y-4">
-          <Field label={`OpenAI API key${settings.maskedKey ? ` (${settings.maskedKey})` : ""}`}>
-            <input
-              value={apiKey}
-              onKeyDown={allowNativeTextShortcuts}
-              onChange={(event) => setApiKey(event.target.value)}
-              placeholder="sk-..."
-              type="password"
-              className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
-            />
-          </Field>
-          <Field label="OpenAI project ID">
-            <input
-              value={projectId}
-              onKeyDown={allowNativeTextShortcuts}
-              onChange={(event) => setProjectId(event.target.value)}
-              placeholder="Optional"
-              className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
-            />
-          </Field>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-            <Field label="Embedding model">
-              <input
-                value={embeddingModel}
-                onKeyDown={allowNativeTextShortcuts}
-                onChange={(event) => setEmbeddingModel(event.target.value)}
-                className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
-              />
-            </Field>
-            <Field label="Answer model">
-              <input
-                value={answerModel}
-                onKeyDown={allowNativeTextShortcuts}
-                onChange={(event) => setAnswerModel(event.target.value)}
-                className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
-              />
-            </Field>
-            <Field label="Vision model">
-              <input
-                value={visionModel}
-                onKeyDown={allowNativeTextShortcuts}
-                onChange={(event) => setVisionModel(event.target.value)}
-                placeholder="gpt-4o-mini"
-                className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
-              />
-            </Field>
+        <div className="max-h-[65vh] overflow-auto p-4">
+          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">Actions</div>
+          <div className="space-y-2">
+            {actions.map((action) => (
+              <button key={action.label} onClick={action.run} className="flex w-full items-center justify-between rounded-xl border border-ink-700/80 px-3 py-3 text-left text-sm text-ink-200 hover:bg-white/[0.04]">
+                <span>{action.label}</span>
+                <span className="text-xs text-ink-500">Command</span>
+              </button>
+            ))}
           </div>
-          <div className="rounded-lg border border-amber-400/30 bg-amber-400/10 p-3 text-xs leading-5 text-amber-400">
-            MVP local storage writes the key to an ignored file under data/secrets. Hosted deployment should replace this with encrypted per-user secret storage and real authentication.
+          <div className="mb-2 mt-5 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">Notes</div>
+          <div className="space-y-2">
+            {filteredNotes.map((note) => (
+              <button key={note.id} onClick={() => onOpenNote(note.id)} className="flex w-full items-center justify-between rounded-xl border border-ink-700/80 px-3 py-3 text-left text-sm text-ink-200 hover:bg-white/[0.04]">
+                <span className="truncate">{note.title}</span>
+                <span className="text-xs text-ink-500">Note</span>
+              </button>
+            ))}
           </div>
-          <button onClick={save} className="primary-action w-full">
-            Save settings
-          </button>
+          {filteredFolders.length ? (
+            <>
+              <div className="mb-2 mt-5 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">Folders</div>
+              <div className="space-y-2">
+                {filteredFolders.map((folder) => (
+                  <div key={folder.id} className="rounded-xl border border-ink-700/80 px-3 py-3 text-sm text-ink-400">
+                    {folderPath(folder.id, folders)}
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : null}
         </div>
       </div>
     </div>
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="block">
-      <span className="mb-1.5 block text-xs font-medium text-ink-400">{label}</span>
-      {children}
-    </label>
   );
 }
 
@@ -2787,6 +2868,10 @@ function sourceContextLabel(
   return `Matching excerpt ${index + 1}`;
 }
 
+function cleanSourceExcerpt(excerpt: string) {
+  return excerpt.replace(/^Note:\s*.*$/gim, "").replace(/^Section:\s*.*$/gim, "").trim();
+}
+
 function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
@@ -2819,4 +2904,26 @@ function scopeKey(scope: Scope) {
   if (scope.type === "note") return `note:${scope.noteId}`;
   if (scope.type === "folder") return `folder:${scope.folderId ?? ""}`;
   return "all";
+}
+
+function splitImportedMarkdown(markdown: string, fallbackTitle: string) {
+  const lines = markdown.split(/\r?\n/);
+  const sections: Array<{ title: string; markdownContent: string }> = [];
+  let currentTitle = fallbackTitle;
+  let buffer: string[] = [];
+
+  for (const line of lines) {
+    const heading = /^(#{1,2})\s+(.+)$/.exec(line);
+    if (heading && buffer.length) {
+      sections.push({ title: currentTitle, markdownContent: buffer.join("\n").trim() });
+      currentTitle = heading[2].trim();
+      buffer = [line];
+      continue;
+    }
+    if (heading && !buffer.length) currentTitle = heading[2].trim();
+    buffer.push(line);
+  }
+
+  if (buffer.length) sections.push({ title: currentTitle, markdownContent: buffer.join("\n").trim() });
+  return sections.filter((section) => section.markdownContent.trim());
 }

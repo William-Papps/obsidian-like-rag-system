@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth";
+import { withAuthenticatedUser } from "@/lib/auth";
 import { evaluateQuizAnswer } from "@/lib/rag/evaluate";
+import { recordStudyActivity } from "@/lib/services/study-history";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,10 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
-  const body = schema.parse(await request.json());
-  return NextResponse.json(await evaluateQuizAnswer(user.id, body));
+  return withAuthenticatedUser(async (user) => {
+    const body = schema.parse(await request.json());
+    const result = await evaluateQuizAnswer(user.id, body);
+    await recordStudyActivity(user.id, "quiz_checked");
+    return NextResponse.json(result);
+  });
 }

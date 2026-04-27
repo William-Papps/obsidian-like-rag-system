@@ -1,22 +1,23 @@
 import OpenAI from "openai";
-import { getProviderSettings, readApiKey } from "@/lib/services/settings";
+import type { AiContext } from "@/lib/types";
+import { resolveAiContext } from "@/lib/services/ai-access";
 
 export async function extractTextFromImage(
   userId: string,
-  input: { bytes: Buffer; contentType: string; label: string }
+  input: { bytes: Buffer; contentType: string; label: string },
+  context?: AiContext
 ): Promise<{ text: string | null; warning?: string }> {
-  const apiKey = readApiKey(userId);
-  if (!apiKey) {
+  const ai = context ?? (await resolveAiContext(userId, "ocr"));
+  if (!ai.apiKey) {
     return { text: null, warning: `Skipped ${input.label}: configure an OpenAI API key to extract text from images.` };
   }
 
-  const settings = await getProviderSettings(userId);
-  const model = settings.visionModel || settings.answerModel;
+  const model = ai.settings.visionModel || ai.settings.answerModel;
   if (!model) {
     return { text: null, warning: `Skipped ${input.label}: configure a vision-capable model in Settings.` };
   }
 
-  const client = new OpenAI({ apiKey, project: settings.projectId || undefined });
+  const client = new OpenAI({ apiKey: ai.apiKey, project: ai.projectId || undefined });
   const dataUrl = `data:${input.contentType};base64,${input.bytes.toString("base64")}`;
   const response = await client.chat.completions.create({
     model,

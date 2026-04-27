@@ -3,17 +3,18 @@ import { listDescendantFolderIds } from "@/lib/services/folders";
 import { getNote } from "@/lib/services/notes";
 import { getProviderSettings } from "@/lib/services/settings";
 import { cosine, embedText } from "@/lib/rag/embeddings";
-import type { RetrievedChunk } from "@/lib/types";
+import type { AiContext, RetrievedChunk } from "@/lib/types";
 import { truncate } from "@/lib/utils";
 import type { SqlValue } from "sql.js";
 
 export async function retrieveChunks(
   userId: string,
   query: string,
-  scope: { noteId?: string; folderId?: string | null; limit?: number } = {}
+  scope: { noteId?: string; folderId?: string | null; limit?: number } = {},
+  context?: AiContext
 ): Promise<RetrievedChunk[]> {
   const settings = await getProviderSettings(userId);
-  const queryVector = (await embedText(userId, query, settings.embeddingModel)).vector;
+  const queryVector = (await embedText(userId, query, settings.embeddingModel, context)).vector;
   const params: SqlValue[] = [userId];
   let where = "c.user_id = ?";
   if (scope.noteId) {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { getCurrentUser } from "@/lib/auth";
+import { withAuthenticatedUser } from "@/lib/auth";
 import { createNote, exactSearch, listNotes } from "@/lib/services/notes";
 
 export const dynamic = "force-dynamic";
@@ -12,15 +12,17 @@ const createSchema = z.object({
 });
 
 export async function GET(request: Request) {
-  const user = await getCurrentUser();
-  const url = new URL(request.url);
-  const query = url.searchParams.get("q");
-  if (query) return NextResponse.json(await exactSearch(user.id, query));
-  return NextResponse.json(await listNotes(user.id));
+  return withAuthenticatedUser(async (user) => {
+    const url = new URL(request.url);
+    const query = url.searchParams.get("q");
+    if (query) return NextResponse.json(await exactSearch(user.id, query));
+    return NextResponse.json(await listNotes(user.id));
+  });
 }
 
 export async function POST(request: Request) {
-  const user = await getCurrentUser();
-  const body = createSchema.parse(await request.json());
-  return NextResponse.json(await createNote(user.id, body), { status: 201 });
+  return withAuthenticatedUser(async (user) => {
+    const body = createSchema.parse(await request.json());
+    return NextResponse.json(await createNote(user.id, body), { status: 201 });
+  });
 }
