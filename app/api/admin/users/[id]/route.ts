@@ -15,6 +15,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   return withAuthenticatedUser(async (user) => {
     if (!isAdmin(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { id } = await params;
+    if (id === user.id) {
+      const body = patchSchema.parse(await request.json());
+      if (body.disabled === true) {
+        return NextResponse.json({ error: "You cannot disable your own account." }, { status: 400 });
+      }
+      if (body.role && body.role !== user.role) {
+        return NextResponse.json({ error: "You cannot change your own role from this route." }, { status: 400 });
+      }
+      if (body.hostedPlan || body.hostedAccessGranted !== undefined) {
+        return NextResponse.json({ error: "Use your own account settings for personal plan changes." }, { status: 400 });
+      }
+      return NextResponse.json({ ok: true });
+    }
     const target = await getManagedUser(id);
     if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
 

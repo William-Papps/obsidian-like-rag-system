@@ -1,7 +1,7 @@
 "use client";
 
 import { markdown } from "@codemirror/lang-markdown";
-import { RangeSetBuilder } from "@codemirror/state";
+import { EditorSelection, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import {
@@ -33,11 +33,13 @@ import {
   Pencil,
   Pin,
   PinOff,
+  Rows3,
   RotateCw,
   Search,
   Settings,
   ShieldCheck,
   Sparkles,
+  Table2,
   Trash2,
   Upload,
   X
@@ -87,6 +89,10 @@ type ConfirmState = {
   tone?: "danger" | "default";
   onConfirm: () => Promise<void> | void;
 } | null;
+type TableDialogState = {
+  rows: number;
+  columns: number;
+} | null;
 
 export function Workspace() {
   const [data, setData] = useState<Bootstrap | null>(null);
@@ -108,12 +114,16 @@ export function Workspace() {
   const [dragItem, setDragItem] = useState<DragItem>(null);
   const [sourceHighlight, setSourceHighlight] = useState<SourceHighlight | null>(null);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
+  const [editorCursor, setEditorCursor] = useState(0);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
   const [inputDialog, setInputDialog] = useState<InputDialogState>(null);
   const [moveDialog, setMoveDialog] = useState<MoveDialogState>(null);
   const [confirmState, setConfirmState] = useState<ConfirmState>(null);
+  const [tableDialog, setTableDialog] = useState<TableDialogState>(null);
+  const [formatting, setFormatting] = useState(false);
+  const [pastingImage, setPastingImage] = useState(false);
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const next = { id: Date.now(), tone, message };
@@ -254,12 +264,7 @@ export function Workspace() {
     if (!activeNote || sourceHighlight?.noteId !== activeNote.id) return null;
     return sourceHighlight;
   }, [activeNote, sourceHighlight]);
-
-  const editorExtensions = useMemo(() => {
-    const extensions = [markdown(), EditorView.lineWrapping];
-    if (!editorHighlight?.excerpt.trim()) return extensions;
-    return [...extensions, createSourceHighlightExtension(editorHighlight.excerpt)];
-  }, [editorHighlight]);
+  const currentTableContext = editorView ? getTableContext(editorView.state.doc.toString(), editorCursor) : null;
 
   useEffect(() => {
     if (!editorView || !activeNote || !editorHighlight) return;
@@ -310,6 +315,180 @@ export function Workspace() {
       current ? { ...current, notes: current.notes.map((item) => (item.id === note.id ? note : item)) } : current
     );
     setSaving(false);
+  }
+
+  const replaceActiveMarkdown = useCallback(
+    async (markdownContent: string) => {
+      if (!activeNote) return;
+      await updateNote(activeNote.id, { markdownContent });
+    },
+    [activeNote]
+  );
+
+  const applyEditorText = useCallback(
+    async (nextText: string, selection?: { anchor: number; head?: number }) => {
+      if (!editorView || !activeNote) return;
+      const currentText = editorView.state.doc.toString();
+      if (currentText === nextText) return;
+      editorView.dispatch({
+        changes: { from: 0, to: currentText.length, insert: nextText },
+        selection: selection ? EditorSelection.single(selection.anchor, selection.head ?? selection.anchor) : undefined
+      });
+      await replaceActiveMarkdown(nextText);
+    },
+    [activeNote, editorView, replaceActiveMarkdown]
+  );
+
+  const pasteClipboardImage = useCallback(
+    async (file: File, view: EditorView) => {
+      setPastingImage(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", file, file.name || "clipboard-image.png");
+        const response = await fetch("/api/convert", { method: "POST", body: formData });
+        const body = (await response.json().catch(() => ({}))) as { markdown?: string; error?: string; warnings?: string[] };
+        if (!response.ok || !body.markdown) throw new Error(body.error || "Clipboard image import failed");
+        const selection = view.state.selection.main;
+        const currentText = view.state.doc.toString();
+        const insert = `${selection.from > 0 ? "\n\n" : ""}${body.markdown}\n`;
+        const nextText = `${currentText.slice(0, selection.from)}${insert}${currentText.slice(selection.to)}`;
+        const cursor = selection.from + insert.length;
+        await applyEditorText(nextText, { anchor: cursor });
+        for (const warning of body.warnings ?? []) notify(warning, "info");
+        notify("Clipboard image converted into Markdown note text", "success");
+      } catch (error) {
+        notify(error instanceof Error ? error.message : "Clipboard image import failed", "error");
+      } finally {
+        setPastingImage(false);
+      }
+    },
+    [applyEditorText, notify]
+  );
+
+  const editorExtensions = useMemo(() => {
+    const extensions = [
+      markdown(),
+      EditorView.lineWrapping,
+      EditorView.domEventHandlers({
+        paste: (event, view) => {
+          const items = Array.from(event.clipboardData?.items ?? []);
+          const imageItem = items.find((item) => item.type.startsWith("image/"));
+          if (!imageItem) return false;
+          const file = imageItem.getAsFile();
+          if (!file || !activeNote) return false;
+          event.preventDefault();
+          void pasteClipboardImage(file, view);
+          return true;
+        }
+      })
+    ];
+    if (!editorHighlight?.excerpt.trim()) return extensions;
+    return [...extensions, createSourceHighlightExtension(editorHighlight.excerpt)];
+  }, [activeNote, editorHighlight, pasteClipboardImage]);
+
+  async function replaceSelectionWith(text: string) {
+    if (!editorView || !activeNote) return;
+    const selection = editorView.state.selection.main;
+    const currentText = editorView.state.doc.toString();
+    const nextText = `${currentText.slice(0, selection.from)}${text}${currentText.slice(selection.to)}`;
+    const cursor = selection.from + text.length;
+    await applyEditorText(nextText, { anchor: cursor });
+  }
+
+  async function wrapSelection(prefix: string, suffix = "") {
+    if (!editorView || !activeNote) return;
+    const selection = editorView.state.selection.main;
+    const currentText = editorView.state.doc.toString();
+    const selected = currentText.slice(selection.from, selection.to);
+    const insert = `${prefix}${selected}${suffix}`;
+    const nextText = `${currentText.slice(0, selection.from)}${insert}${currentText.slice(selection.to)}`;
+    const start = selection.from + prefix.length;
+    const end = start + selected.length;
+    await applyEditorText(nextText, { anchor: start, head: end });
+  }
+
+  async function insertHeading() {
+    await wrapSelection("## ", "");
+  }
+
+  async function insertListItem() {
+    if (!editorView || !activeNote) return;
+    const selection = editorView.state.selection.main;
+    const currentText = editorView.state.doc.toString();
+    const line = editorView.state.doc.lineAt(selection.from);
+    const prefix = line.from === selection.from ? "- " : "\n- ";
+    await replaceSelectionWith(prefix);
+  }
+
+  async function insertQuote() {
+    if (!editorView || !activeNote) return;
+    const selection = editorView.state.selection.main;
+    const currentText = editorView.state.doc.toString();
+    const selected = currentText.slice(selection.from, selection.to) || "Quoted source";
+    const quoted = selected
+      .split("\n")
+      .map((line) => `> ${line}`)
+      .join("\n");
+    await replaceSelectionWith(quoted);
+  }
+
+  async function insertCodeBlock() {
+    if (!editorView || !activeNote) return;
+    const selection = editorView.state.selection.main;
+    const currentText = editorView.state.doc.toString();
+    const selected = currentText.slice(selection.from, selection.to);
+    const block = `\`\`\`text\n${selected}\n\`\`\``;
+    await replaceSelectionWith(block);
+  }
+
+  async function formatActiveMarkdown() {
+    if (!activeNote) return;
+    setFormatting(true);
+    try {
+      const response = await fetch("/api/format", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ markdown: activeNote.markdownContent })
+      });
+      const body = (await response.json().catch(() => ({}))) as { markdown?: string; error?: string; mode?: string };
+      if (!response.ok || !body.markdown) throw new Error(body.error || "Unable to format Markdown");
+      await applyEditorText(body.markdown);
+      notify(body.mode === "ai" ? "Markdown formatted with AI cleanup" : "Markdown formatted", "success");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Unable to format Markdown", "error");
+    } finally {
+      setFormatting(false);
+    }
+  }
+
+  async function insertTable(rows: number, columns: number) {
+    await replaceSelectionWith(buildMarkdownTable(rows, columns));
+  }
+
+  async function addTableRow() {
+    if (!editorView || !currentTableContext) return;
+    const next = insertTableRow(editorView.state.doc.toString(), currentTableContext);
+    await applyEditorText(next.text, { anchor: next.selection });
+  }
+
+  async function removeTableRow() {
+    if (!editorView || !currentTableContext) return;
+    const next = deleteTableRow(editorView.state.doc.toString(), currentTableContext);
+    if (!next) return notify("Table needs at least one body row", "info");
+    await applyEditorText(next.text, { anchor: next.selection });
+  }
+
+  async function addTableColumn() {
+    if (!editorView || !currentTableContext) return;
+    const next = insertTableColumn(editorView.state.doc.toString(), currentTableContext);
+    await applyEditorText(next.text, { anchor: next.selection });
+  }
+
+  async function removeTableColumn() {
+    if (!editorView || !currentTableContext) return;
+    const next = deleteTableColumn(editorView.state.doc.toString(), currentTableContext);
+    if (!next) return notify("Table needs at least one column", "info");
+    await applyEditorText(next.text, { anchor: next.selection });
   }
 
   async function importDocument(markdown: string, fileName: string, options: { importMode: "single" | "split"; title?: string }) {
@@ -910,7 +1089,18 @@ export function Workspace() {
               <NoteViewTabs
                 value={noteView}
                 onChange={setNoteView}
-                onInsertSnippet={(snippet) => updateNote(activeNote.id, { markdownContent: `${activeNote.markdownContent}${snippet}` })}
+                onInsertHeading={() => void insertHeading()}
+                onInsertList={() => void insertListItem()}
+                onInsertQuote={() => void insertQuote()}
+                onInsertCode={() => void insertCodeBlock()}
+                onInsertTable={() => setTableDialog({ rows: 3, columns: 3 })}
+                onAddTableRow={currentTableContext ? () => void addTableRow() : undefined}
+                onDeleteTableRow={currentTableContext ? () => void removeTableRow() : undefined}
+                onAddTableColumn={currentTableContext ? () => void addTableColumn() : undefined}
+                onDeleteTableColumn={currentTableContext ? () => void removeTableColumn() : undefined}
+                onFormat={activeNote ? () => void formatActiveMarkdown() : undefined}
+                formatting={formatting}
+                pastingImage={pastingImage}
               />
               <div className={`h-full min-h-0 min-w-0 overflow-hidden ${noteView === "split" ? "grid grid-cols-2" : "grid grid-cols-1"}`}>
                 {(noteView === "write" || noteView === "split") ? (
@@ -919,6 +1109,7 @@ export function Workspace() {
                     className="h-full"
                     height="100%"
                     onCreateEditor={setEditorView}
+                    onUpdate={(update) => setEditorCursor(update.state.selection.main.head)}
                     value={activeNote.markdownContent}
                     extensions={editorExtensions}
                     theme="dark"
@@ -1023,6 +1214,15 @@ export function Workspace() {
       <ConfirmModal
         confirmState={confirmState}
         onClose={() => setConfirmState(null)}
+      />
+      <TableInsertModal
+        key={tableDialog ? `${tableDialog.rows}:${tableDialog.columns}` : "table-dialog"}
+        state={tableDialog}
+        onClose={() => setTableDialog(null)}
+        onSubmit={async (rows, columns) => {
+          await insertTable(rows, columns);
+          setTableDialog(null);
+        }}
       />
       <VaultContextMenu
         menu={vaultMenu}
@@ -1188,11 +1388,33 @@ function EditorNoteTabs({
 function NoteViewTabs({
   value,
   onChange,
-  onInsertSnippet
+  onInsertHeading,
+  onInsertList,
+  onInsertQuote,
+  onInsertCode,
+  onInsertTable,
+  onAddTableRow,
+  onDeleteTableRow,
+  onAddTableColumn,
+  onDeleteTableColumn,
+  onFormat,
+  formatting,
+  pastingImage
 }: {
   value: NoteView;
   onChange: (value: NoteView) => void;
-  onInsertSnippet: (snippet: string) => void;
+  onInsertHeading: () => void;
+  onInsertList: () => void;
+  onInsertQuote: () => void;
+  onInsertCode: () => void;
+  onInsertTable: () => void;
+  onAddTableRow?: () => void;
+  onDeleteTableRow?: () => void;
+  onAddTableColumn?: () => void;
+  onDeleteTableColumn?: () => void;
+  onFormat?: () => void;
+  formatting: boolean;
+  pastingImage: boolean;
 }) {
   const tabs: Array<{ id: NoteView; label: string }> = [
     { id: "write", label: "Write" },
@@ -1218,18 +1440,50 @@ function NoteViewTabs({
         ))}
       </div>
       <div className="hidden min-w-max items-center gap-1 pb-1.5 lg:flex">
-        <button onClick={() => onInsertSnippet("\n\n## Heading\n\n")} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+        <button onClick={onInsertHeading} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
           H2
         </button>
-        <button onClick={() => onInsertSnippet("\n\n- ")} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+        <button onClick={onInsertList} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
           List
         </button>
-        <button onClick={() => onInsertSnippet("\n\n> Source quote\n\n")} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+        <button onClick={onInsertQuote} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
           Quote
         </button>
-        <button onClick={() => onInsertSnippet("\n\n```text\n\n```\n")} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+        <button onClick={onInsertCode} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
           Code
         </button>
+        <button onClick={onInsertTable} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+          <Table2 className="h-3.5 w-3.5" />
+          Table
+        </button>
+        {onAddTableRow ? (
+          <button onClick={onAddTableRow} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+            <Rows3 className="h-3.5 w-3.5" />
+            Row +
+          </button>
+        ) : null}
+        {onDeleteTableRow ? (
+          <button onClick={onDeleteTableRow} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+            Row -
+          </button>
+        ) : null}
+        {onAddTableColumn ? (
+          <button onClick={onAddTableColumn} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+            Col +
+          </button>
+        ) : null}
+        {onDeleteTableColumn ? (
+          <button onClick={onDeleteTableColumn} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+            Col -
+          </button>
+        ) : null}
+        {onFormat ? (
+          <button onClick={onFormat} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+            {formatting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+            Format
+          </button>
+        ) : null}
+        {pastingImage ? <span className="text-xs font-medium text-accent-300">Importing pasted image...</span> : null}
       </div>
     </div>
   );
@@ -2624,6 +2878,75 @@ function ConfirmModal({
   );
 }
 
+function TableInsertModal({
+  state,
+  onClose,
+  onSubmit
+}: {
+  state: TableDialogState;
+  onClose: () => void;
+  onSubmit: (rows: number, columns: number) => Promise<void> | void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [rows, setRows] = useState(state?.rows ?? 3);
+  const [columns, setColumns] = useState(state?.columns ?? 3);
+
+  if (!state) return null;
+
+  async function handleSubmit() {
+    setBusy(true);
+    try {
+      await onSubmit(Math.max(1, rows), Math.max(1, columns));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-md rounded-2xl border border-ink-700 bg-ink-900 shadow-panel">
+        <div className="border-b border-ink-700/80 px-5 py-4">
+          <div className="text-lg font-semibold text-ink-100">Insert table</div>
+          <div className="mt-1 text-sm text-ink-500">Choose the starting size. You can add or remove rows and columns later from the editor toolbar.</div>
+        </div>
+        <div className="grid gap-4 px-5 py-4 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-ink-500">Rows</span>
+            <input
+              autoFocus
+              type="number"
+              min={1}
+              max={12}
+              value={rows}
+              onChange={(event) => setRows(Number(event.target.value) || 1)}
+              className="control-soft w-full rounded-lg px-3 py-2.5 text-sm text-ink-100 outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-ink-500">Columns</span>
+            <input
+              type="number"
+              min={1}
+              max={8}
+              value={columns}
+              onChange={(event) => setColumns(Number(event.target.value) || 1)}
+              className="control-soft w-full rounded-lg px-3 py-2.5 text-sm text-ink-100 outline-none"
+            />
+          </label>
+        </div>
+        <div className="flex items-center justify-end gap-3 border-t border-ink-700/80 px-5 py-4">
+          <button onClick={onClose} disabled={busy} className="rounded-lg border border-ink-700/80 px-4 py-2 text-sm font-medium text-ink-300 hover:bg-ink-800 disabled:opacity-60">
+            Cancel
+          </button>
+          <button onClick={() => void handleSubmit()} disabled={busy} className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-400 disabled:opacity-60">
+            {busy ? "Inserting..." : "Insert table"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function EmptyToolState({ message }: { message: string }) {
   return <div className="surface-soft rounded-xl px-3 py-4 text-sm leading-6 text-ink-400">{message}</div>;
 }
@@ -2836,6 +3159,135 @@ function scopeLabel(scope: Scope) {
   if (scope.type === "note") return "Note";
   if (scope.type === "folder") return "Folder";
   return "All";
+}
+
+type TableContext = {
+  start: number;
+  end: number;
+  lines: string[];
+  rowIndex: number;
+  columnIndex: number;
+};
+
+function buildMarkdownTable(rows: number, columns: number) {
+  const safeRows = Math.max(1, rows);
+  const safeColumns = Math.max(1, columns);
+  const header = `| ${Array.from({ length: safeColumns }, (_, index) => `Column ${index + 1}`).join(" | ")} |`;
+  const separator = `| ${Array.from({ length: safeColumns }, () => "---").join(" | ")} |`;
+  const body = Array.from({ length: safeRows }, () => `| ${Array.from({ length: safeColumns }, () => " ").join(" | ")} |`).join("\n");
+  return `${header}\n${separator}\n${body}`;
+}
+
+function getTableContext(text: string, cursor: number): TableContext | null {
+  const lines = text.split("\n");
+  let offset = 0;
+  let lineIndex = 0;
+  for (; lineIndex < lines.length; lineIndex += 1) {
+    const nextOffset = offset + lines[lineIndex].length;
+    if (cursor <= nextOffset || lineIndex === lines.length - 1) break;
+    offset = nextOffset + 1;
+  }
+
+  if (!looksLikeTableRow(lines[lineIndex])) return null;
+  let startLine = lineIndex;
+  while (startLine > 0 && looksLikeTableRow(lines[startLine - 1])) startLine -= 1;
+  let endLine = lineIndex;
+  while (endLine < lines.length - 1 && looksLikeTableRow(lines[endLine + 1])) endLine += 1;
+  const tableLines = lines.slice(startLine, endLine + 1);
+  if (tableLines.length < 2 || !isSeparatorRow(tableLines[1])) return null;
+
+  const rowStartOffset = lines.slice(0, lineIndex).join("\n").length + (lineIndex > 0 ? 1 : 0);
+  const columnIndex = tableColumnIndex(lines[lineIndex], Math.max(0, cursor - rowStartOffset));
+  return {
+    start: lines.slice(0, startLine).join("\n").length + (startLine > 0 ? 1 : 0),
+    end: lines.slice(0, endLine + 1).join("\n").length,
+    lines: tableLines,
+    rowIndex: lineIndex - startLine,
+    columnIndex
+  };
+}
+
+function insertTableRow(text: string, context: TableContext) {
+  const lines = [...context.lines];
+  const columnCount = parseTableRow(lines[0]).length;
+  const insertAt = Math.max(2, context.rowIndex + 1);
+  lines.splice(insertAt, 0, serializeTableRow(Array.from({ length: columnCount }, () => " ")));
+  return replaceTableBlock(text, context, lines, insertAt);
+}
+
+function deleteTableRow(text: string, context: TableContext) {
+  if (context.lines.length <= 3) return null;
+  const lines = [...context.lines];
+  const target = Math.max(2, context.rowIndex);
+  lines.splice(target, 1);
+  return replaceTableBlock(text, context, lines, Math.max(2, target - 1));
+}
+
+function insertTableColumn(text: string, context: TableContext) {
+  const insertAt = context.columnIndex + 1;
+  const lines = context.lines.map((line, index) => {
+    const cells = parseTableRow(line);
+    cells.splice(insertAt, 0, index === 1 ? "---" : index === 0 ? `Column ${insertAt + 1}` : " ");
+    return serializeTableRow(cells);
+  });
+  return replaceTableBlock(text, context, lines, context.rowIndex, insertAt);
+}
+
+function deleteTableColumn(text: string, context: TableContext) {
+  const columnCount = parseTableRow(context.lines[0]).length;
+  if (columnCount <= 1) return null;
+  const removeAt = Math.min(context.columnIndex, columnCount - 1);
+  const lines = context.lines.map((line) => {
+    const cells = parseTableRow(line);
+    cells.splice(removeAt, 1);
+    return serializeTableRow(cells);
+  });
+  return replaceTableBlock(text, context, lines, context.rowIndex, Math.max(0, removeAt - 1));
+}
+
+function replaceTableBlock(text: string, context: TableContext, lines: string[], rowIndex: number, columnIndex = 0) {
+  const nextBlock = lines.join("\n");
+  const nextText = `${text.slice(0, context.start)}${nextBlock}${text.slice(context.end)}`;
+  const selection = tableCellAnchor(lines, rowIndex, columnIndex);
+  return { text: nextText, selection: context.start + selection };
+}
+
+function tableCellAnchor(lines: string[], rowIndex: number, columnIndex: number) {
+  const safeRowIndex = Math.max(0, Math.min(lines.length - 1, rowIndex));
+  const prefix = lines.slice(0, safeRowIndex).join("\n");
+  const row = lines[safeRowIndex];
+  const cellMatches = Array.from(row.matchAll(/\|/g));
+  const cellStart = cellMatches[Math.min(columnIndex, Math.max(0, cellMatches.length - 2))]?.index ?? 0;
+  return prefix.length + (safeRowIndex > 0 ? 1 : 0) + cellStart + 2;
+}
+
+function parseTableRow(line: string) {
+  return line
+    .trim()
+    .replace(/^\|/, "")
+    .replace(/\|$/, "")
+    .split("|")
+    .map((cell) => cell.trim());
+}
+
+function serializeTableRow(cells: string[]) {
+  return `| ${cells.map((cell) => cell || " ").join(" | ")} |`;
+}
+
+function looksLikeTableRow(line: string) {
+  return line.includes("|") && parseTableRow(line).length > 1;
+}
+
+function isSeparatorRow(line: string) {
+  return parseTableRow(line).every((cell) => /^:?-{3,}:?$/.test(cell));
+}
+
+function tableColumnIndex(line: string, columnOffset: number) {
+  const bars = Array.from(line.matchAll(/\|/g)).map((match) => match.index ?? 0);
+  for (let index = 0; index < bars.length - 1; index += 1) {
+    if (columnOffset <= bars[index + 1]) return index;
+  }
+  return Math.max(0, bars.length - 2);
 }
 
 function scopeDisplayLabel(scope: Scope, activeNote: Note | null, folders: FolderType[], notes: Note[]) {
