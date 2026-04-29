@@ -110,6 +110,7 @@ export function Workspace() {
   const [draftTitle, setDraftTitle] = useState("");
   const [openNoteIds, setOpenNoteIds] = useState<string[]>([]);
   const [pinnedNoteIds, setPinnedNoteIds] = useState<string[]>(() => readStoredJson("studyos:pinnedNotes", []));
+  const [vaultRootId, setVaultRootId] = useState<string>(() => readStoredJson("studyos:vaultRootId", "__all__"));
   const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
   const [toast, setToast] = useState<Toast | null>(null);
   const [vaultMenu, setVaultMenu] = useState<VaultMenu>(null);
@@ -182,6 +183,10 @@ export function Workspace() {
   }, [pinnedNoteIds]);
 
   useEffect(() => {
+    window.localStorage.setItem("studyos:vaultRootId", JSON.stringify(vaultRootId));
+  }, [vaultRootId]);
+
+  useEffect(() => {
     window.localStorage.setItem("studyos:railPinned", JSON.stringify(railPinned));
   }, [railPinned]);
 
@@ -228,6 +233,12 @@ export function Workspace() {
     () => pinnedNoteIds.map((id) => data?.notes.find((note) => note.id === id)).filter((note): note is Note => Boolean(note)),
     [data?.notes, pinnedNoteIds]
   );
+  const topLevelFolders = useMemo(() => (data?.folders ?? []).filter((folder) => !folder.parentId), [data?.folders]);
+  const vaultRootFolder = useMemo(() => {
+    if (!data) return null;
+    if (vaultRootId === "__all__") return null;
+    return data.folders.find((folder) => folder.id === vaultRootId) ?? null;
+  }, [data, vaultRootId]);
   const recentNotes = useMemo(
     () => (data?.notes ?? []).filter((note) => !pinnedNoteIds.includes(note.id)).slice(0, 5),
     [data?.notes, pinnedNoteIds]
@@ -977,9 +988,26 @@ export function Workspace() {
           <div className="flex h-16 items-center justify-between border-b border-ink-700/80 px-4">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-300/75">Vault</div>
-              <div className="mt-0.5 flex items-center gap-2 text-sm font-semibold text-ink-100">
+              <div className="mt-1 flex items-center gap-2">
                 <BookOpen className="h-4 w-4 text-accent-400" />
-                Study Graph
+                <select
+                  aria-label="Vault root"
+                  value={vaultRootId}
+                  onChange={(event) => {
+                    const next = event.target.value;
+                    setVaultRootId(next);
+                    setCollapsedFolders({});
+                    setLeftOpen(true);
+                  }}
+                  className="control-soft h-9 w-[210px] rounded-lg px-2 text-sm font-semibold text-ink-100 outline-none"
+                >
+                  <option value="__all__">All notes</option>
+                  {topLevelFolders.map((folder) => (
+                    <option key={folder.id} value={folder.id}>
+                      {folder.name}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
             <div className="flex gap-1.5">
@@ -993,121 +1021,142 @@ export function Workspace() {
           </div>
 
           <div className="h-[calc(100%-64px)] overflow-auto px-3 py-4">
-            <button
-              onClick={() => setScope({ type: "all" })}
-              className={`group mb-4 flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm ${
-                scope.type === "all"
-                  ? "border border-accent-500/30 bg-accent-500/10 text-accent-300 shadow-glow"
-                  : "control-soft text-ink-300"
-              }`}
-            >
-              <span className="flex items-center gap-2">
-                <Layers3 className="h-4 w-4" />
-                All notes
-              </span>
-              <span className="rounded-full bg-white/6 px-2 py-0.5 text-xs text-ink-300">{data.notes.length}</span>
-            </button>
+            {vaultRootFolder ? (
+              <>
+                <button
+                  onClick={() => {
+                    setVaultRootId("__all__");
+                    setScope({ type: "all" });
+                  }}
+                  className="control-soft mb-4 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-ink-300 hover:text-ink-100"
+                >
+                  <Layers3 className="h-4 w-4" />
+                  Back to all notes
+                </button>
 
-            {pinnedNotes.length ? (
-              <div className="mb-5">
-                <SectionLabel label="Pinned" />
-                <div className="space-y-1">
-                  {pinnedNotes.map((note) => (
-                    <NoteRow
-                      key={note.id}
-                      note={note}
-                      active={activeNoteId === note.id}
-                      pinned
-                      onClick={() => selectNote(note.id)}
-                      onTogglePin={() => togglePinNote(note)}
-                      onRename={() => renameNoteById(note)}
-                      onDelete={() => requestDeleteNote(note)}
-                      onMove={() => chooseFolderForNote(note)}
-                      onReindex={() => reindexScope({ noteId: note.id }, note.title)}
-                      onDragStart={() => setDragItem({ kind: "note", id: note.id })}
-                      onMenu={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        setVaultMenu({ kind: "note", id: note.id, x: event.clientX, y: event.clientY });
-                      }}
-                    />
-                  ))}
+                <div className="space-y-1.5">{renderFolderNode(vaultRootFolder)}</div>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => setScope({ type: "all" })}
+                  className={`group mb-4 flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm ${
+                    scope.type === "all"
+                      ? "border border-accent-500/30 bg-accent-500/10 text-accent-300 shadow-glow"
+                      : "control-soft text-ink-300"
+                  }`}
+                >
+                  <span className="flex items-center gap-2">
+                    <Layers3 className="h-4 w-4" />
+                    All notes
+                  </span>
+                  <span className="rounded-full bg-white/6 px-2 py-0.5 text-xs text-ink-300">{data.notes.length}</span>
+                </button>
+
+                {pinnedNotes.length ? (
+                  <div className="mb-5">
+                    <SectionLabel label="Pinned" />
+                    <div className="space-y-1">
+                      {pinnedNotes.map((note) => (
+                        <NoteRow
+                          key={note.id}
+                          note={note}
+                          active={activeNoteId === note.id}
+                          pinned
+                          onClick={() => selectNote(note.id)}
+                          onTogglePin={() => togglePinNote(note)}
+                          onRename={() => renameNoteById(note)}
+                          onDelete={() => requestDeleteNote(note)}
+                          onMove={() => chooseFolderForNote(note)}
+                          onReindex={() => reindexScope({ noteId: note.id }, note.title)}
+                          onDragStart={() => setDragItem({ kind: "note", id: note.id })}
+                          onMenu={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setVaultMenu({ kind: "note", id: note.id, x: event.clientX, y: event.clientY });
+                          }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {recentNotes.length ? (
+                  <div className="mb-5">
+                    <SectionLabel label="Recent" />
+                    <div className="space-y-1">
+                      {recentNotes.slice(0, 3).map((note) => (
+                        <button
+                          key={note.id}
+                          onClick={() => selectNote(note.id)}
+                          className={`flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs ${
+                            activeNoteId === note.id
+                              ? "bg-accent-500/10 text-accent-200"
+                              : "text-ink-500 hover:bg-white/[0.04] hover:text-ink-200"
+                          }`}
+                        >
+                          <Clock3 className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{note.title}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                <div
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    void handleDropOnRoot();
+                  }}
+                >
+                  <SectionLabel label="Classes" />
                 </div>
-              </div>
-            ) : null}
-
-            {recentNotes.length ? (
-              <div className="mb-5">
-                <SectionLabel label="Recent" />
-                <div className="space-y-1">
-                  {recentNotes.slice(0, 3).map((note) => (
-                    <button
-                      key={note.id}
-                      onClick={() => selectNote(note.id)}
-                      className={`flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs ${
-                        activeNoteId === note.id ? "bg-accent-500/10 text-accent-200" : "text-ink-500 hover:bg-white/[0.04] hover:text-ink-200"
-                      }`}
-                    >
-                      <Clock3 className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{note.title}</span>
-                    </button>
-                  ))}
+                <div className="space-y-1.5">
+                  {rootFolders.map((folder) => renderFolderNode(folder))}
+                  {rootFolders.length === 0 ? (
+                    <EmptyState action="Create folder" onAction={() => createFolder()}>
+                      Group notes by class, exam, or topic.
+                    </EmptyState>
+                  ) : null}
                 </div>
-              </div>
-            ) : null}
 
-            <div
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={(event) => {
-                event.preventDefault();
-                void handleDropOnRoot();
-              }}
-            >
-              <SectionLabel label="Classes" />
-            </div>
-            <div className="space-y-1.5">
-              {rootFolders.map((folder) => renderFolderNode(folder))}
-              {rootFolders.length === 0 ? (
-                <EmptyState action="Create folder" onAction={() => createFolder()}>
-                  Group notes by class, exam, or topic.
-                </EmptyState>
-              ) : null}
-            </div>
-
-            <div
-              className="mt-5"
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={(event) => {
-                event.preventDefault();
-                void handleDropOnRoot();
-              }}
-            >
-              <SectionLabel label="Unfiled notes" />
-              <div className="space-y-1">
-                {data.notes
-                  .filter((note) => !note.folderId)
-                  .map((note) => (
-                    <NoteRow
-                      key={note.id}
-                      note={note}
-                      active={activeNoteId === note.id}
-                      pinned={pinnedNoteIds.includes(note.id)}
-                      onClick={() => selectNote(note.id)}
-                      onTogglePin={() => togglePinNote(note)}
-                      onRename={() => renameNoteById(note)}
-                      onDelete={() => requestDeleteNote(note)}
-                      onMove={() => chooseFolderForNote(note)}
-                      onReindex={() => reindexScope({ noteId: note.id }, note.title)}
-                      onDragStart={() => setDragItem({ kind: "note", id: note.id })}
-                      onMenu={(event) => {
-                        event.preventDefault();
-                        event.stopPropagation();
-                        setVaultMenu({ kind: "note", id: note.id, x: event.clientX, y: event.clientY });
-                      }}
-                    />
-                  ))}
-              </div>
-            </div>
+                <div
+                  className="mt-5"
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => {
+                    event.preventDefault();
+                    void handleDropOnRoot();
+                  }}
+                >
+                  <SectionLabel label="Unfiled notes" />
+                  <div className="space-y-1">
+                    {data.notes
+                      .filter((note) => !note.folderId)
+                      .map((note) => (
+                        <NoteRow
+                          key={note.id}
+                          note={note}
+                          active={activeNoteId === note.id}
+                          pinned={pinnedNoteIds.includes(note.id)}
+                          onClick={() => selectNote(note.id)}
+                          onTogglePin={() => togglePinNote(note)}
+                          onRename={() => renameNoteById(note)}
+                          onDelete={() => requestDeleteNote(note)}
+                          onMove={() => chooseFolderForNote(note)}
+                          onReindex={() => reindexScope({ noteId: note.id }, note.title)}
+                          onDragStart={() => setDragItem({ kind: "note", id: note.id })}
+                          onMenu={(event) => {
+                            event.preventDefault();
+                            event.stopPropagation();
+                            setVaultMenu({ kind: "note", id: note.id, x: event.clientX, y: event.clientY });
+                          }}
+                        />
+                      ))}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
           <ResizeHandle side="left" onPointerDown={(event) => resizePanel("left", event)} />
         </aside>
