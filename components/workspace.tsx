@@ -465,6 +465,22 @@ export function Workspace() {
           view.dispatch({ selection: { anchor: from, head: to } });
           return true;
         },
+        keydown: (event, view) => {
+          // If an image token is selected, ignore normal typing so we don't insert characters before `![...]`.
+          const sel = view.state.selection.main;
+          if (sel.from === sel.to) return false;
+          const selected = view.state.sliceDoc(sel.from, sel.to).trim();
+          const isImageToken = /^!\[[^\]]*\]\([^)]+\)\.?$/.test(selected);
+          if (!isImageToken) return false;
+
+          const key = event.key;
+          const typingChar = key.length === 1 && !event.ctrlKey && !event.metaKey && !event.altKey;
+          if (typingChar) {
+            event.preventDefault();
+            return true;
+          }
+          return false;
+        },
         paste: (event, view) => {
           const items = Array.from(event.clipboardData?.items ?? []);
           const imageItem = items.find((item) => item.type.startsWith("image/"));
