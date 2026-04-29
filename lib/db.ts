@@ -6,14 +6,22 @@ let sql: SqlJsStatic | null = null;
 let db: Database | null = null;
 let dbPath = "";
 
+function appRoot() {
+  return process.env.APP_DIR?.trim() || process.cwd();
+}
+
+function dataDir() {
+  return process.env.DATA_DIR?.trim() || path.join(appRoot(), "data");
+}
+
 export async function getDb() {
   if (db) return db;
 
-  const dataDir = path.join(process.cwd(), "data");
-  fs.mkdirSync(dataDir, { recursive: true });
-  dbPath = path.join(dataDir, "study.db");
+  const dir = dataDir();
+  fs.mkdirSync(dir, { recursive: true });
+  dbPath = path.join(dir, "study.db");
   sql = await initSqlJs({
-    locateFile: (file) => path.join(process.cwd(), "node_modules", "sql.js", "dist", file)
+    locateFile: (file) => path.join(appRoot(), "node_modules", "sql.js", "dist", file)
   });
   db = fs.existsSync(dbPath) ? new sql.Database(fs.readFileSync(dbPath)) : new sql.Database();
   migrate(db);
@@ -261,6 +269,49 @@ function migrate(database: Database) {
     );
 
     create index if not exists idx_study_activity_user_created on study_activity(user_id, created_at desc);
+
+    create table if not exists tags (
+      id text primary key,
+      user_id text not null references users(id) on delete cascade,
+      name text not null,
+      color text not null default '#8B5CF6',
+      created_at text not null,
+      updated_at text not null,
+      unique(user_id, name)
+    );
+
+    create index if not exists idx_tags_user on tags(user_id);
+
+    create table if not exists note_tags (
+      note_id text not null references notes(id) on delete cascade,
+      tag_id text not null references tags(id) on delete cascade,
+      created_at text not null,
+      primary key(note_id, tag_id)
+    );
+
+    create index if not exists idx_note_tags_note on note_tags(note_id);
+    create index if not exists idx_note_tags_tag on note_tags(tag_id);
+
+    create table if not exists images (
+      id text primary key,
+      user_id text not null references users(id) on delete cascade,
+      filename text not null,
+      content_type text not null,
+      created_at text not null
+    );
+
+    create index if not exists idx_images_user on images(user_id);
+
+    create table if not exists password_reset_tokens (
+      id text primary key,
+      user_id text not null references users(id) on delete cascade,
+      token_hash text not null unique,
+      expires_at text not null,
+      consumed_at text,
+      created_at text not null
+    );
+
+    create index if not exists idx_password_reset_user on password_reset_tokens(user_id);
   `);
 
   ensureColumn(database, "users", "password_hash", "text");
@@ -269,6 +320,11 @@ function migrate(database: Database) {
   ensureColumn(database, "users", "disabled_at", "text");
   ensureColumn(database, "provider_settings", "hosted_plan", "text default 'free'");
   ensureColumn(database, "subscriptions", "hosted_access_granted_at", "text");
+  ensureColumn(database, "flashcards", "next_review_at", "text");
+  ensureColumn(database, "flashcards", "interval_days", "real default 1");
+  ensureColumn(database, "flashcards", "ease_factor", "real default 2.5");
+  ensureColumn(database, "flashcards", "review_count", "integer default 0");
+  ensureColumn(database, "flashcards", "last_reviewed_at", "text");
 }
 
 function ensureColumn(database: Database, table: string, column: string, type: string) {

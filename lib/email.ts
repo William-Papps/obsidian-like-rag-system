@@ -67,6 +67,49 @@ export async function sendVerificationEmail(input: {
   throw new Error("Email delivery is not configured. Set RESEND_API_KEY and EMAIL_FROM, or enable EMAIL_VERIFICATION_DEV_MODE for local testing.");
 }
 
+export async function sendPasswordResetEmail(input: { email: string; name: string; resetUrl: string }) {
+  const subject = "Reset your EternalNotes password";
+  const text = [
+    `Hi ${input.name || "there"},`,
+    "",
+    `Click the link below to reset your EternalNotes password. The link expires in 30 minutes.`,
+    "",
+    input.resetUrl,
+    "",
+    `If you did not request this, you can ignore this email.`
+  ].join("\n");
+
+  const html = `
+    <div style="font-family: Inter, Arial, sans-serif; background:#0e1116; color:#f4f7fb; padding:24px;">
+      <div style="max-width:560px; margin:0 auto; border:1px solid #2a3342; background:#141922; border-radius:16px; padding:24px;">
+        <div style="font-size:12px; letter-spacing:0.14em; text-transform:uppercase; color:#a78bfa; font-weight:700;">EternalNotes</div>
+        <h1 style="margin:12px 0 8px; font-size:24px; line-height:1.2;">Reset your password</h1>
+        <p style="margin:0 0 20px; color:#aab4c3; line-height:1.6;">Click the button below to reset your password. This link expires in 30 minutes.</p>
+        <a href="${input.resetUrl}" style="display:inline-block; background:#8B5CF6; color:#fff; font-weight:700; padding:12px 24px; border-radius:10px; text-decoration:none; font-size:15px;">Reset password</a>
+        <p style="margin:20px 0 0; color:#748094; font-size:13px;">Or copy this link: ${input.resetUrl}</p>
+        <p style="margin:12px 0 0; color:#748094; line-height:1.6;">If you did not request this, you can safely ignore this email.</p>
+      </div>
+    </div>
+  `;
+
+  const resendKey = process.env.RESEND_API_KEY?.trim();
+  const emailFrom = process.env.EMAIL_FROM?.trim();
+  if (resendKey && emailFrom) {
+    const response = await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${resendKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: emailFrom, to: input.email, reply_to: process.env.EMAIL_REPLY_TO?.trim() || undefined, subject, text, html })
+    });
+    if (!response.ok) throw new Error(`Password reset email failed: ${await response.text()}`);
+    return { debugUrl: null as string | null };
+  }
+
+  const devMode = (process.env.EMAIL_VERIFICATION_DEV_MODE ?? (process.env.NODE_ENV !== "production" ? "true" : "false")).toLowerCase() === "true";
+  if (devMode) return { debugUrl: input.resetUrl };
+
+  throw new Error("Email delivery is not configured. Set RESEND_API_KEY and EMAIL_FROM to send password reset emails.");
+}
+
 export function verificationTtlMinutes() {
   return VERIFICATION_TTL_MINUTES;
 }

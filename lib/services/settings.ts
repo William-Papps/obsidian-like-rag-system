@@ -8,7 +8,8 @@ import type { HostedPlan, ProviderSettings } from "@/lib/types";
 import { id, maskApiKey, now, toCamelRecord } from "@/lib/utils";
 
 function secretPath(userId: string) {
-  const dir = path.join(process.cwd(), "data", "secrets");
+  const base = process.env.DATA_DIR?.trim() || path.join(process.env.APP_DIR?.trim() || process.cwd(), "data");
+  const dir = path.join(base, "secrets");
   fs.mkdirSync(dir, { recursive: true });
   return path.join(dir, `${userId}-openai.key`);
 }
@@ -60,6 +61,7 @@ async function publicSettings(row: Record<string, unknown>) {
   const hostedPlan = normalizeHostedPlan(settings.hostedPlan);
   return {
     ...settings,
+    projectId: normalizeProjectId(settings.projectId),
     hostedPlan,
     hostedKeyAvailable: await hostedAiAvailable(),
     usage: [] as ProviderSettings["usage"]
@@ -77,7 +79,7 @@ export function readHostedApiKey() {
 }
 
 export function hostedProjectId() {
-  return process.env.HOSTED_OPENAI_PROJECT_ID?.trim() || process.env.OPENAI_PROJECT_ID?.trim() || null;
+  return normalizeProjectId(process.env.HOSTED_OPENAI_PROJECT_ID?.trim() || process.env.OPENAI_PROJECT_ID?.trim() || null);
 }
 
 export async function hostedAiAvailable() {
@@ -116,7 +118,7 @@ export async function saveProviderSettings(
     [
       localSecretRef,
       maskedKey,
-      input.projectId?.trim() || null,
+      normalizeProjectId(input.projectId?.trim() || null),
       input.embeddingModel,
       input.answerModel,
       input.visionModel?.trim() || null,
@@ -144,4 +146,10 @@ export async function setHostedPlan(userId: string, hostedPlan: HostedPlan) {
 
 function normalizeHostedPlan(plan: HostedPlan | string | undefined | null): HostedPlan {
   return plan === "starter" || plan === "pro" ? plan : "free";
+}
+
+function normalizeProjectId(projectId: string | null | undefined) {
+  const trimmed = projectId?.trim();
+  if (!trimmed) return null;
+  return /^proj_[A-Za-z0-9_-]+$/.test(trimmed) ? trimmed : null;
 }

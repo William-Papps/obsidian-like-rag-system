@@ -21,6 +21,7 @@ import {
   FolderOpen,
   FolderPlus,
   GripVertical,
+  ImagePlus,
   LayoutPanelLeft,
   Layers3,
   Loader2,
@@ -124,6 +125,9 @@ export function Workspace() {
   const [tableDialog, setTableDialog] = useState<TableDialogState>(null);
   const [formatting, setFormatting] = useState(false);
   const [pastingImage, setPastingImage] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [mobileTab, setMobileTab] = useState<"vault" | "editor" | "study">("editor");
+  const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 1024);
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const next = { id: Date.now(), tone, message };
@@ -183,6 +187,12 @@ export function Workspace() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, []);
 
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 1024);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+
   const activeNote = useMemo(() => data?.notes.find((note) => note.id === activeNoteId) ?? null, [data, activeNoteId]);
   const openNotes = useMemo(
     () =>
@@ -230,12 +240,13 @@ export function Workspace() {
     [activeNote, data]
   );
   const workspaceGridStyle = useMemo<CSSProperties>(() => {
+    if (isMobile) return { gridTemplateColumns: "1fr" };
     const left = leftOpen ? `${leftWidth}px` : "0px";
     const right = rightOpen ? `${rightWidth}px` : "0px";
     return {
       gridTemplateColumns: `${left} minmax(0, 1fr) ${right}`
     };
-  }, [leftOpen, leftWidth, rightOpen, rightWidth]);
+  }, [isMobile, leftOpen, leftWidth, rightOpen, rightWidth]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -458,6 +469,24 @@ export function Workspace() {
       notify(error instanceof Error ? error.message : "Unable to format Markdown", "error");
     } finally {
       setFormatting(false);
+    }
+  }
+
+  async function uploadNoteImage(file: File) {
+    setUploadingImage(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const response = await fetch("/api/images", { method: "POST", body: formData });
+      const body = (await response.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (!response.ok || !body.url) throw new Error(body.error || "Upload failed");
+      const alt = file.name.replace(/\.[^/.]+$/, "");
+      await replaceSelectionWith(`![${alt}](${body.url})`);
+      notify("Image uploaded", "success");
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Image upload failed", "error");
+    } finally {
+      setUploadingImage(false);
     }
   }
 
@@ -901,8 +930,8 @@ export function Workspace() {
         }}
         notify={notify}
       />
-      <div className="grid h-[calc(100vh-61px)] overflow-hidden transition-[grid-template-columns] duration-300 ease-premium" style={workspaceGridStyle}>
-        <aside className={`panel-shell relative min-h-0 overflow-hidden border-r transition-opacity duration-200 ${leftOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}>
+      <div className="grid h-[calc(100vh-117px)] overflow-hidden transition-[grid-template-columns] duration-300 ease-premium lg:h-[calc(100vh-61px)]" style={workspaceGridStyle}>
+        <aside className={`panel-shell relative min-h-0 overflow-hidden border-r transition-opacity duration-200 ${leftOpen ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "vault" ? "hidden" : ""}`}>
           <div className="flex h-16 items-center justify-between border-b border-ink-700/80 px-4">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-300/75">Vault</div>
@@ -1041,7 +1070,7 @@ export function Workspace() {
           <ResizeHandle side="left" onPointerDown={(event) => resizePanel("left", event)} />
         </aside>
 
-        <section className="grid min-h-0 min-w-0 grid-rows-[auto_42px_45px_minmax(0,1fr)] overflow-hidden bg-ink-925">
+        <section className={`grid min-h-0 min-w-0 grid-rows-[auto_42px_45px_minmax(0,1fr)] overflow-hidden bg-ink-925 ${isMobile && mobileTab !== "editor" ? "hidden" : ""}`}>
           {activeNote ? (
             <>
               <div className="min-w-0 border-b border-ink-700/80 bg-ink-925/95 px-5 py-3">
@@ -1101,6 +1130,8 @@ export function Workspace() {
                 onFormat={activeNote ? () => void formatActiveMarkdown() : undefined}
                 formatting={formatting}
                 pastingImage={pastingImage}
+                uploadingImage={uploadingImage}
+                onUploadImage={activeNote ? (file) => void uploadNoteImage(file) : undefined}
               />
               <div className={`h-full min-h-0 min-w-0 overflow-hidden ${noteView === "split" ? "grid grid-cols-2" : "grid grid-cols-1"}`}>
                 {(noteView === "write" || noteView === "split") ? (
@@ -1120,7 +1151,14 @@ export function Workspace() {
                 ) : null}
                 {(noteView === "preview" || noteView === "split") ? (
                 <div className="min-h-0 min-w-0 overflow-hidden bg-ink-925">
-                  <MarkdownPreview markdown={activeNote.markdownContent} />
+                  <MarkdownPreview
+                    markdown={activeNote.markdownContent}
+                    onWikilinkClick={(title) => {
+                      const target = data.notes.find((n) => n.title.toLowerCase() === title.toLowerCase());
+                      if (target) selectNote(target.id);
+                      else notify(`No note found: "${title}"`, "info");
+                    }}
+                  />
                 </div>
                 ) : null}
               </div>
@@ -1134,7 +1172,7 @@ export function Workspace() {
           )}
         </section>
 
-        <div className={`relative min-w-0 overflow-hidden transition-opacity duration-200 ${rightOpen ? "opacity-100" : "pointer-events-none opacity-0"}`}>
+        <div className={`relative min-w-0 overflow-hidden transition-opacity duration-200 ${rightOpen ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "study" ? "hidden" : ""}`}>
           <ResizeHandle side="right" onPointerDown={(event) => resizePanel("right", event)} />
           <AssistantPanel
               tab={tab}
@@ -1244,6 +1282,31 @@ export function Workspace() {
         pinnedNoteIds={pinnedNoteIds}
       />
       {toast ? <ToastView toast={toast} /> : null}
+      {isMobile ? (
+        <nav className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-ink-700/80 bg-ink-950/95 backdrop-blur-lg">
+          <button
+            onClick={() => setMobileTab("vault")}
+            className={`flex flex-1 flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${mobileTab === "vault" ? "text-accent-300" : "text-ink-500"}`}
+          >
+            <BookOpen className="h-5 w-5" />
+            Vault
+          </button>
+          <button
+            onClick={() => setMobileTab("editor")}
+            className={`flex flex-1 flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${mobileTab === "editor" ? "text-accent-300" : "text-ink-500"}`}
+          >
+            <FileText className="h-5 w-5" />
+            Editor
+          </button>
+          <button
+            onClick={() => { setMobileTab("study"); setRightOpen(true); }}
+            className={`flex flex-1 flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${mobileTab === "study" ? "text-accent-300" : "text-ink-500"}`}
+          >
+            <Brain className="h-5 w-5" />
+            Study
+          </button>
+        </nav>
+      ) : null}
     </main>
   );
 }
@@ -1399,7 +1462,9 @@ function NoteViewTabs({
   onDeleteTableColumn,
   onFormat,
   formatting,
-  pastingImage
+  pastingImage,
+  uploadingImage,
+  onUploadImage
 }: {
   value: NoteView;
   onChange: (value: NoteView) => void;
@@ -1415,7 +1480,10 @@ function NoteViewTabs({
   onFormat?: () => void;
   formatting: boolean;
   pastingImage: boolean;
+  uploadingImage: boolean;
+  onUploadImage?: (file: File) => void;
 }) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const tabs: Array<{ id: NoteView; label: string }> = [
     { id: "write", label: "Write" },
     { id: "preview", label: "Preview" },
@@ -1477,6 +1545,29 @@ function NoteViewTabs({
             Col -
           </button>
         ) : null}
+        {onUploadImage ? (
+          <>
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              disabled={uploadingImage}
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white disabled:opacity-50"
+            >
+              {uploadingImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
+              Image
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/png,image/jpeg,image/gif,image/webp,image/svg+xml"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) onUploadImage(file);
+                e.target.value = "";
+              }}
+            />
+          </>
+        ) : null}
         {onFormat ? (
           <button onClick={onFormat} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
             {formatting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
@@ -1512,10 +1603,10 @@ function AssistantPanel(props: {
     <aside className="panel-shell grid h-full min-h-0 grid-rows-[72px_54px_minmax(0,1fr)] overflow-hidden border-l">
       <div className="flex min-w-0 items-center justify-between gap-2 border-b border-ink-700/80 px-4">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-ink-100">Right sidebar</div>
+          <div className="text-sm font-semibold text-ink-100">Study Tools</div>
           <div className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-500">
             <ShieldCheck className="h-3.5 w-3.5 text-accent-400" />
-            Grounded in source excerpts
+            Source-grounded answers
           </div>
         </div>
         <div className="flex min-w-0 shrink-0 items-center gap-2">

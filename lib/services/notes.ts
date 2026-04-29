@@ -2,6 +2,15 @@ import { dbAll, dbGet, dbRun } from "@/lib/db";
 import type { Note } from "@/lib/types";
 import { id, now, sha256, toCamelRecord } from "@/lib/utils";
 
+async function reindexNoteIfChanged(userId: string, noteId: string) {
+  try {
+    const { reindexNotes } = await import("@/lib/rag/indexing");
+    await reindexNotes(userId, { noteId });
+  } catch {
+    // best-effort — never block a save because indexing failed
+  }
+}
+
 const starter = `# New study note
 
 Capture the source facts you want to revise here. The assistant will only answer from notes you have written and indexed.
@@ -59,6 +68,11 @@ export async function updateNote(
     "update notes set folder_id = ?, title = ?, markdown_content = ?, content_hash = ?, updated_at = ? where id = ? and user_id = ?",
     [next.folderId, next.title, next.markdownContent, next.contentHash, next.updatedAt, noteId, userId]
   );
+
+  if (input.markdownContent !== undefined && next.contentHash !== existing.contentHash) {
+    void reindexNoteIfChanged(userId, noteId);
+  }
+
   return next;
 }
 

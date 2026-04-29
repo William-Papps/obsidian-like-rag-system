@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
-import { withAuthenticatedUser } from "@/lib/auth";
+import { isAdmin, withAuthenticatedUser } from "@/lib/auth";
 import { exportDatabaseBuffer } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return withAuthenticatedUser(async () => {
+  return withAuthenticatedUser(async (user) => {
+    if (!isAdmin(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const buffer = await exportDatabaseBuffer();
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
     return new NextResponse(buffer, {

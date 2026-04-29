@@ -20,15 +20,31 @@ export async function getManagedUser(userId: string): Promise<ManagedUser | null
   return row ? (toCamelRecord(row) as ManagedUser) : null;
 }
 
+function ownerEmail() {
+  return (process.env.OWNER_EMAIL?.trim() || "discordboteternal@gmail.com").toLowerCase();
+}
+
+function isOwnerRow(row: { email?: string | null } | null) {
+  return Boolean(row?.email && String(row.email).toLowerCase() === ownerEmail());
+}
+
 export async function updateUserRole(userId: string, role: UserRole) {
+  const user = await getManagedUser(userId);
+  if (isOwnerRow(user)) throw new Error("The owner account role cannot be changed.");
   await dbRun("update users set role = ?, updated_at = ? where id = ?", [role, now(), userId]);
 }
 
 export async function setUserDisabled(userId: string, disabled: boolean) {
+  if (disabled) {
+    const user = await getManagedUser(userId);
+    if (isOwnerRow(user)) throw new Error("The owner account cannot be disabled.");
+  }
   await dbRun("update users set disabled_at = ?, updated_at = ? where id = ?", [disabled ? now() : null, now(), userId]);
 }
 
 export async function deleteUserAccount(userId: string) {
+  const user = await getManagedUser(userId);
+  if (isOwnerRow(user)) throw new Error("The owner account cannot be deleted.");
   await dbRun("delete from users where id = ?", [userId]);
 }
 

@@ -3,7 +3,7 @@ import { promisify } from "util";
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { dbGet, dbRun } from "@/lib/db";
-import { sendVerificationEmail, verificationTtlMinutes } from "@/lib/email";
+import { sendPasswordResetEmail, sendVerificationEmail, verificationTtlMinutes } from "@/lib/email";
 import { logAudit } from "@/lib/services/audit";
 import { getRuntimeSettings } from "@/lib/services/runtime-settings";
 import type { UserRole } from "@/lib/types";
@@ -84,9 +84,8 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 export async function getCurrentUserOptional(): Promise<CurrentUser | null> {
   try {
     return await getCurrentUser();
-  } catch (error) {
-    if (error instanceof AuthError) return null;
-    throw error;
+  } catch {
+    return null;
   }
 }
 
@@ -212,8 +211,7 @@ export async function verifyEmailCode(input: { email: string; code: string }) {
   if (!user) throw new AuthError("Verification request is invalid.");
   if (user.disabledAt) throw new AuthError("This account is disabled.");
   if (user.email_verified_at) {
-    await createSession(user.id);
-    return { user: { id: user.id, email: user.email, name: user.name, role: effectiveRole(user.email, user.role), disabledAt: user.disabledAt ?? null } };
+    throw new AuthError("This account is already verified. Please sign in.");
   }
 
   const verification = await dbGet<{ id: string; code_hash: string; expires_at: string }>(
@@ -237,6 +235,43 @@ export async function verifyEmailCode(input: { email: string; code: string }) {
   await createSession(user.id);
   await logAudit({ actorUserId: user.id, event: "auth.email_verified" });
   return { user: { id: user.id, email: user.email, name: user.name, role: effectiveRole(user.email, user.role), disabledAt: user.disabledAt ?? null } };
+}
+
+export async function forgotPassword(emailInput: string, baseUrl: string) {
+  const email = emailInput.trim().toLowerCase();
+  const user = await dbGet<{ id: string; name: string; email: string }>("select id, name, email from users where email = ?", [email]);
+  if (!user) return { ok: true }; // silent — don't reveal whether the account exists
+
+  const token = randomBytes(32).toString("hex");
+  const expiresAt = new Date(Date.now() + 30 * 60 * 1000).toISOString();
+  await dbRun("delete from password_reset_tokens where user_id = ?", [user.id]);
+  await dbRun("insert into password_reset_tokens (id, user_id, token_hash, expires_at, created_at) values (?, ?, ?, ?, ?)", [
+    id(), user.id, sha256(token), expiresAt, now()
+  ]);
+
+  const resetUrl = `${baseUrl}/auth?reset=${token}&email=${encodeURIComponent(email)}`;
+  const result = await sendPasswordResetEmail({ email: user.email, name: user.name, resetUrl });
+  await logAudit({ actorUserId: user.id, event: "auth.password_reset.requested" });
+  return { ok: true, debugUrl: result.debugUrl ?? null };
+}
+
+export async function resetPassword(input: { email: string; token: string; newPassword: string }) {
+  const email = input.email.trim().toLowerCase();
+  const user = await dbGet<{ id: string }>("select id from users where email = ?", [email]);
+  if (!user) throw new AuthError("Reset link is invalid or has expired.");
+
+  const row = await dbGet<{ id: string; expires_at: string; consumed_at: string | null }>(
+    "select id, expires_at, consumed_at from password_reset_tokens where user_id = ? and token_hash = ?",
+    [user.id, sha256(input.token)]
+  );
+  if (!row || row.consumed_at) throw new AuthError("Reset link is invalid or has expired.");
+  if (new Date(row.expires_at).getTime() <= Date.now()) throw new AuthError("Reset link has expired. Request a new one.");
+
+  await dbRun("update password_reset_tokens set consumed_at = ? where id = ?", [now(), row.id]);
+  await dbRun("update users set password_hash = ?, updated_at = ? where id = ?", [await hashPassword(input.newPassword), now(), user.id]);
+  await dbRun("delete from sessions where user_id = ?", [user.id]); // invalidate all sessions
+  await logAudit({ actorUserId: user.id, event: "auth.password_reset.completed" });
+  return { ok: true };
 }
 
 export async function resendVerificationCode(emailInput: string) {

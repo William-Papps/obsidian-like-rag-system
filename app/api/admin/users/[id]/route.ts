@@ -32,10 +32,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     if (!target) return NextResponse.json({ error: "User not found" }, { status: 404 });
 
     const body = patchSchema.parse(await request.json());
-    if (body.role) await updateUserRole(id, body.role);
-    if (body.disabled !== undefined) await setUserDisabled(id, body.disabled);
-    if (body.hostedPlan) await adminSetUserPlan(id, body.hostedPlan);
-    if (body.hostedAccessGranted !== undefined) await adminSetHostedAccess(id, body.hostedAccessGranted);
+    try {
+      if (body.role) await updateUserRole(id, body.role);
+      if (body.disabled !== undefined) await setUserDisabled(id, body.disabled);
+      if (body.hostedPlan) await adminSetUserPlan(id, body.hostedPlan);
+      if (body.hostedAccessGranted !== undefined) await adminSetHostedAccess(id, body.hostedAccessGranted);
+    } catch (err) {
+      return NextResponse.json({ error: err instanceof Error ? err.message : "Action not allowed." }, { status: 400 });
+    }
     await logAudit({ actorUserId: user.id, event: "admin.user.updated", metadata: { targetUserId: id, ...body } });
     return NextResponse.json({ ok: true });
   });
@@ -46,7 +50,11 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     if (!isAdmin(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const { id } = await params;
     if (id === user.id) return NextResponse.json({ error: "You cannot delete your own account from this route." }, { status: 400 });
-    await deleteUserAccount(id);
+    try {
+      await deleteUserAccount(id);
+    } catch (err) {
+      return NextResponse.json({ error: err instanceof Error ? err.message : "Action not allowed." }, { status: 400 });
+    }
     await logAudit({ actorUserId: user.id, event: "admin.user.deleted", level: "warn", metadata: { targetUserId: id } });
     return NextResponse.json({ ok: true });
   });
