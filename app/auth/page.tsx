@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
+import { unstable_noStore as noStore } from "next/cache";
 import { AuthForm } from "@/components/auth-form";
 import { getCurrentUserOptional, selfSignupEnabled } from "@/lib/auth";
 
@@ -7,6 +8,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export default async function AuthPage() {
+  noStore();
   const user = await getCurrentUserOptional();
   if (user) redirect("/");
 

@@ -78,16 +78,7 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
         return;
       }
 
-      // Sanity check: if the session cookie didn't stick (common behind proxies/misconfig),
-      // show a clear error instead of silently bouncing back to /auth.
-      const check = await fetch("/api/auth/debug-session", { credentials: "include", cache: "no-store" })
-        .then((r) => r.json())
-        .catch(() => ({ authenticated: false } as { authenticated: boolean }));
-      if (!check.authenticated) {
-        throw new Error("Signed in, but the session cookie was not stored by your browser. Check tunnel/proxy cookie settings.");
-      }
-
-      window.location.href = "/";
+      window.location.replace("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed");
     } finally {
@@ -108,7 +99,7 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
       });
       const body = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) throw new Error(body.error || "Verification failed");
-      window.location.href = "/";
+      window.location.replace("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verification failed");
     } finally {

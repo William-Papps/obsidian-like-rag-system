@@ -19,6 +19,11 @@ export async function POST(request: Request) {
     const response = NextResponse.json(result, { status: 201 });
     response.headers.set("cache-control", "no-store");
     response.headers.set("x-eternalnotes-set-cookie", session ? "1" : "0");
+    // Debug headers to help diagnose cookie issues
+    const forwardedProto = request.headers.get("x-forwarded-proto") || "";
+    const cfVisitor = request.headers.get("cf-visitor") || "";
+    const isHttps = forwardedProto.toLowerCase().includes("https") || cfVisitor.toLowerCase().includes("\"scheme\":\"https\"");
+    response.headers.set("x-eternalnotes-https-detected", isHttps ? "true" : "false");
     if (session) applySessionCookie(response, session, request);
     return response;
   } catch (error) {

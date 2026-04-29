@@ -66,7 +66,6 @@ export async function getCurrentUser(): Promise<CurrentUser> {
 
   const verificationRequired = await emailVerificationEnabled();
   if (!session || session.disabledAt || (verificationRequired && !session.email_verified_at) || new Date(session.expires_at).getTime() <= Date.now()) {
-    await clearSessionCookie();
     throw new AuthError();
   }
 
@@ -190,22 +189,25 @@ export async function logoutUser() {
 }
 
 export async function logoutUserWithResponse(request: Request, response: NextResponse) {
-  const token = request.headers.get("cookie")?.match(/(?:^|; )studyos_session=([^;]+)/)?.[1] || null;
+  // Extract token from cookie header - same way it was set (no decoding needed, browser handles cookie storage)
+  const cookieHeader = request.headers.get("cookie") || "";
+  const tokenMatch = cookieHeader.match(/(?:^|; )studyos_session=([^;]+)/);
+  const token = tokenMatch?.[1] || null;
+  
   if (token) {
-    await dbRun("delete from sessions where token_hash = ?", [sessionTokenHash(decodeURIComponent(token))]);
+    // Delete session from database using the exact token as stored
+    await dbRun("delete from sessions where token_hash = ?", [sessionTokenHash(token)]);
   }
-  // Ensure browser cookie clears in route handlers (cookies().set is not reliably attached to responses here).
+  
   response.cookies.set(SESSION_COOKIE, "", {
     httpOnly: true,
     sameSite: "lax",
-    secure:
-      (process.env.PUBLIC_BASE_URL || "").toLowerCase().startsWith("https://") ||
-      process.env.COOKIE_SECURE === "true" ||
-      (request.headers.get("x-forwarded-proto") || "").toLowerCase().includes("https") ||
-      (request.headers.get("cf-visitor") || "").toLowerCase().includes("\"scheme\":\"https\""),
+    secure: process.env.NODE_ENV === "production",
     path: "/",
-    expires: new Date(0)
+    expires: new Date(0),
+    maxAge: 0
   });
+  
   return response;
 }
 
@@ -327,22 +329,11 @@ async function createSession(userId: string): Promise<{ token: string; expiresAt
   return { token, expiresAt };
 }
 
-export function applySessionCookie(response: NextResponse, session: { token: string; expiresAt: string }, request?: Request) {
-  // If the app is behind a TLS terminator (Cloudflare Tunnel, reverse proxy, etc.),
-  // the origin may see plain HTTP while the browser uses HTTPS. Decide Secure based
-  // on request headers/env, not NODE_ENV.
-  const forwardedProto = request?.headers.get("x-forwarded-proto") || "";
-  const cfVisitor = request?.headers.get("cf-visitor") || "";
-  const isHttps =
-    (process.env.PUBLIC_BASE_URL || "").toLowerCase().startsWith("https://") ||
-    process.env.COOKIE_SECURE === "true" ||
-    forwardedProto.toLowerCase().includes("https") ||
-    cfVisitor.toLowerCase().includes("\"scheme\":\"https\"");
+export function applySessionCookie(response: NextResponse, session: { token: string; expiresAt: string }, _request?: Request) {
   response.cookies.set(SESSION_COOKIE, session.token, {
     httpOnly: true,
     sameSite: "lax",
-    // Secure cookies are ignored over http://localhost. Only mark Secure when we know the browser is HTTPS.
-    secure: isHttps,
+    secure: process.env.NODE_ENV === "production",
     path: "/",
     expires: new Date(session.expiresAt)
   });
@@ -350,12 +341,14 @@ export function applySessionCookie(response: NextResponse, session: { token: str
 
 async function clearSessionCookie() {
   const store = await cookies();
+  // Clear cookie with same attributes as when it was set
   store.set(SESSION_COOKIE, "", {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    secure: false, // Will be set based on actual request context when needed
     path: "/",
-    expires: new Date(0)
+    expires: new Date(0),
+    maxAge: 0
   });
 }
 

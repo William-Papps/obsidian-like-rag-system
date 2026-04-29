@@ -17,8 +17,7 @@ export async function POST(request: Request) {
     const { user, session } = await loginUser(body);
     const response = NextResponse.json({ user });
     response.headers.set("cache-control", "no-store");
-    response.headers.set("x-eternalnotes-set-cookie", "1");
-    applySessionCookie(response, session, request);
+    applySessionCookie(response, session);
     return response;
   } catch (error) {
     if (error instanceof RateLimitError) {

@@ -172,7 +172,7 @@ export function AccountPage({
   async function signOut() {
     setSigningOut(true);
     try {
-      await fetch("/api/auth/logout", { method: "POST" });
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
       window.location.href = "/auth";
     } finally {
       setSigningOut(false);

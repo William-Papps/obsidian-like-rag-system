@@ -925,7 +925,7 @@ export function Workspace() {
         onReindexed={refresh}
         onImport={() => setImportModalOpen(true)}
         onLogout={async () => {
-          await fetch("/api/auth/logout", { method: "POST" });
+          await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
           window.location.href = "/auth";
         }}
         notify={notify}
