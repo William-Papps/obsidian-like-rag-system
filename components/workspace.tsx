@@ -103,7 +103,6 @@ export function Workspace() {
   const [tab, setTab] = useState<Tab>("ask");
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
-  const [railPinned, setRailPinned] = useState(() => readStoredJson("studyos:railPinned", false));
   const [leftWidth, setLeftWidth] = useState(() => readStoredNumber("studyos:leftWidth", 300, 240, 420));
   const [rightWidth, setRightWidth] = useState(() => readStoredNumber("studyos:rightWidth", 410, 340, 560));
   const [noteView, setNoteView] = useState<NoteView>("write");
@@ -180,10 +179,6 @@ export function Workspace() {
   useEffect(() => {
     window.localStorage.setItem("studyos:pinnedNotes", JSON.stringify(pinnedNoteIds));
   }, [pinnedNoteIds]);
-
-  useEffect(() => {
-    window.localStorage.setItem("studyos:railPinned", JSON.stringify(railPinned));
-  }, [railPinned]);
 
   useEffect(() => {
     const close = () => setVaultMenu(null);
@@ -936,8 +931,6 @@ export function Workspace() {
     <main className="flex h-screen overflow-hidden bg-ink-950 text-ink-100">
       <SideRail
         data={data}
-        railPinned={railPinned}
-        setRailPinned={setRailPinned}
         leftOpen={leftOpen}
         rightOpen={rightOpen}
         tab={tab}
@@ -1356,8 +1349,6 @@ export function Workspace() {
 
 function SideRail(props: {
   data: Bootstrap;
-  railPinned: boolean;
-  setRailPinned: (value: boolean) => void;
   leftOpen: boolean;
   rightOpen: boolean;
   tab: Tab;
@@ -1373,8 +1364,6 @@ function SideRail(props: {
   onAccount: () => void;
   onLogout: () => void | Promise<void>;
 }) {
-  const [hovering, setHovering] = useState(false);
-  const expanded = props.railPinned || hovering;
   const tabs: Array<[Tab, string, React.ReactNode]> = [
     ["ask", "Ask", <MessageSquareText className="h-4 w-4" key="ask" />],
     ["find", "Find", <Search className="h-4 w-4" key="find" />],
@@ -1383,7 +1372,7 @@ function SideRail(props: {
     ["summary", "Summary", <PanelRight className="h-4 w-4" key="summary" />]
   ];
 
-  function RailButton({
+  function RailIconButton({
     label,
     onClick,
     children,
@@ -1397,103 +1386,87 @@ function SideRail(props: {
     tone?: "default" | "danger";
   }) {
     return (
-      <button
-        title={label}
-        aria-label={label}
-        onClick={onClick}
-        className={`group flex h-10 items-center gap-3 rounded-lg border px-2.5 text-sm transition-colors ${
-          active
-            ? "border-accent-500/25 bg-accent-500/10 text-accent-200"
-            : tone === "danger"
-              ? "border-transparent bg-transparent text-ink-400 hover:border-danger-400/20 hover:bg-danger-400/10 hover:text-danger-300"
-              : "border-transparent bg-transparent text-ink-300 hover:border-ink-700/70 hover:bg-white/[0.04] hover:text-ink-100"
-        }`}
-      >
-        <span
-          className={`grid h-8 w-8 place-items-center rounded-md text-ink-200 transition-colors ${
-            active ? "bg-accent-500/15 text-accent-200" : "bg-ink-925/40 group-hover:bg-ink-925/70 group-hover:text-white"
+      <div className="group relative flex justify-center">
+        <button
+          aria-label={label}
+          onClick={onClick}
+          className={`grid h-11 w-11 place-items-center rounded-full border text-sm transition-colors ${
+            active
+              ? "border-accent-500/35 bg-accent-500/15 text-accent-200 shadow-glow"
+              : tone === "danger"
+                ? "border-ink-800/70 bg-white/[0.02] text-ink-400 hover:border-danger-400/30 hover:bg-danger-400/10 hover:text-danger-300"
+                : "border-ink-800/70 bg-white/[0.02] text-ink-200 hover:border-accent-500/25 hover:bg-white/[0.05] hover:text-white"
           }`}
         >
           {children}
-        </span>
-        {expanded ? <span className="min-w-0 flex-1 truncate">{label}</span> : null}
-      </button>
+        </button>
+
+        <div className="pointer-events-none absolute left-[56px] top-1/2 z-50 hidden -translate-y-1/2 whitespace-nowrap sm:block">
+          <div className="relative translate-x-[-6px] opacity-0 transition-all duration-150 ease-out group-hover:translate-x-0 group-hover:opacity-100">
+            <div className="absolute -left-1 top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 border border-ink-700/80 bg-ink-925" />
+            <div className="rounded-xl border border-ink-700/80 bg-ink-925 px-3 py-1.5 text-xs font-semibold text-ink-100 shadow-panel">
+              {label}
+            </div>
+          </div>
+        </div>
+      </div>
     );
   }
 
   return (
-    <aside
-      onMouseEnter={() => setHovering(true)}
-      onMouseLeave={() => setHovering(false)}
-      className={`z-20 flex h-screen shrink-0 flex-col border-r border-ink-700/80 bg-ink-950/95 p-3 backdrop-blur-xl transition-[width] duration-200 ease-premium ${
-        expanded ? "w-[232px]" : "w-[64px]"
-      }`}
-    >
-      <div className="flex shrink-0 items-center gap-3 px-1">
-        <div className="grid h-10 w-10 place-items-center rounded-2xl border border-accent-500/30 bg-accent-500/15 text-accent-300 shadow-glow">
+    <aside className="z-20 flex h-screen w-[64px] shrink-0 flex-col items-center gap-3 border-r border-ink-700/80 bg-ink-950/95 py-3 backdrop-blur-xl">
+      <div className="px-1">
+        <div className="grid h-11 w-11 place-items-center rounded-full border border-accent-500/30 bg-accent-500/15 text-accent-300 shadow-glow">
           <Sparkles className="h-4 w-4" />
         </div>
-        {expanded ? (
-          <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-ink-100">EternalNotes</div>
-            <div className="truncate text-xs text-ink-500">{props.data.user.email}</div>
-          </div>
-        ) : null}
       </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="space-y-1.5 pt-2">
-          <RailButton label={props.leftOpen ? "Hide vault" : "Show vault"} onClick={props.onToggleLeft} active={props.leftOpen}>
+      <div className="min-h-0 w-full flex-1 space-y-2 overflow-y-auto overscroll-contain px-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="space-y-2 pt-1">
+          <RailIconButton label={props.leftOpen ? "Hide vault" : "Show vault"} onClick={props.onToggleLeft} active={props.leftOpen}>
             <LayoutPanelLeft className="h-4 w-4" />
-          </RailButton>
-          <RailButton label="New note" onClick={props.onNewNote}>
+          </RailIconButton>
+          <RailIconButton label="New note" onClick={props.onNewNote}>
             <FilePlus className="h-4 w-4" />
-          </RailButton>
-          <RailButton label="New folder" onClick={props.onNewFolder}>
+          </RailIconButton>
+          <RailIconButton label="New folder" onClick={props.onNewFolder}>
             <FolderPlus className="h-4 w-4" />
-          </RailButton>
-          <RailButton label="Find / search" onClick={props.onFind}>
+          </RailIconButton>
+          <RailIconButton label="Find / search" onClick={props.onFind}>
             <Search className="h-4 w-4" />
-          </RailButton>
+          </RailIconButton>
         </div>
 
-        <div className="pt-3">
-          {expanded ? <SectionLabel label="Study Tools" /> : null}
-          <div className="space-y-1.5">
+        <div className="space-y-2 pt-2">
             {tabs.map(([id, label, icon]) => (
-              <RailButton
+              <RailIconButton
                 key={id}
                 label={label}
                 onClick={() => props.onSetTab(id)}
                 active={props.rightOpen && props.tab === id}
               >
                 {icon}
-              </RailButton>
+              </RailIconButton>
             ))}
-            <RailButton label={props.rightOpen ? "Hide study panel" : "Show study panel"} onClick={props.onToggleRight} active={props.rightOpen}>
+            <RailIconButton label={props.rightOpen ? "Hide study panel" : "Show study panel"} onClick={props.onToggleRight} active={props.rightOpen}>
               {props.rightOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
-            </RailButton>
-          </div>
+            </RailIconButton>
         </div>
       </div>
 
-      <div className="shrink-0 space-y-1.5 border-t border-ink-700/70 pt-3">
-        {expanded ? <IndexBadge status={props.data.indexStatus} busy={props.reindexing} /> : null}
-        <RailButton label={props.reindexing ? "Reindexing..." : "Reindex"} onClick={() => void props.onReindex()} active={props.reindexing}>
+      <div className="w-full shrink-0 space-y-2 border-t border-ink-700/70 px-2 pt-3">
+        <RailIconButton label={props.reindexing ? "Reindexing..." : "Reindex"} onClick={() => void props.onReindex()} active={props.reindexing}>
           {props.reindexing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-        </RailButton>
-        <RailButton label="Import document" onClick={props.onImport}>
+        </RailIconButton>
+        <RailIconButton label="Import document" onClick={props.onImport}>
           <Upload className="h-4 w-4" />
-        </RailButton>
-        <RailButton label="Account" onClick={props.onAccount}>
+        </RailIconButton>
+        <RailIconButton label="Account" onClick={props.onAccount}>
           <Settings className="h-4 w-4" />
-        </RailButton>
-        <RailButton label={props.railPinned ? "Unpin sidebar" : "Pin sidebar"} onClick={() => props.setRailPinned(!props.railPinned)} active={props.railPinned}>
-          <Pin className="h-4 w-4" />
-        </RailButton>
-        <RailButton label="Sign out" onClick={() => void props.onLogout()} tone="danger">
+        </RailIconButton>
+        <RailIconButton label="Sign out" onClick={() => void props.onLogout()} tone="danger">
           <LogOut className="h-4 w-4" />
-        </RailButton>
+        </RailIconButton>
       </div>
     </aside>
   );
