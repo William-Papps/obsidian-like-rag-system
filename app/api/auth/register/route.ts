@@ -18,6 +18,7 @@ export async function POST(request: Request) {
     const { session, ...result } = await registerUser(body);
     const response = NextResponse.json(result, { status: 201 });
     response.headers.set("cache-control", "no-store");
+    response.headers.set("x-eternalnotes-set-cookie", session ? "1" : "0");
     if (session) applySessionCookie(response, session, request);
     return response;
   } catch (error) {
