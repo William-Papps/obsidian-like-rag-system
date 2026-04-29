@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { AuthForm } from "@/components/auth-form";
 import { getCurrentUserOptional, selfSignupEnabled } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function AuthPage() {
   const user = await getCurrentUserOptional();
   if (user) redirect("/");
