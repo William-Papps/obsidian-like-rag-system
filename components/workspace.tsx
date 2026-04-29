@@ -988,7 +988,7 @@ export function Workspace() {
           <div className="flex h-16 items-center justify-between border-b border-ink-700/80 px-4">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-300/75">Vault</div>
-              <div className="mt-1 flex items-center gap-2">
+              <div className="mt-1 flex min-w-0 items-center gap-2">
                 <BookOpen className="h-4 w-4 text-accent-400" />
                 <select
                   aria-label="Vault root"
@@ -999,7 +999,7 @@ export function Workspace() {
                     setCollapsedFolders({});
                     setLeftOpen(true);
                   }}
-                  className="control-soft h-9 w-[210px] rounded-lg px-2 text-sm font-semibold text-ink-100 outline-none"
+                  className="control-soft h-9 min-w-0 flex-1 rounded-lg px-2 text-sm font-semibold text-ink-100 outline-none"
                 >
                   <option value="__all__">All notes</option>
                   {topLevelFolders.map((folder) => (
@@ -2548,28 +2548,30 @@ function FolderRow({
         onDrop();
       }}
       onContextMenu={onMenu}
-      className={`group flex items-center rounded-lg border ${
+      className={`group flex items-start rounded-lg border ${
         active ? "border-accent-500/25 bg-accent-500/10" : dragActive ? "border-transparent hover:border-accent-500/30 hover:bg-accent-500/8" : "border-transparent hover:bg-white/[0.04]"
       }`}
     >
-      <button onClick={onToggle} aria-label={collapsed ? "Expand folder" : "Collapse folder"} className="grid h-9 w-8 place-items-center text-ink-500 hover:text-ink-100">
+      <button onClick={onToggle} aria-label={collapsed ? "Expand folder" : "Collapse folder"} className="mt-0.5 grid h-9 w-8 place-items-center text-ink-500 hover:text-ink-100">
         {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
       </button>
-      <button onClick={onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-center gap-2 py-2 text-left text-sm text-ink-200">
-        {collapsed ? <Folder className="h-4 w-4 text-blue-400" /> : <FolderOpen className="h-4 w-4 text-blue-400" />}
-        <span className="truncate">{folder.name}</span>
+      <button onClick={onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-start gap-2 py-2 text-left text-sm text-ink-200">
+        {collapsed ? <Folder className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" /> : <FolderOpen className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" />}
+        <span title={folder.name} className="min-w-0 flex-1 leading-5 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden">
+          {folder.name}
+        </span>
       </button>
-      <span className="px-2 text-xs text-ink-500">{count}</span>
-      <button onClick={onCreate} aria-label={`New note in ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
+      <span className="mt-2 px-2 text-xs text-ink-500">{count}</span>
+      <button onClick={onCreate} aria-label={`New note in ${folder.name}`} className="mt-1 grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
         <FilePlus className="h-3.5 w-3.5" />
       </button>
-      <button onClick={onCreateFolder} aria-label={`New folder in ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
+      <button onClick={onCreateFolder} aria-label={`New folder in ${folder.name}`} className="mt-1 grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
         <FolderPlus className="h-3.5 w-3.5" />
       </button>
-      <button onClick={onRename} aria-label={`Rename ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
+      <button onClick={onRename} aria-label={`Rename ${folder.name}`} className="mt-1 grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
         <Pencil className="h-3.5 w-3.5" />
       </button>
-      <button onClick={onDelete} aria-label={`Delete ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-danger-400 group-hover:opacity-100">
+      <button onClick={onDelete} aria-label={`Delete ${folder.name}`} className="mt-1 grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-danger-400 group-hover:opacity-100">
         <Trash2 className="h-3.5 w-3.5" />
       </button>
       <button onClick={onMove} aria-label={`Move ${folder.name}`} className="hidden" />
@@ -2581,7 +2583,7 @@ function FolderRow({
           onMenu(event);
         }}
         aria-label={`More actions for ${folder.name}`}
-        className="grid h-8 w-8 place-items-center text-ink-500 hover:text-ink-100"
+        className="mt-1 grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-ink-100 group-hover:opacity-100"
       >
         <MoreVertical className="h-3.5 w-3.5" />
       </button>
@@ -2626,7 +2628,9 @@ function NoteRow({
       <button onClick={onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-start gap-2 text-left">
         {pinned ? <Pin className="mt-0.5 h-4 w-4 shrink-0 text-accent-300" /> : <FileText className={`mt-0.5 h-4 w-4 shrink-0 ${active ? "text-accent-300" : "text-ink-500 group-hover:text-ink-300"}`} />}
         <span className="min-w-0 flex-1">
-        <span className="block truncate text-sm font-medium">{note.title}</span>
+        <span title={note.title} className="block text-sm font-medium leading-5 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden">
+          {note.title}
+        </span>
         <span className="mt-1 block truncate text-xs text-ink-500">{new Date(note.updatedAt).toLocaleDateString()}</span>
         </span>
       </button>
@@ -2647,7 +2651,7 @@ function NoteRow({
           onMenu(event);
         }}
         aria-label={`More actions for ${note.title}`}
-        className="grid h-7 w-7 shrink-0 place-items-center text-ink-500 hover:text-ink-100"
+        className="grid h-7 w-7 shrink-0 place-items-center text-ink-500 opacity-0 hover:text-ink-100 group-hover:opacity-100"
       >
         <MoreVertical className="h-3.5 w-3.5" />
       </button>
