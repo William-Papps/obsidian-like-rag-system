@@ -3387,7 +3387,8 @@ function createMarkdownImagePreviewExtension() {
       return other.src === this.src && other.alt === this.alt;
     }
     toDOM() {
-      const wrap = document.createElement("div");
+      const wrap = document.createElement("span");
+      wrap.style.display = "block";
       wrap.style.margin = "10px 0";
       wrap.style.padding = "10px";
       wrap.style.border = "1px solid rgba(148, 163, 184, 0.14)";
@@ -3434,7 +3435,7 @@ function createMarkdownImagePreviewExtension() {
       }
 
       build(view: EditorView) {
-        const widgets: any[] = [];
+        const builder = new RangeSetBuilder<Decoration>();
         for (const { from, to } of view.visibleRanges) {
           let pos = from;
           while (pos <= to) {
@@ -3446,19 +3447,22 @@ function createMarkdownImagePreviewExtension() {
               const raw = match[2] ?? "";
               const src = normalizeImageSrc(raw);
               if (!src) continue;
-              widgets.push(
+              const matchIndex = typeof match.index === "number" ? match.index : 0;
+              const endPos = line.from + matchIndex + match[0].length;
+              builder.add(
+                endPos,
+                endPos,
                 Decoration.widget({
                   widget: new ImagePreviewWidget(src, alt),
-                  block: true,
                   side: 1
-                }).range(line.to)
+                })
               );
             }
             pos = line.to + 1;
             if (line.to >= to) break;
           }
         }
-        return Decoration.set(widgets, true);
+        return builder.finish();
       }
     },
     {
