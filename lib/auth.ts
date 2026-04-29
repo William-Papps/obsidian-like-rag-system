@@ -54,7 +54,6 @@ export class VerificationRequiredError extends Error {
 export async function getCurrentUser(): Promise<CurrentUser> {
   const store = await cookies();
   const token = store.get(SESSION_COOKIE)?.value;
-  console.log("[auth] getCurrentUser: cookie present =", !!token, "| token prefix =", token ? token.slice(0, 8) : "none");
   if (!token) throw new AuthError();
 
   const session = await dbGet<SessionRow>(
@@ -65,10 +64,8 @@ export async function getCurrentUser(): Promise<CurrentUser> {
     [sessionTokenHash(token)]
   );
 
-  console.log("[auth] getCurrentUser: session found =", !!session);
   const verificationRequired = await emailVerificationEnabled();
   if (!session || session.disabledAt || (verificationRequired && !session.email_verified_at) || new Date(session.expires_at).getTime() <= Date.now()) {
-    if (session) console.log("[auth] getCurrentUser: session invalid - disabled =", !!session.disabledAt, "| verReq =", verificationRequired && !session.email_verified_at, "| expired =", new Date(session.expires_at).getTime() <= Date.now());
     throw new AuthError();
   }
 
@@ -329,7 +326,6 @@ async function createSession(userId: string): Promise<{ token: string; expiresAt
     "insert into sessions (id, user_id, token_hash, expires_at, created_at, last_used_at) values (?, ?, ?, ?, ?, ?)",
     [id(), userId, sessionTokenHash(token), expiresAt, now(), now()]
   );
-  console.log("[auth] createSession: created for userId =", userId, "| token prefix =", token.slice(0, 8), "| NODE_ENV =", process.env.NODE_ENV);
   return { token, expiresAt };
 }
 

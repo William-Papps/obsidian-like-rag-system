@@ -5,6 +5,7 @@ import initSqlJs, { type Database, type SqlJsStatic, type SqlValue } from "sql.j
 let sql: SqlJsStatic | null = null;
 let db: Database | null = null;
 let dbPath = "";
+let workerMigrated = false;
 
 function appRoot() {
   return process.env.APP_DIR?.trim() || process.cwd();
@@ -15,17 +16,26 @@ function dataDir() {
 }
 
 export async function getDb() {
-  if (db) return db;
-
   const dir = dataDir();
   fs.mkdirSync(dir, { recursive: true });
   dbPath = path.join(dir, "study.db");
-  sql = await initSqlJs({
-    locateFile: (file) => path.join(appRoot(), "node_modules", "sql.js", "dist", file)
-  });
+
+  if (!sql) {
+    sql = await initSqlJs({
+      locateFile: (file) => path.join(appRoot(), "node_modules", "sql.js", "dist", file)
+    });
+  }
+
+  // Reload from disk on every call so all worker processes see each other's writes.
+  // Next.js production uses multiple workers, each with separate module-level state.
   db = fs.existsSync(dbPath) ? new sql.Database(fs.readFileSync(dbPath)) : new sql.Database();
-  migrate(db);
-  persist();
+
+  if (!workerMigrated) {
+    migrate(db);
+    workerMigrated = true;
+    persist();
+  }
+
   return db;
 }
 
