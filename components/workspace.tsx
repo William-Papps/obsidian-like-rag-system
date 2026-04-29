@@ -103,6 +103,7 @@ export function Workspace() {
   const [tab, setTab] = useState<Tab>("ask");
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
+  const [railPinned, setRailPinned] = useState(() => readStoredJson("studyos:railPinned", false));
   const [leftWidth, setLeftWidth] = useState(() => readStoredNumber("studyos:leftWidth", 300, 240, 420));
   const [rightWidth, setRightWidth] = useState(() => readStoredNumber("studyos:rightWidth", 410, 340, 560));
   const [noteView, setNoteView] = useState<NoteView>("write");
@@ -179,6 +180,10 @@ export function Workspace() {
   useEffect(() => {
     window.localStorage.setItem("studyos:pinnedNotes", JSON.stringify(pinnedNoteIds));
   }, [pinnedNoteIds]);
+
+  useEffect(() => {
+    window.localStorage.setItem("studyos:railPinned", JSON.stringify(railPinned));
+  }, [railPinned]);
 
   useEffect(() => {
     const close = () => setVaultMenu(null);
@@ -931,6 +936,8 @@ export function Workspace() {
     <main className="flex h-screen overflow-hidden bg-ink-950 text-ink-100">
       <SideRail
         data={data}
+        railPinned={railPinned}
+        setRailPinned={setRailPinned}
         leftOpen={leftOpen}
         rightOpen={rightOpen}
         tab={tab}
@@ -1349,6 +1356,8 @@ export function Workspace() {
 
 function SideRail(props: {
   data: Bootstrap;
+  railPinned: boolean;
+  setRailPinned: (value: boolean) => void;
   leftOpen: boolean;
   rightOpen: boolean;
   tab: Tab;
@@ -1364,6 +1373,8 @@ function SideRail(props: {
   onAccount: () => void;
   onLogout: () => void | Promise<void>;
 }) {
+  const [hovering, setHovering] = useState(false);
+  const expanded = props.railPinned || hovering;
   const tabs: Array<[Tab, string, React.ReactNode]> = [
     ["ask", "Ask", <MessageSquareText className="h-4 w-4" key="ask" />],
     ["find", "Find", <Search className="h-4 w-4" key="find" />],
@@ -1377,13 +1388,15 @@ function SideRail(props: {
     onClick,
     children,
     active,
-    tone
+    tone,
+    compact
   }: {
     label: string;
     onClick: () => void;
     children: React.ReactNode;
     active?: boolean;
     tone?: "default" | "danger";
+    compact?: boolean;
   }) {
     return (
       <div className="group relative flex justify-center">
@@ -1409,20 +1422,50 @@ function SideRail(props: {
             </div>
           </div>
         </div>
+
+        {expanded && !compact ? (
+          <div className="ml-3 hidden min-w-0 flex-1 items-center sm:flex">
+            <span className="truncate text-sm font-medium text-ink-200">{label}</span>
+          </div>
+        ) : null}
       </div>
     );
   }
 
   return (
-    <aside className="z-20 flex h-screen w-[64px] shrink-0 flex-col items-center gap-3 border-r border-ink-700/80 bg-ink-950/95 py-3 backdrop-blur-xl">
-      <div className="px-1">
+    <aside
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+      className={`z-20 flex h-screen shrink-0 flex-col border-r border-ink-700/80 bg-ink-950/95 py-3 backdrop-blur-xl transition-[width] duration-200 ease-premium ${
+        expanded ? "w-[232px]" : "w-[64px]"
+      }`}
+    >
+      <div className={`flex shrink-0 items-center gap-3 px-2 ${expanded ? "" : "justify-center"}`}>
         <div className="grid h-11 w-11 place-items-center rounded-full border border-accent-500/30 bg-accent-500/15 text-accent-300 shadow-glow">
           <Sparkles className="h-4 w-4" />
         </div>
+        {expanded ? (
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold text-ink-100">EternalNotes</div>
+            <div className="truncate text-xs text-ink-500">{props.data.user.email}</div>
+          </div>
+        ) : null}
+        {expanded ? (
+          <div className="ml-auto">
+            <RailIconButton
+              label={props.railPinned ? "Unpin sidebar" : "Pin sidebar"}
+              onClick={() => props.setRailPinned(!props.railPinned)}
+              active={props.railPinned}
+              compact
+            >
+              <Pin className="h-4 w-4" />
+            </RailIconButton>
+          </div>
+        ) : null}
       </div>
 
-      <div className="min-h-0 w-full flex-1 space-y-2 overflow-y-auto overscroll-contain px-2 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
-        <div className="space-y-2 pt-1">
+      <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${expanded ? "px-3" : "px-2"}`}>
+        <div className={`flex flex-col gap-2 pt-3 ${expanded ? "" : "items-center"}`}>
           <RailIconButton label={props.leftOpen ? "Hide vault" : "Show vault"} onClick={props.onToggleLeft} active={props.leftOpen}>
             <LayoutPanelLeft className="h-4 w-4" />
           </RailIconButton>
@@ -1437,36 +1480,44 @@ function SideRail(props: {
           </RailIconButton>
         </div>
 
-        <div className="space-y-2 pt-2">
-            {tabs.map(([id, label, icon]) => (
-              <RailIconButton
-                key={id}
-                label={label}
-                onClick={() => props.onSetTab(id)}
-                active={props.rightOpen && props.tab === id}
-              >
-                {icon}
-              </RailIconButton>
-            ))}
-            <RailIconButton label={props.rightOpen ? "Hide study panel" : "Show study panel"} onClick={props.onToggleRight} active={props.rightOpen}>
-              {props.rightOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+        <div className={`flex flex-col gap-2 pt-4 ${expanded ? "" : "items-center"}`}>
+          {expanded ? <SectionLabel label="Study tools" /> : null}
+          {tabs.map(([id, label, icon]) => (
+            <RailIconButton
+              key={id}
+              label={label}
+              onClick={() => props.onSetTab(id)}
+              active={props.rightOpen && props.tab === id}
+            >
+              {icon}
             </RailIconButton>
+          ))}
+          <RailIconButton label={props.rightOpen ? "Hide study panel" : "Show study panel"} onClick={props.onToggleRight} active={props.rightOpen}>
+            {props.rightOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+          </RailIconButton>
         </div>
       </div>
 
-      <div className="w-full shrink-0 space-y-2 border-t border-ink-700/70 px-2 pt-3">
-        <RailIconButton label={props.reindexing ? "Reindexing..." : "Reindex"} onClick={() => void props.onReindex()} active={props.reindexing}>
-          {props.reindexing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-        </RailIconButton>
-        <RailIconButton label="Import document" onClick={props.onImport}>
-          <Upload className="h-4 w-4" />
-        </RailIconButton>
-        <RailIconButton label="Account" onClick={props.onAccount}>
-          <Settings className="h-4 w-4" />
-        </RailIconButton>
-        <RailIconButton label="Sign out" onClick={() => void props.onLogout()} tone="danger">
-          <LogOut className="h-4 w-4" />
-        </RailIconButton>
+      <div className={`w-full shrink-0 border-t border-ink-700/70 pt-3 ${expanded ? "px-3" : "px-2"}`}>
+        <div className={`${expanded ? "grid grid-cols-4 place-items-center gap-2" : "flex flex-col items-center gap-2"}`}>
+          <RailIconButton
+            label={props.reindexing ? "Reindexing..." : "Reindex"}
+            onClick={() => void props.onReindex()}
+            active={props.reindexing}
+            compact
+          >
+            {props.reindexing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+          </RailIconButton>
+          <RailIconButton label="Import document" onClick={props.onImport} compact>
+            <Upload className="h-4 w-4" />
+          </RailIconButton>
+          <RailIconButton label="Account" onClick={props.onAccount} compact>
+            <Settings className="h-4 w-4" />
+          </RailIconButton>
+          <RailIconButton label="Sign out" onClick={() => void props.onLogout()} tone="danger" compact>
+            <LogOut className="h-4 w-4" />
+          </RailIconButton>
+        </div>
       </div>
     </aside>
   );
