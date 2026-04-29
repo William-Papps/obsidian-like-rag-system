@@ -49,6 +49,8 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
       const response = await fetch(`/api/auth/${mode === "login" ? "login" : "register"}`, {
         method: "POST",
         headers: { "content-type": "application/json" },
+        credentials: "include",
+        cache: "no-store",
         body: JSON.stringify({ name, email, password })
       });
       const body = (await response.json().catch(() => ({}))) as {
@@ -90,6 +92,8 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
       const response = await fetch("/api/auth/verify-email", {
         method: "POST",
         headers: { "content-type": "application/json" },
+        credentials: "include",
+        cache: "no-store",
         body: JSON.stringify({ email: pendingEmail, code })
       });
       const body = (await response.json().catch(() => ({}))) as { error?: string };
@@ -109,6 +113,8 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
       const response = await fetch("/api/auth/resend-verification", {
         method: "POST",
         headers: { "content-type": "application/json" },
+        credentials: "include",
+        cache: "no-store",
         body: JSON.stringify({ email: pendingEmail })
       });
       const body = (await response.json().catch(() => ({}))) as { error?: string; debugCode?: string | null };
@@ -129,6 +135,8 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
       const response = await fetch("/api/auth/forgot-password", {
         method: "POST",
         headers: { "content-type": "application/json" },
+        credentials: "include",
+        cache: "no-store",
         body: JSON.stringify({ email })
       });
       const body = (await response.json().catch(() => ({}))) as { debugUrl?: string | null };
@@ -149,6 +157,8 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
       const response = await fetch("/api/auth/reset-password", {
         method: "POST",
         headers: { "content-type": "application/json" },
+        credentials: "include",
+        cache: "no-store",
         body: JSON.stringify({ email: pendingEmail, token: resetToken, newPassword })
       });
       const body = (await response.json().catch(() => ({}))) as { error?: string };

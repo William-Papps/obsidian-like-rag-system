@@ -17,6 +17,7 @@ export async function POST(request: Request) {
     const body = schema.parse(await request.json());
     const { session, ...result } = await registerUser(body);
     const response = NextResponse.json(result, { status: 201 });
+    response.headers.set("cache-control", "no-store");
     if (session) applySessionCookie(response, session, request);
     return response;
   } catch (error) {

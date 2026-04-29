@@ -16,6 +16,7 @@ export async function POST(request: Request) {
     const body = schema.parse(await request.json());
     const { session, ...result } = await verifyEmailCode(body);
     const response = NextResponse.json(result);
+    response.headers.set("cache-control", "no-store");
     applySessionCookie(response, session, request);
     return response;
   } catch (error) {
