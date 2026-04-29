@@ -507,13 +507,14 @@ export function Workspace() {
       const body = (await response.json().catch(() => ({}))) as { url?: string; error?: string };
       if (!response.ok || !body.url) throw new Error(body.error || "Upload failed");
       const alt = file.name.replace(/\.[^/.]+$/, "");
+      const mdUrl = body.url.startsWith("/api/images/") ? body.url.replace("/api/images/", "/_img/") : body.url;
       if (!editorView || !activeNote) return;
       const selection = editorView.state.selection.main;
       const currentText = editorView.state.doc.toString();
       const before = currentText.slice(0, selection.from);
       const needsLead = selection.from > 0 && !before.endsWith("\n\n");
       const lead = needsLead ? (before.endsWith("\n") ? "\n" : "\n\n") : "";
-      const insert = `${lead}![${alt}](${body.url})\n\n`;
+      const insert = `${lead}![${alt}](${mdUrl})\n\n`;
       const nextText = `${before}${insert}${currentText.slice(selection.to)}`;
       const cursor = selection.from + insert.length;
       await applyEditorText(nextText, { anchor: cursor });
@@ -3448,15 +3449,29 @@ function createMarkdownImagePreviewExtension() {
               const src = normalizeImageSrc(raw);
               if (!src) continue;
               const matchIndex = typeof match.index === "number" ? match.index : 0;
-              const endPos = line.from + matchIndex + match[0].length;
-              builder.add(
-                endPos,
-                endPos,
-                Decoration.widget({
-                  widget: new ImagePreviewWidget(src, alt),
-                  side: 1
-                })
-              );
+              const matchFrom = line.from + matchIndex;
+              const matchTo = matchFrom + match[0].length;
+              const trimmed = text.trim();
+              const isOnlyThingOnLine = trimmed === match[0] || trimmed === `${match[0]}.`;
+
+              if (isOnlyThingOnLine) {
+                builder.add(
+                  line.from,
+                  line.to,
+                  Decoration.replace({
+                    widget: new ImagePreviewWidget(src, alt)
+                  })
+                );
+              } else {
+                builder.add(
+                  matchTo,
+                  matchTo,
+                  Decoration.widget({
+                    widget: new ImagePreviewWidget(src, alt),
+                    side: 1
+                  })
+                );
+              }
             }
             pos = line.to + 1;
             if (line.to >= to) break;
