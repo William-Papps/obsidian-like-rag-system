@@ -10,7 +10,7 @@ type Stage = "auth" | "verify" | "forgot" | "reset";
 export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [mode, setMode] = useState<"login" | "signup">(allowSignup ? "signup" : "login");
+  const [mode, setMode] = useState<"login" | "signup">("login");
   const [stage, setStage] = useState<Stage>("auth");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
