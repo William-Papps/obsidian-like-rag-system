@@ -1,14 +1,13 @@
 "use client";
 
 import { KeyRound, Loader2, LockKeyhole, Mail, User2 } from "lucide-react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
 type Stage = "auth" | "verify" | "forgot" | "reset";
 
 export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
-  const router = useRouter();
   const searchParams = useSearchParams();
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [stage, setStage] = useState<Stage>("auth");
@@ -76,8 +75,7 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
         setInfo("Account created. Enter the verification code we sent to your email.");
         return;
       }
-      router.replace("/");
-      router.refresh();
+      window.location.href = "/";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed");
     } finally {
@@ -96,8 +94,7 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
       });
       const body = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) throw new Error(body.error || "Verification failed");
-      router.replace("/");
-      router.refresh();
+      window.location.href = "/";
     } catch (err) {
       setError(err instanceof Error ? err.message : "Verification failed");
     } finally {
