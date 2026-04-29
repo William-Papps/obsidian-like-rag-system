@@ -103,6 +103,7 @@ export function Workspace() {
   const [tab, setTab] = useState<Tab>("ask");
   const [leftOpen, setLeftOpen] = useState(true);
   const [rightOpen, setRightOpen] = useState(true);
+  const [railPinned, setRailPinned] = useState(() => readStoredJson("studyos:railPinned", false));
   const [leftWidth, setLeftWidth] = useState(() => readStoredNumber("studyos:leftWidth", 300, 240, 420));
   const [rightWidth, setRightWidth] = useState(() => readStoredNumber("studyos:rightWidth", 410, 340, 560));
   const [noteView, setNoteView] = useState<NoteView>("write");
@@ -128,6 +129,7 @@ export function Workspace() {
   const [uploadingImage, setUploadingImage] = useState(false);
   const [mobileTab, setMobileTab] = useState<"vault" | "editor" | "study">("editor");
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 1024);
+  const [reindexingAll, setReindexingAll] = useState(false);
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const next = { id: Date.now(), tone, message };
@@ -154,6 +156,22 @@ export function Workspace() {
     setActiveNoteId((current) => current || next.notes[0]?.id || null);
   }, []);
 
+  const reindexAll = useCallback(async () => {
+    if (!data) return;
+    setReindexingAll(true);
+    try {
+      const response = await fetch("/api/index", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Indexing failed");
+      notify("Index refreshed", "success");
+      await refresh();
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Indexing failed", "error");
+    } finally {
+      setReindexingAll(false);
+    }
+  }, [data, notify, refresh]);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void refresh();
@@ -162,6 +180,10 @@ export function Workspace() {
   useEffect(() => {
     window.localStorage.setItem("studyos:pinnedNotes", JSON.stringify(pinnedNoteIds));
   }, [pinnedNoteIds]);
+
+  useEffect(() => {
+    window.localStorage.setItem("studyos:railPinned", JSON.stringify(railPinned));
+  }, [railPinned]);
 
   useEffect(() => {
     const close = () => setVaultMenu(null);
@@ -911,26 +933,46 @@ export function Workspace() {
   };
 
   return (
-    <main className="h-screen overflow-hidden bg-ink-950 text-ink-100">
-      <TopBar
+    <main className="flex h-screen overflow-hidden bg-ink-950 text-ink-100">
+      <SideRail
         data={data}
+        railPinned={railPinned}
+        setRailPinned={setRailPinned}
         leftOpen={leftOpen}
         rightOpen={rightOpen}
-        onToggleLeft={() => setLeftOpen((open) => !open)}
-        onToggleRight={() => setRightOpen((open) => !open)}
-        onSettings={() => {
-          window.location.href = "/account";
+        tab={tab}
+        onSetTab={(next) => {
+          setTab(next);
+          setRightOpen(true);
+          if (isMobile) setMobileTab("study");
+        }}
+        onToggleLeft={() => {
+          setLeftOpen((open) => !open);
+          if (isMobile) setMobileTab("vault");
+        }}
+        onToggleRight={() => {
+          setRightOpen((open) => !open);
+          if (isMobile) setMobileTab("study");
         }}
         onFind={() => setCommandOpen(true)}
-        onReindexed={refresh}
+        onReindex={reindexAll}
+        reindexing={reindexingAll}
         onImport={() => setImportModalOpen(true)}
+        onNewFolder={() => createFolder()}
+        onNewNote={() => createNote()}
+        onAccount={() => {
+          window.location.href = "/account";
+        }}
         onLogout={async () => {
           await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
           window.location.href = "/auth";
         }}
-        notify={notify}
       />
-      <div className="grid h-[calc(100vh-117px)] overflow-hidden transition-[grid-template-columns] duration-300 ease-premium lg:h-[calc(100vh-61px)]" style={workspaceGridStyle}>
+      <div className="relative flex min-w-0 flex-1 flex-col">
+        <div
+          className="grid flex-1 overflow-hidden transition-[grid-template-columns] duration-300 ease-premium"
+          style={{ ...workspaceGridStyle, height: isMobile ? "calc(100vh - 56px)" : "100vh" }}
+        >
         <aside className={`panel-shell relative min-h-0 overflow-hidden border-r transition-opacity duration-200 ${leftOpen ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "vault" ? "hidden" : ""}`}>
           <div className="flex h-16 items-center justify-between border-b border-ink-700/80 px-4">
             <div>
@@ -1307,101 +1349,145 @@ export function Workspace() {
           </button>
         </nav>
       ) : null}
+      </div>
     </main>
   );
 }
 
-function TopBar({
-  data,
-  leftOpen,
-  rightOpen,
-  onToggleLeft,
-  onToggleRight,
-  onSettings,
-  onFind,
-  onReindexed,
-  onImport,
-  onLogout,
-  notify
-}: {
+function SideRail(props: {
   data: Bootstrap;
+  railPinned: boolean;
+  setRailPinned: (value: boolean) => void;
   leftOpen: boolean;
   rightOpen: boolean;
+  tab: Tab;
+  onSetTab: (tab: Tab) => void;
   onToggleLeft: () => void;
   onToggleRight: () => void;
-  onSettings: () => void;
   onFind: () => void;
-  onReindexed: () => void;
+  onReindex: () => void | Promise<void>;
+  reindexing: boolean;
   onImport: () => void;
+  onNewNote: () => void;
+  onNewFolder: () => void;
+  onAccount: () => void;
   onLogout: () => void | Promise<void>;
-  notify: (message: string, tone?: Toast["tone"]) => void;
 }) {
-  const [busy, setBusy] = useState(false);
-  async function reindex() {
-    setBusy(true);
-    try {
-      const response = await fetch("/api/index", { method: "POST", headers: { "content-type": "application/json" }, body: "{}" });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || "Indexing failed");
-      notify("Index refreshed", "success");
-      onReindexed();
-    } catch (error) {
-      notify(error instanceof Error ? error.message : "Indexing failed", "error");
-    } finally {
-      setBusy(false);
-    }
+  const [hovering, setHovering] = useState(false);
+  const expanded = props.railPinned || hovering;
+  const tabs: Array<[Tab, string, React.ReactNode]> = [
+    ["ask", "Ask", <MessageSquareText className="h-4 w-4" key="ask" />],
+    ["find", "Find", <Search className="h-4 w-4" key="find" />],
+    ["quiz", "Quiz", <Check className="h-4 w-4" key="quiz" />],
+    ["flashcards", "Cards", <Brain className="h-4 w-4" key="cards" />],
+    ["summary", "Summary", <PanelRight className="h-4 w-4" key="summary" />]
+  ];
+
+  function RailButton({
+    label,
+    onClick,
+    children,
+    active,
+    tone
+  }: {
+    label: string;
+    onClick: () => void;
+    children: React.ReactNode;
+    active?: boolean;
+    tone?: "default" | "danger";
+  }) {
+    return (
+      <button
+        title={label}
+        aria-label={label}
+        onClick={onClick}
+        className={`group flex h-10 items-center gap-3 rounded-xl border px-3 text-sm transition-colors ${
+          active
+            ? "border-accent-500/30 bg-accent-500/10 text-accent-300 shadow-glow"
+            : tone === "danger"
+              ? "border-danger-400/20 bg-white/[0.02] text-ink-400 hover:bg-danger-400/10 hover:text-danger-300"
+              : "border-ink-700/70 bg-white/[0.02] text-ink-300 hover:border-accent-500/25 hover:bg-white/[0.05] hover:text-ink-100"
+        }`}
+      >
+        <span className="grid h-8 w-8 place-items-center rounded-lg bg-ink-925/60 text-ink-200 group-hover:text-white">{children}</span>
+        {expanded ? <span className="min-w-0 flex-1 truncate">{label}</span> : null}
+      </button>
+    );
   }
+
   return (
-    <header className="flex h-[61px] items-center justify-between border-b border-ink-700/80 bg-ink-950/90 px-3 backdrop-blur-xl">
-      <div className="flex min-w-0 items-center gap-2">
-        <IconButton label={leftOpen ? "Hide vault" : "Show vault"} onClick={onToggleLeft}>
-          <LayoutPanelLeft className="h-4 w-4" />
-        </IconButton>
-        <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-accent-500/30 bg-accent-500/15 text-accent-300 shadow-glow">
+    <aside
+      onMouseEnter={() => setHovering(true)}
+      onMouseLeave={() => setHovering(false)}
+      className={`z-20 flex h-screen shrink-0 flex-col gap-3 border-r border-ink-700/80 bg-ink-950/85 p-3 backdrop-blur-xl transition-[width] duration-200 ease-premium ${
+        expanded ? "w-[220px]" : "w-[64px]"
+      }`}
+    >
+      <div className="flex items-center gap-3 px-1">
+        <div className="grid h-10 w-10 place-items-center rounded-2xl border border-accent-500/30 bg-accent-500/15 text-accent-300 shadow-glow">
           <Sparkles className="h-4 w-4" />
         </div>
-        <div className="min-w-0">
-          <div className="truncate text-sm font-semibold text-ink-100">EternalNotes</div>
-          <div className="truncate text-xs text-ink-500">Private study workspace / {data.user.email}</div>
+        {expanded ? (
+          <div className="min-w-0">
+            <div className="truncate text-sm font-semibold text-ink-100">EternalNotes</div>
+            <div className="truncate text-xs text-ink-500">{props.data.user.email}</div>
+          </div>
+        ) : null}
+      </div>
+
+      <div className="space-y-2">
+        <RailButton label={props.leftOpen ? "Hide vault" : "Show vault"} onClick={props.onToggleLeft} active={props.leftOpen}>
+          <LayoutPanelLeft className="h-4 w-4" />
+        </RailButton>
+        <RailButton label="New note" onClick={props.onNewNote}>
+          <FilePlus className="h-4 w-4" />
+        </RailButton>
+        <RailButton label="New folder" onClick={props.onNewFolder}>
+          <FolderPlus className="h-4 w-4" />
+        </RailButton>
+        <RailButton label="Find / search" onClick={props.onFind}>
+          <Search className="h-4 w-4" />
+        </RailButton>
+      </div>
+
+      <div className="mt-1">
+        {expanded ? <SectionLabel label="Study Tools" /> : null}
+        <div className="space-y-2">
+          {tabs.map(([id, label, icon]) => (
+            <RailButton
+              key={id}
+              label={label}
+              onClick={() => props.onSetTab(id)}
+              active={props.rightOpen && props.tab === id}
+            >
+              {icon}
+            </RailButton>
+          ))}
+          <RailButton label={props.rightOpen ? "Hide study panel" : "Show study panel"} onClick={props.onToggleRight} active={props.rightOpen}>
+            {props.rightOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+          </RailButton>
         </div>
       </div>
 
-      <button
-        onClick={onFind}
-        className="control-soft mx-3 hidden h-9 min-w-[260px] max-w-2xl flex-1 items-center gap-2 rounded-xl px-3 text-left text-sm text-ink-500 lg:flex"
-      >
-        <Search className="h-4 w-4 text-ink-500" />
-        Search notes, classes, excerpts
-        <span className="ml-auto flex items-center gap-1 rounded-md border border-ink-700/80 bg-ink-925 px-1.5 py-0.5 text-[11px] text-ink-500">
-          <Command className="h-3 w-3" />
-          Find
-        </span>
-      </button>
-
-      <div className="flex items-center gap-2">
-        <IndexBadge status={data.indexStatus} busy={busy} />
-        <button
-          onClick={reindex}
-          disabled={busy}
-          className="flex h-9 items-center gap-2 rounded-lg bg-accent-500 px-3 text-sm font-semibold text-ink-950 shadow-glow hover:bg-accent-400 disabled:opacity-60"
-        >
-          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-          <span className="hidden sm:inline">Reindex</span>
-        </button>
-        <IconButton label="Import document" onClick={onImport}>
+      <div className="mt-auto space-y-2 pt-2">
+        {expanded ? <IndexBadge status={props.data.indexStatus} busy={props.reindexing} /> : null}
+        <RailButton label={props.reindexing ? "Reindexing..." : "Reindex"} onClick={() => void props.onReindex()} active={props.reindexing}>
+          {props.reindexing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+        </RailButton>
+        <RailButton label="Import document" onClick={props.onImport}>
           <Upload className="h-4 w-4" />
-        </IconButton>
-        <IconButton label="Account" onClick={onSettings}>
+        </RailButton>
+        <RailButton label="Account" onClick={props.onAccount}>
           <Settings className="h-4 w-4" />
-        </IconButton>
-        <IconButton label="Sign out" onClick={onLogout}>
+        </RailButton>
+        <RailButton label={props.railPinned ? "Unpin sidebar" : "Pin sidebar"} onClick={() => props.setRailPinned(!props.railPinned)} active={props.railPinned}>
+          <Pin className="h-4 w-4" />
+        </RailButton>
+        <RailButton label="Sign out" onClick={() => void props.onLogout()} tone="danger">
           <LogOut className="h-4 w-4" />
-        </IconButton>
-        <IconButton label={rightOpen ? "Hide study panel" : "Show study panel"} onClick={onToggleRight}>
-          {rightOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
-        </IconButton>
+        </RailButton>
       </div>
-    </header>
+    </aside>
   );
 }
 
