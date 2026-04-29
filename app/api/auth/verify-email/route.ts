@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { verifyEmailCode } from "@/lib/auth";
+import { applySessionCookie, verifyEmailCode } from "@/lib/auth";
 import { RateLimitError, clientIp, enforceRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +14,10 @@ export async function POST(request: Request) {
   try {
     await enforceRateLimit(`auth:verify-email:${clientIp(request)}`, 12, 1000 * 60 * 15);
     const body = schema.parse(await request.json());
-    const result = await verifyEmailCode(body);
-    return NextResponse.json(result);
+    const { session, ...result } = await verifyEmailCode(body);
+    const response = NextResponse.json(result);
+    applySessionCookie(response, session);
+    return response;
   } catch (error) {
     if (error instanceof RateLimitError) {
       return NextResponse.json({ error: error.message }, { status: 429 });

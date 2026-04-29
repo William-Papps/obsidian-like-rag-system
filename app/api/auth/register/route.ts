@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { registerUser } from "@/lib/auth";
+import { applySessionCookie, registerUser } from "@/lib/auth";
 import { RateLimitError, clientIp, enforceRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -15,8 +15,10 @@ export async function POST(request: Request) {
   try {
     await enforceRateLimit(`auth:register:${clientIp(request)}`, 6, 1000 * 60 * 30);
     const body = schema.parse(await request.json());
-    const result = await registerUser(body);
-    return NextResponse.json(result, { status: 201 });
+    const { session, ...result } = await registerUser(body);
+    const response = NextResponse.json(result, { status: 201 });
+    if (session) applySessionCookie(response, session);
+    return response;
   } catch (error) {
     if (error instanceof RateLimitError) {
       return NextResponse.json({ error: error.message }, { status: 429 });

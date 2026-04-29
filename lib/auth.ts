@@ -130,9 +130,9 @@ export async function registerUser(input: { email: string; name: string; passwor
       await logAudit({ actorUserId: existing.id, event: "auth.register.pending_verification", metadata: { email } });
       return { user: { id: existing.id, email: existing.email, name, role: ownerRoleForEmail(email), disabledAt: null }, verificationRequired: true as const, debugCode: verification.debugCode ?? null };
     }
-    await createSession(existing.id);
+    const session = await createSession(existing.id);
     await logAudit({ actorUserId: existing.id, event: "auth.register.completed", metadata: { email } });
-    return { user: { id: existing.id, email: existing.email, name, role: ownerRoleForEmail(email), disabledAt: null } };
+    return { user: { id: existing.id, email: existing.email, name, role: ownerRoleForEmail(email), disabledAt: null }, session };
   }
 
   const user = { id: id(), email, name, role: ownerRoleForEmail(email) };
@@ -144,11 +144,11 @@ export async function registerUser(input: { email: string; name: string; passwor
   if (await emailVerificationEnabled()) {
     const verification = await issueEmailVerification({ userId: user.id, email: user.email, name: user.name });
     await logAudit({ actorUserId: user.id, event: "auth.register.pending_verification", metadata: { email } });
-    return { user: { ...user, disabledAt: null }, verificationRequired: true as const, debugCode: verification.debugCode ?? null };
+    return { user: { ...user, disabledAt: null }, verificationRequired: true as const, debugCode: verification.debugCode ?? null, session: null };
   }
-  await createSession(user.id);
+  const session = await createSession(user.id);
   await logAudit({ actorUserId: user.id, event: "auth.register.completed", metadata: { email } });
-  return { user: { ...user, disabledAt: null } };
+  return { user: { ...user, disabledAt: null }, session };
 }
 
 export async function loginUser(input: { email: string; password: string }) {
@@ -175,9 +175,9 @@ export async function loginUser(input: { email: string; password: string }) {
     await dbRun("update users set role = ?, updated_at = ? where id = ?", [role, now(), user.id]);
   }
 
-  await createSession(user.id);
+  const session = await createSession(user.id);
   await logAudit({ actorUserId: user.id, event: "auth.login.success" });
-  return { id: user.id, email: user.email, name: user.name, role, disabledAt: user.disabledAt ?? null };
+  return { user: { id: user.id, email: user.email, name: user.name, role, disabledAt: user.disabledAt ?? null }, session };
 }
 
 export async function logoutUser() {
@@ -232,9 +232,9 @@ export async function verifyEmailCode(input: { email: string; code: string }) {
 
   await dbRun("update email_verifications set consumed_at = ?, updated_at = ? where id = ?", [now(), now(), verification.id]);
   await dbRun("update users set email_verified_at = ?, updated_at = ? where id = ?", [now(), now(), user.id]);
-  await createSession(user.id);
+  const session = await createSession(user.id);
   await logAudit({ actorUserId: user.id, event: "auth.email_verified" });
-  return { user: { id: user.id, email: user.email, name: user.name, role: effectiveRole(user.email, user.role), disabledAt: user.disabledAt ?? null } };
+  return { user: { id: user.id, email: user.email, name: user.name, role: effectiveRole(user.email, user.role), disabledAt: user.disabledAt ?? null }, session };
 }
 
 export async function forgotPassword(emailInput: string, baseUrl: string) {
@@ -296,7 +296,7 @@ export function isAdmin(user: CurrentUser) {
   return user.role === "admin" || user.role === "owner";
 }
 
-async function createSession(userId: string) {
+async function createSession(userId: string): Promise<{ token: string; expiresAt: string }> {
   const token = randomBytes(32).toString("hex");
   const expiresAt = new Date(Date.now() + SESSION_TTL_MS).toISOString();
   await dbRun("delete from sessions where user_id = ? and expires_at <= ?", [userId, now()]);
@@ -304,14 +304,16 @@ async function createSession(userId: string) {
     "insert into sessions (id, user_id, token_hash, expires_at, created_at, last_used_at) values (?, ?, ?, ?, ?, ?)",
     [id(), userId, sessionTokenHash(token), expiresAt, now(), now()]
   );
+  return { token, expiresAt };
+}
 
-  const store = await cookies();
-  store.set(SESSION_COOKIE, token, {
+export function applySessionCookie(response: NextResponse, session: { token: string; expiresAt: string }) {
+  response.cookies.set(SESSION_COOKIE, session.token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    expires: new Date(expiresAt)
+    expires: new Date(session.expiresAt)
   });
 }
 
