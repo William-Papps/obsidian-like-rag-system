@@ -307,11 +307,22 @@ async function createSession(userId: string): Promise<{ token: string; expiresAt
   return { token, expiresAt };
 }
 
-export function applySessionCookie(response: NextResponse, session: { token: string; expiresAt: string }) {
+export function applySessionCookie(response: NextResponse, session: { token: string; expiresAt: string }, request?: Request) {
+  // If the app is behind a TLS terminator (Cloudflare Tunnel, reverse proxy, etc.),
+  // the origin may see plain HTTP while the browser uses HTTPS. Decide Secure based
+  // on request headers/env, not NODE_ENV.
+  const forwardedProto = request?.headers.get("x-forwarded-proto") || "";
+  const cfVisitor = request?.headers.get("cf-visitor") || "";
+  const isHttps =
+    (process.env.PUBLIC_BASE_URL || "").toLowerCase().startsWith("https://") ||
+    process.env.COOKIE_SECURE === "true" ||
+    forwardedProto.toLowerCase().includes("https") ||
+    cfVisitor.toLowerCase().includes("\"scheme\":\"https\"");
   response.cookies.set(SESSION_COOKIE, session.token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
+    // Secure cookies are ignored over http://localhost. Only mark Secure when we know the browser is HTTPS.
+    secure: isHttps,
     path: "/",
     expires: new Date(session.expiresAt)
   });

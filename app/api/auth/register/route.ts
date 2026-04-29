@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     const body = schema.parse(await request.json());
     const { session, ...result } = await registerUser(body);
     const response = NextResponse.json(result, { status: 201 });
-    if (session) applySessionCookie(response, session);
+    if (session) applySessionCookie(response, session, request);
     return response;
   } catch (error) {
     if (error instanceof RateLimitError) {
