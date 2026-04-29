@@ -189,6 +189,26 @@ export async function logoutUser() {
   await clearSessionCookie();
 }
 
+export async function logoutUserWithResponse(request: Request, response: NextResponse) {
+  const token = request.headers.get("cookie")?.match(/(?:^|; )studyos_session=([^;]+)/)?.[1] || null;
+  if (token) {
+    await dbRun("delete from sessions where token_hash = ?", [sessionTokenHash(decodeURIComponent(token))]);
+  }
+  // Ensure browser cookie clears in route handlers (cookies().set is not reliably attached to responses here).
+  response.cookies.set(SESSION_COOKIE, "", {
+    httpOnly: true,
+    sameSite: "lax",
+    secure:
+      (process.env.PUBLIC_BASE_URL || "").toLowerCase().startsWith("https://") ||
+      process.env.COOKIE_SECURE === "true" ||
+      (request.headers.get("x-forwarded-proto") || "").toLowerCase().includes("https") ||
+      (request.headers.get("cf-visitor") || "").toLowerCase().includes("\"scheme\":\"https\""),
+    path: "/",
+    expires: new Date(0)
+  });
+  return response;
+}
+
 export async function changePassword(userId: string, input: { currentPassword: string; newPassword: string }) {
   const user = await dbGet<{ password_hash: string | null }>("select password_hash from users where id = ?", [userId]);
   if (!user?.password_hash) throw new AuthError("Current password is invalid.");

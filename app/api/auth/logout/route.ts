@@ -1,9 +1,8 @@
 import { NextResponse } from "next/server";
-import { logoutUser } from "@/lib/auth";
+import { logoutUserWithResponse } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export async function POST() {
-  await logoutUser();
-  return NextResponse.json({ success: true });
+export async function POST(request: Request) {
+  return logoutUserWithResponse(request, NextResponse.json({ success: true }));
 }
