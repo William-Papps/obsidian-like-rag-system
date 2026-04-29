@@ -2,7 +2,7 @@
 
 import { markdown } from "@codemirror/lang-markdown";
 import { EditorSelection, RangeSetBuilder } from "@codemirror/state";
-import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from "@codemirror/view";
+import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import {
   AlertCircle,
@@ -387,32 +387,25 @@ export function Workspace() {
     async (file: File, view: EditorView) => {
       setPastingImage(true);
       try {
-        const formData = new FormData();
-        formData.append("file", file, file.name || "clipboard-image.png");
-        const response = await fetch("/api/convert", { method: "POST", body: formData });
-        const body = (await response.json().catch(() => ({}))) as { markdown?: string; error?: string; warnings?: string[] };
-        if (!response.ok || !body.markdown) throw new Error(body.error || "Clipboard image import failed");
-        const selection = view.state.selection.main;
-        const currentText = view.state.doc.toString();
-        const insert = `${selection.from > 0 ? "\n\n" : ""}${body.markdown}\n`;
-        const nextText = `${currentText.slice(0, selection.from)}${insert}${currentText.slice(selection.to)}`;
-        const cursor = selection.from + insert.length;
-        await applyEditorText(nextText, { anchor: cursor });
-        for (const warning of body.warnings ?? []) notify(warning, "info");
-        notify("Clipboard image converted into Markdown note text", "success");
+        const name = file.name && file.name.trim() ? file.name : `clipboard-${new Date().toISOString().replace(/[:.]/g, "-")}.png`;
+        const named = new File([file], name, { type: file.type || "image/png" });
+        await uploadNoteImage(named);
       } catch (error) {
-        notify(error instanceof Error ? error.message : "Clipboard image import failed", "error");
+        notify(error instanceof Error ? error.message : "Clipboard image paste failed", "error");
       } finally {
         setPastingImage(false);
       }
     },
-    [applyEditorText, notify]
+    [uploadNoteImage, notify]
   );
+
+  const imagePreviewExtension = useMemo(() => createMarkdownImagePreviewExtension(), []);
 
   const editorExtensions = useMemo(() => {
     const extensions = [
       markdown(),
       EditorView.lineWrapping,
+      imagePreviewExtension,
       EditorView.domEventHandlers({
         paste: (event, view) => {
           const items = Array.from(event.clipboardData?.items ?? []);
@@ -428,7 +421,7 @@ export function Workspace() {
     ];
     if (!editorHighlight?.excerpt.trim()) return extensions;
     return [...extensions, createSourceHighlightExtension(editorHighlight.excerpt)];
-  }, [activeNote, editorHighlight, pasteClipboardImage]);
+  }, [activeNote, editorHighlight, imagePreviewExtension, pasteClipboardImage]);
 
   async function replaceSelectionWith(text: string) {
     if (!editorView || !activeNote) return;
@@ -514,7 +507,16 @@ export function Workspace() {
       const body = (await response.json().catch(() => ({}))) as { url?: string; error?: string };
       if (!response.ok || !body.url) throw new Error(body.error || "Upload failed");
       const alt = file.name.replace(/\.[^/.]+$/, "");
-      await replaceSelectionWith(`![${alt}](${body.url})`);
+      if (!editorView || !activeNote) return;
+      const selection = editorView.state.selection.main;
+      const currentText = editorView.state.doc.toString();
+      const before = currentText.slice(0, selection.from);
+      const needsLead = selection.from > 0 && !before.endsWith("\n\n");
+      const lead = needsLead ? (before.endsWith("\n") ? "\n" : "\n\n") : "";
+      const insert = `${lead}![${alt}](${body.url})\n\n`;
+      const nextText = `${before}${insert}${currentText.slice(selection.to)}`;
+      const cursor = selection.from + insert.length;
+      await applyEditorText(nextText, { anchor: cursor });
       notify("Image uploaded", "success");
     } catch (err) {
       notify(err instanceof Error ? err.message : "Image upload failed", "error");
@@ -3368,6 +3370,95 @@ function createSourceHighlightExtension(excerpt: string) {
         if (update.docChanged || update.viewportChanged) {
           this.decorations = buildSourceDecorations(update.state.doc.toString(), excerpt);
         }
+      }
+    },
+    {
+      decorations: (value) => value.decorations
+    }
+  );
+}
+
+function createMarkdownImagePreviewExtension() {
+  class ImagePreviewWidget extends WidgetType {
+    constructor(private readonly src: string, private readonly alt: string) {
+      super();
+    }
+    eq(other: ImagePreviewWidget) {
+      return other.src === this.src && other.alt === this.alt;
+    }
+    toDOM() {
+      const wrap = document.createElement("div");
+      wrap.style.margin = "10px 0";
+      wrap.style.padding = "10px";
+      wrap.style.border = "1px solid rgba(148, 163, 184, 0.14)";
+      wrap.style.borderRadius = "12px";
+      wrap.style.background = "rgba(255,255,255,0.03)";
+      wrap.style.maxWidth = "560px";
+
+      const img = document.createElement("img");
+      img.src = this.src;
+      img.alt = this.alt;
+      img.loading = "lazy";
+      img.style.display = "block";
+      img.style.maxWidth = "100%";
+      img.style.maxHeight = "260px";
+      img.style.borderRadius = "10px";
+      img.style.objectFit = "contain";
+      wrap.appendChild(img);
+
+      return wrap;
+    }
+  }
+
+  function normalizeImageSrc(raw: string) {
+    const trimmed = raw.trim();
+    if (!trimmed) return null;
+    if (trimmed.startsWith("/api/images/")) return trimmed;
+    if (trimmed.startsWith("/_img/")) return trimmed.replace("/_img/", "/api/images/");
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) return trimmed;
+    return null;
+  }
+
+  return ViewPlugin.fromClass(
+    class {
+      decorations: DecorationSet;
+
+      constructor(view: EditorView) {
+        this.decorations = this.build(view);
+      }
+
+      update(update: ViewUpdate) {
+        if (update.docChanged || update.viewportChanged) {
+          this.decorations = this.build(update.view);
+        }
+      }
+
+      build(view: EditorView) {
+        const widgets: any[] = [];
+        for (const { from, to } of view.visibleRanges) {
+          let pos = from;
+          while (pos <= to) {
+            const line = view.state.doc.lineAt(pos);
+            const text = line.text;
+            const matches = [...text.matchAll(/!\[([^\]]*)\]\(([^)]+)\)/g)];
+            for (const match of matches) {
+              const alt = match[1] ?? "";
+              const raw = match[2] ?? "";
+              const src = normalizeImageSrc(raw);
+              if (!src) continue;
+              widgets.push(
+                Decoration.widget({
+                  widget: new ImagePreviewWidget(src, alt),
+                  block: true,
+                  side: 1
+                }).range(line.to)
+              );
+            }
+            pos = line.to + 1;
+            if (line.to >= to) break;
+          }
+        }
+        return Decoration.set(widgets, true);
       }
     },
     {
