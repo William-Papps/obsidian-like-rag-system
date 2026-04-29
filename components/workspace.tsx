@@ -108,6 +108,7 @@ export function Workspace() {
   const [rightWidth, setRightWidth] = useState(() => readStoredNumber("studyos:rightWidth", 410, 340, 560));
   const [noteView, setNoteView] = useState<NoteView>("write");
   const [draftTitle, setDraftTitle] = useState("");
+  const [draftMarkdown, setDraftMarkdown] = useState("");
   const [openNoteIds, setOpenNoteIds] = useState<string[]>([]);
   const [pinnedNoteIds, setPinnedNoteIds] = useState<string[]>(() => readStoredJson("studyos:pinnedNotes", []));
   const [vaultRootId, setVaultRootId] = useState<string>(() => readStoredJson("studyos:vaultRootId", "__all__"));
@@ -250,6 +251,11 @@ export function Workspace() {
     }
     setOpenNoteIds((current) => [noteId, ...current.filter((id) => id !== noteId)].slice(0, 8));
   }, []);
+
+  useEffect(() => {
+    setDraftTitle(activeNote?.title ?? "");
+    setDraftMarkdown(activeNote?.markdownContent ?? "");
+  }, [activeNote?.id]);
   const openNoteFromSource = useCallback(
     (source: SourceRef) => {
       const note = data?.notes.find((item) => item.id === source.noteId);
@@ -361,12 +367,48 @@ export function Workspace() {
     setSaving(false);
   }
 
+  const markdownSaveTimer = useRef<number | null>(null);
+  const markdownSaveSeq = useRef(0);
+
+  const saveActiveMarkdownDebounced = useCallback(
+    (noteId: string, markdownContent: string) => {
+      if (!data) return;
+      // Optimistically update local state so the editor never "snaps back".
+      setData((current) =>
+        current
+          ? {
+              ...current,
+              notes: current.notes.map((note) => (note.id === noteId ? { ...note, markdownContent, updatedAt: new Date().toISOString() } : note))
+            }
+          : current
+      );
+      setSaving(true);
+
+      if (markdownSaveTimer.current) window.clearTimeout(markdownSaveTimer.current);
+      const seq = ++markdownSaveSeq.current;
+      markdownSaveTimer.current = window.setTimeout(async () => {
+        try {
+          await fetch(`/api/notes/${noteId}`, {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ markdownContent })
+          });
+        } finally {
+          // Only clear "saving" if this is the latest scheduled save.
+          if (markdownSaveSeq.current === seq) setSaving(false);
+        }
+      }, 450);
+    },
+    [data]
+  );
+
   const replaceActiveMarkdown = useCallback(
     async (markdownContent: string) => {
       if (!activeNote) return;
-      await updateNote(activeNote.id, { markdownContent });
+      setDraftMarkdown(markdownContent);
+      saveActiveMarkdownDebounced(activeNote.id, markdownContent);
     },
-    [activeNote]
+    [activeNote, saveActiveMarkdownDebounced]
   );
 
   const applyEditorText = useCallback(
@@ -407,6 +449,22 @@ export function Workspace() {
       EditorView.lineWrapping,
       imagePreviewExtension,
       EditorView.domEventHandlers({
+        mousedown: (event, view) => {
+          const target = event.target as HTMLElement | null;
+          const preview = target?.closest?.("[data-md-img-preview='1']") as HTMLElement | null;
+          if (!preview) return false;
+          event.preventDefault();
+          // Try to select the underlying markdown image token so Ctrl+X/C/V works naturally.
+          const pos = view.posAtDOM(preview, 0);
+          const line = view.state.doc.lineAt(pos);
+          const text = line.text;
+          const match = /!\[([^\]]*)\]\(([^)]+)\)\.?/.exec(text);
+          if (!match || typeof match.index !== "number") return true;
+          const from = line.from + match.index;
+          const to = from + match[0].length;
+          view.dispatch({ selection: { anchor: from, head: to } });
+          return true;
+        },
         paste: (event, view) => {
           const items = Array.from(event.clipboardData?.items ?? []);
           const imageItem = items.find((item) => item.type.startsWith("image/"));
@@ -1235,11 +1293,11 @@ export function Workspace() {
                     height="100%"
                     onCreateEditor={setEditorView}
                     onUpdate={(update) => setEditorCursor(update.state.selection.main.head)}
-                    value={activeNote.markdownContent}
+                    value={draftMarkdown}
                     extensions={editorExtensions}
                     theme="dark"
                     basicSetup={{ foldGutter: false, highlightActiveLine: true }}
-                    onChange={(value) => updateNote(activeNote.id, { markdownContent: value })}
+                    onChange={(value) => replaceActiveMarkdown(value)}
                   />
                 </div>
                 ) : null}
@@ -3389,6 +3447,7 @@ function createMarkdownImagePreviewExtension() {
     }
     toDOM() {
       const wrap = document.createElement("span");
+      wrap.dataset.mdImgPreview = "1";
       wrap.style.display = "block";
       wrap.style.margin = "10px 0";
       wrap.style.padding = "10px";
