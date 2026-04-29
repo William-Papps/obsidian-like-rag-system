@@ -1401,15 +1401,21 @@ function SideRail(props: {
         title={label}
         aria-label={label}
         onClick={onClick}
-        className={`group flex h-10 items-center gap-3 rounded-xl border px-3 text-sm transition-colors ${
+        className={`group flex h-10 items-center gap-3 rounded-lg border px-2.5 text-sm transition-colors ${
           active
-            ? "border-accent-500/30 bg-accent-500/10 text-accent-300 shadow-glow"
+            ? "border-accent-500/25 bg-accent-500/10 text-accent-200"
             : tone === "danger"
-              ? "border-danger-400/20 bg-white/[0.02] text-ink-400 hover:bg-danger-400/10 hover:text-danger-300"
-              : "border-ink-700/70 bg-white/[0.02] text-ink-300 hover:border-accent-500/25 hover:bg-white/[0.05] hover:text-ink-100"
+              ? "border-transparent bg-transparent text-ink-400 hover:border-danger-400/20 hover:bg-danger-400/10 hover:text-danger-300"
+              : "border-transparent bg-transparent text-ink-300 hover:border-ink-700/70 hover:bg-white/[0.04] hover:text-ink-100"
         }`}
       >
-        <span className="grid h-8 w-8 place-items-center rounded-lg bg-ink-925/60 text-ink-200 group-hover:text-white">{children}</span>
+        <span
+          className={`grid h-8 w-8 place-items-center rounded-md text-ink-200 transition-colors ${
+            active ? "bg-accent-500/15 text-accent-200" : "bg-ink-925/40 group-hover:bg-ink-925/70 group-hover:text-white"
+          }`}
+        >
+          {children}
+        </span>
         {expanded ? <span className="min-w-0 flex-1 truncate">{label}</span> : null}
       </button>
     );
@@ -1419,11 +1425,11 @@ function SideRail(props: {
     <aside
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
-      className={`z-20 flex h-screen shrink-0 flex-col gap-3 border-r border-ink-700/80 bg-ink-950/85 p-3 backdrop-blur-xl transition-[width] duration-200 ease-premium ${
-        expanded ? "w-[220px]" : "w-[64px]"
+      className={`z-20 flex h-screen shrink-0 flex-col border-r border-ink-700/80 bg-ink-950/95 p-3 backdrop-blur-xl transition-[width] duration-200 ease-premium ${
+        expanded ? "w-[232px]" : "w-[64px]"
       }`}
     >
-      <div className="flex items-center gap-3 px-1">
+      <div className="flex shrink-0 items-center gap-3 px-1">
         <div className="grid h-10 w-10 place-items-center rounded-2xl border border-accent-500/30 bg-accent-500/15 text-accent-300 shadow-glow">
           <Sparkles className="h-4 w-4" />
         </div>
@@ -1435,41 +1441,43 @@ function SideRail(props: {
         ) : null}
       </div>
 
-      <div className="space-y-2">
-        <RailButton label={props.leftOpen ? "Hide vault" : "Show vault"} onClick={props.onToggleLeft} active={props.leftOpen}>
-          <LayoutPanelLeft className="h-4 w-4" />
-        </RailButton>
-        <RailButton label="New note" onClick={props.onNewNote}>
-          <FilePlus className="h-4 w-4" />
-        </RailButton>
-        <RailButton label="New folder" onClick={props.onNewFolder}>
-          <FolderPlus className="h-4 w-4" />
-        </RailButton>
-        <RailButton label="Find / search" onClick={props.onFind}>
-          <Search className="h-4 w-4" />
-        </RailButton>
-      </div>
-
-      <div className="mt-1">
-        {expanded ? <SectionLabel label="Study Tools" /> : null}
-        <div className="space-y-2">
-          {tabs.map(([id, label, icon]) => (
-            <RailButton
-              key={id}
-              label={label}
-              onClick={() => props.onSetTab(id)}
-              active={props.rightOpen && props.tab === id}
-            >
-              {icon}
-            </RailButton>
-          ))}
-          <RailButton label={props.rightOpen ? "Hide study panel" : "Show study panel"} onClick={props.onToggleRight} active={props.rightOpen}>
-            {props.rightOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain pr-1 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+        <div className="space-y-1.5 pt-2">
+          <RailButton label={props.leftOpen ? "Hide vault" : "Show vault"} onClick={props.onToggleLeft} active={props.leftOpen}>
+            <LayoutPanelLeft className="h-4 w-4" />
           </RailButton>
+          <RailButton label="New note" onClick={props.onNewNote}>
+            <FilePlus className="h-4 w-4" />
+          </RailButton>
+          <RailButton label="New folder" onClick={props.onNewFolder}>
+            <FolderPlus className="h-4 w-4" />
+          </RailButton>
+          <RailButton label="Find / search" onClick={props.onFind}>
+            <Search className="h-4 w-4" />
+          </RailButton>
+        </div>
+
+        <div className="pt-3">
+          {expanded ? <SectionLabel label="Study Tools" /> : null}
+          <div className="space-y-1.5">
+            {tabs.map(([id, label, icon]) => (
+              <RailButton
+                key={id}
+                label={label}
+                onClick={() => props.onSetTab(id)}
+                active={props.rightOpen && props.tab === id}
+              >
+                {icon}
+              </RailButton>
+            ))}
+            <RailButton label={props.rightOpen ? "Hide study panel" : "Show study panel"} onClick={props.onToggleRight} active={props.rightOpen}>
+              {props.rightOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+            </RailButton>
+          </div>
         </div>
       </div>
 
-      <div className="mt-auto space-y-2 pt-2">
+      <div className="shrink-0 space-y-1.5 border-t border-ink-700/70 pt-3">
         {expanded ? <IndexBadge status={props.data.indexStatus} busy={props.reindexing} /> : null}
         <RailButton label={props.reindexing ? "Reindexing..." : "Reindex"} onClick={() => void props.onReindex()} active={props.reindexing}>
           {props.reindexing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
