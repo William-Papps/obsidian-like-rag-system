@@ -18,6 +18,7 @@ import {
   ChevronRight,
   Circle,
   Clock3,
+  Code2,
   Command,
   FilePlus,
   FileStack,
@@ -120,6 +121,7 @@ export function Workspace() {
   const [rightWidth, setRightWidth] = useState(() => readStoredNumber("studyos:rightWidth", 410, 340, 560));
   const [noteView, setNoteView] = useState<NoteView>("write");
   const [codeLanguage, setCodeLanguage] = useState<CodeLanguage>(() => readStoredJson("studyos:codeLanguage", "typescript"));
+  const [codeSnippet, setCodeSnippet] = useState("");
   const [draftTitle, setDraftTitle] = useState("");
   const [draftMarkdown, setDraftMarkdown] = useState("");
   const [openNoteIds, setOpenNoteIds] = useState<string[]>([]);
@@ -634,6 +636,33 @@ export function Workspace() {
     const selected = currentText.slice(selection.from, selection.to);
     const block = `\`\`\`text\n${selected}\n\`\`\``;
     await replaceSelectionWith(block);
+  }
+
+  async function insertSnippetFromCodeTab() {
+    if (!activeNote) return;
+    const snippet = codeSnippet.trimEnd();
+    if (!snippet) return notify("Paste or type some code first", "info");
+    const lang =
+      codeLanguage === "typescript" ? "ts" :
+      codeLanguage === "javascript" ? "js" :
+      codeLanguage === "python" ? "python" :
+      codeLanguage === "html" ? "html" :
+      codeLanguage === "css" ? "css" :
+      codeLanguage === "sql" ? "sql" :
+      codeLanguage === "json" ? "json" :
+      "";
+
+    const fence = `\`\`\`${lang}\n${snippet}\n\`\`\``;
+    const cursor = editorCursor;
+    const currentText = draftMarkdown;
+    const before = currentText.slice(0, cursor);
+    const lead = cursor > 0 && !before.endsWith("\n\n") ? (before.endsWith("\n") ? "\n" : "\n\n") : "";
+    const insert = `${lead}${fence}\n\n`;
+    const nextText = `${before}${insert}${currentText.slice(cursor)}`;
+    await replaceActiveMarkdown(nextText);
+    setCodeSnippet("");
+    setNoteView("write");
+    notify("Snippet inserted", "success");
   }
 
   async function formatActiveMarkdown() {
@@ -1372,6 +1401,7 @@ export function Workspace() {
                 onChange={setNoteView}
                 codeLanguage={codeLanguage}
                 onChangeCodeLanguage={setCodeLanguage}
+                onInsertSnippet={noteView === "code" ? () => void insertSnippetFromCodeTab() : undefined}
                 onInsertHeading={() => void insertHeading()}
                 onInsertList={() => void insertListItem()}
                 onInsertQuote={() => void insertQuote()}
@@ -1388,7 +1418,7 @@ export function Workspace() {
                 onUploadImage={activeNote ? (file) => void uploadNoteImage(file) : undefined}
               />
               <div className={`h-full min-h-0 min-w-0 overflow-hidden ${noteView === "split" ? "grid grid-cols-2" : "grid grid-cols-1"}`}>
-                {(noteView === "write" || noteView === "split" || noteView === "code") ? (
+                {(noteView === "write" || noteView === "split") ? (
                 <div className={`h-full min-h-0 min-w-0 overflow-hidden bg-ink-900/50 ${noteView === "split" ? "border-r border-ink-700/80" : ""}`}>
                   <CodeMirror
                     className="h-full"
@@ -1396,17 +1426,30 @@ export function Workspace() {
                     onCreateEditor={setEditorView}
                     onUpdate={(update) => setEditorCursor(update.state.selection.main.head)}
                     value={draftMarkdown}
-                    extensions={noteView === "code" ? codeEditorExtensions : editorExtensions}
+                    extensions={editorExtensions}
                     theme="dark"
                     basicSetup={{ foldGutter: false, highlightActiveLine: true }}
                     onChange={(value) => replaceActiveMarkdown(value)}
                   />
                 </div>
                 ) : null}
+                {noteView === "code" ? (
+                  <div className="h-full min-h-0 min-w-0 overflow-hidden bg-ink-900/50">
+                    <CodeMirror
+                      className="h-full"
+                      height="100%"
+                      value={codeSnippet}
+                      extensions={codeEditorExtensions}
+                      theme="dark"
+                      basicSetup={{ foldGutter: false, highlightActiveLine: true }}
+                      onChange={(value) => setCodeSnippet(value)}
+                    />
+                  </div>
+                ) : null}
                 {(noteView === "preview" || noteView === "split") ? (
                 <div className="min-h-0 min-w-0 overflow-hidden bg-ink-925">
                   <MarkdownPreview
-                    markdown={activeNote.markdownContent}
+                    markdown={draftMarkdown}
                     onWikilinkClick={(title) => {
                       const target = data.notes.find((n) => n.title.toLowerCase() === title.toLowerCase());
                       if (target) selectNote(target.id);
@@ -1797,6 +1840,7 @@ function NoteViewTabs({
   onChange,
   codeLanguage,
   onChangeCodeLanguage,
+  onInsertSnippet,
   onInsertHeading,
   onInsertList,
   onInsertQuote,
@@ -1816,6 +1860,7 @@ function NoteViewTabs({
   onChange: (value: NoteView) => void;
   codeLanguage?: CodeLanguage;
   onChangeCodeLanguage?: (lang: CodeLanguage) => void;
+  onInsertSnippet?: () => void;
   onInsertHeading: () => void;
   onInsertList: () => void;
   onInsertQuote: () => void;
@@ -1858,21 +1903,32 @@ function NoteViewTabs({
       </div>
       <div className="hidden min-w-max items-center gap-2 pb-1.5 lg:flex">
         {value === "code" && codeLanguage && onChangeCodeLanguage ? (
-          <select
-            value={codeLanguage}
-            onChange={(e) => onChangeCodeLanguage(e.target.value as CodeLanguage)}
-            className="control-soft h-7 rounded-md px-2 text-xs font-semibold text-ink-300 outline-none"
-            aria-label="Code language"
-          >
-            <option value="typescript">TypeScript</option>
-            <option value="javascript">JavaScript</option>
-            <option value="python">Python</option>
-            <option value="html">HTML</option>
-            <option value="css">CSS</option>
-            <option value="sql">SQL</option>
-            <option value="json">JSON</option>
-            <option value="plaintext">Plain text</option>
-          </select>
+          <>
+            <select
+              value={codeLanguage}
+              onChange={(e) => onChangeCodeLanguage(e.target.value as CodeLanguage)}
+              className="control-soft h-7 rounded-md px-2 text-xs font-semibold text-ink-300 outline-none"
+              aria-label="Code language"
+            >
+              <option value="typescript">TypeScript</option>
+              <option value="javascript">JavaScript</option>
+              <option value="python">Python</option>
+              <option value="html">HTML</option>
+              <option value="css">CSS</option>
+              <option value="sql">SQL</option>
+              <option value="json">JSON</option>
+              <option value="plaintext">Plain text</option>
+            </select>
+            {onInsertSnippet ? (
+              <button
+                onClick={onInsertSnippet}
+                className="inline-flex items-center gap-1 rounded-md border border-accent-500/25 bg-accent-500/10 px-2 py-1 text-xs font-semibold text-accent-200 hover:bg-accent-500/15"
+              >
+                <Code2 className="h-3.5 w-3.5" />
+                Insert snippet
+              </button>
+            ) : null}
+          </>
         ) : null}
         <button onClick={onInsertHeading} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
           H2
