@@ -2767,7 +2767,10 @@ function FolderRow({
       </button>
       <button onClick={onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-start gap-2 py-2 text-left text-sm text-ink-200">
         {collapsed ? <Folder className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" /> : <FolderOpen className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" />}
-        <span title={folder.name} className="min-w-0 flex-1 truncate leading-5 text-ink-100">
+        <span
+          title={folder.name}
+          className="min-w-0 flex-1 leading-5 text-ink-100 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden"
+        >
           {folder.name}
         </span>
       </button>
@@ -2854,7 +2857,10 @@ function NoteRow({
       <button onClick={onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-start gap-2 text-left">
         {pinned ? <Pin className="mt-0.5 h-4 w-4 shrink-0 text-accent-300" /> : <FileText className={`mt-0.5 h-4 w-4 shrink-0 ${active ? "text-accent-300" : "text-ink-500 group-hover:text-ink-300"}`} />}
         <span className="min-w-0 flex-1">
-        <span title={note.title} className="block truncate text-sm font-medium leading-5 text-ink-100">
+        <span
+          title={note.title}
+          className="block text-sm font-medium leading-5 text-ink-100 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden"
+        >
           {note.title}
         </span>
         <span className="mt-1 block truncate text-xs text-ink-500">{new Date(note.updatedAt).toLocaleDateString()}</span>
