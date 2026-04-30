@@ -107,8 +107,8 @@ export function Workspace() {
   const [saving, setSaving] = useState(false);
   const [scope, setScope] = useState<Scope>({ type: "all" });
   const [tab, setTab] = useState<Tab>("ask");
-  const [leftOpen, setLeftOpen] = useState(() => readStoredJson("studyos:leftOpen", true));
-  const [rightOpen, setRightOpen] = useState(() => readStoredJson("studyos:rightOpen", true));
+  const [leftOpen, setLeftOpen] = useState(() => readStoredJson("studyos:leftOpen", false));
+  const [rightOpen, setRightOpen] = useState(() => readStoredJson("studyos:rightOpen", false));
   const [railPinned, setRailPinned] = useState(() => readStoredJson("studyos:railPinned", false));
   const [leftWidth, setLeftWidth] = useState(() => readStoredNumber("studyos:leftWidth", 300, 240, 420));
   const [rightWidth, setRightWidth] = useState(() => readStoredNumber("studyos:rightWidth", 410, 340, 560));
