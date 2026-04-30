@@ -2758,7 +2758,7 @@ function FolderRow({
         onDrop();
       }}
       onContextMenu={onMenu}
-      className={`group flex items-start rounded-lg border ${
+      className={`group relative flex items-start rounded-lg border ${
         active ? "border-accent-500/25 bg-accent-500/10" : dragActive ? "border-transparent hover:border-accent-500/30 hover:bg-accent-500/8" : "border-transparent hover:bg-white/[0.04]"
       }`}
     >
@@ -2769,53 +2769,39 @@ function FolderRow({
         {collapsed ? <Folder className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" /> : <FolderOpen className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" />}
         <span
           title={folder.name}
-          className="min-w-0 flex-1 leading-5 text-ink-100 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden"
+          className="min-w-0 flex-1 pr-2 leading-5 text-ink-100 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden group-hover:pr-44"
         >
           {folder.name}
         </span>
       </button>
-      <span className="mt-2 px-2 text-xs text-ink-500">{count}</span>
-      <button
-        onClick={onCreate}
-        aria-label={`New note in ${folder.name}`}
-        className="mt-1 grid h-8 w-8 place-items-center text-ink-500 opacity-0 pointer-events-none hover:text-accent-300 group-hover:opacity-100 group-hover:pointer-events-auto"
-      >
-        <FilePlus className="h-3.5 w-3.5" />
-      </button>
-      <button
-        onClick={onCreateFolder}
-        aria-label={`New folder in ${folder.name}`}
-        className="mt-1 grid h-8 w-8 place-items-center text-ink-500 opacity-0 pointer-events-none hover:text-accent-300 group-hover:opacity-100 group-hover:pointer-events-auto"
-      >
-        <FolderPlus className="h-3.5 w-3.5" />
-      </button>
-      <button
-        onClick={onRename}
-        aria-label={`Rename ${folder.name}`}
-        className="mt-1 grid h-8 w-8 place-items-center text-ink-500 opacity-0 pointer-events-none hover:text-accent-300 group-hover:opacity-100 group-hover:pointer-events-auto"
-      >
-        <Pencil className="h-3.5 w-3.5" />
-      </button>
-      <button
-        onClick={onDelete}
-        aria-label={`Delete ${folder.name}`}
-        className="mt-1 grid h-8 w-8 place-items-center text-ink-500 opacity-0 pointer-events-none hover:text-danger-400 group-hover:opacity-100 group-hover:pointer-events-auto"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
       <button onClick={onMove} aria-label={`Move ${folder.name}`} className="hidden" />
       <button onClick={onReindex} aria-label={`Reindex ${folder.name}`} className="hidden" />
       <button onClick={onCreateLecture} aria-label={`New lecture in ${folder.name}`} className="hidden" />
-      <button
-        onClick={(event) => {
-          event.stopPropagation();
-          onMenu(event);
-        }}
-        aria-label={`More actions for ${folder.name}`}
-        className="mt-1 grid h-8 w-8 place-items-center text-ink-500 opacity-0 pointer-events-none hover:text-ink-100 group-hover:opacity-100 group-hover:pointer-events-auto"
-      >
-        <MoreVertical className="h-3.5 w-3.5" />
-      </button>
+      <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-1.5 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto">
+        <span className="rounded-full border border-ink-700/70 bg-white/[0.03] px-2 py-0.5 text-xs text-ink-400">{count}</span>
+        <button onClick={onCreate} aria-label={`New note in ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 hover:text-accent-300">
+          <FilePlus className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={onCreateFolder} aria-label={`New folder in ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 hover:text-accent-300">
+          <FolderPlus className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={onRename} aria-label={`Rename ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 hover:text-accent-300">
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={onDelete} aria-label={`Delete ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 hover:text-danger-400">
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={(event) => {
+            event.stopPropagation();
+            onMenu(event);
+          }}
+          aria-label={`More actions for ${folder.name}`}
+          className="grid h-8 w-8 place-items-center text-ink-500 hover:text-ink-100"
+        >
+          <MoreVertical className="h-3.5 w-3.5" />
+        </button>
+      </div>
     </div>
   );
 }
@@ -2850,7 +2836,7 @@ function NoteRow({
       draggable
       onDragStart={onDragStart}
       onContextMenu={onMenu}
-      className={`group flex w-full items-start gap-2 rounded-lg border px-2.5 py-2 text-left transition-all duration-200 ease-premium ${
+      className={`group relative flex w-full items-start gap-2 rounded-lg border px-2.5 py-2 text-left transition-all duration-200 ease-premium ${
         active ? "border-accent-500/30 bg-accent-500/10 text-white shadow-glow" : "border-transparent text-ink-300 hover:bg-white/[0.04] hover:text-ink-100"
       }`}
     >
@@ -2859,46 +2845,36 @@ function NoteRow({
         <span className="min-w-0 flex-1">
         <span
           title={note.title}
-          className="block text-sm font-medium leading-5 text-ink-100 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden"
+          className="block pr-2 text-sm font-medium leading-5 text-ink-100 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden group-hover:pr-32"
         >
           {note.title}
         </span>
         <span className="mt-1 block truncate text-xs text-ink-500">{new Date(note.updatedAt).toLocaleDateString()}</span>
         </span>
       </button>
-      <button
-        onClick={onTogglePin}
-        aria-label={pinned ? `Unpin ${note.title}` : `Pin ${note.title}`}
-        className="grid h-7 w-7 shrink-0 place-items-center text-ink-500 opacity-0 pointer-events-none hover:text-accent-300 group-hover:opacity-100 group-hover:pointer-events-auto"
-      >
-        {pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
-      </button>
-      <button
-        onClick={onRename}
-        aria-label={`Rename ${note.title}`}
-        className="grid h-7 w-7 shrink-0 place-items-center text-ink-500 opacity-0 pointer-events-none hover:text-accent-300 group-hover:opacity-100 group-hover:pointer-events-auto"
-      >
-        <Pencil className="h-3.5 w-3.5" />
-      </button>
-      <button
-        onClick={onDelete}
-        aria-label={`Delete ${note.title}`}
-        className="grid h-7 w-7 shrink-0 place-items-center text-ink-500 opacity-0 pointer-events-none hover:text-danger-400 group-hover:opacity-100 group-hover:pointer-events-auto"
-      >
-        <Trash2 className="h-3.5 w-3.5" />
-      </button>
       <button onClick={onMove} aria-label={`Move ${note.title}`} className="hidden" />
       <button onClick={onReindex} aria-label={`Reindex ${note.title}`} className="hidden" />
-      <button
-        onClick={(event) => {
-          event.stopPropagation();
-          onMenu(event);
-        }}
-        aria-label={`More actions for ${note.title}`}
-        className="grid h-7 w-7 shrink-0 place-items-center text-ink-500 opacity-0 pointer-events-none hover:text-ink-100 group-hover:opacity-100 group-hover:pointer-events-auto"
-      >
-        <MoreVertical className="h-3.5 w-3.5" />
-      </button>
+      <div className="absolute right-1 top-2 flex items-center gap-1 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto">
+        <button onClick={onTogglePin} aria-label={pinned ? `Unpin ${note.title}` : `Pin ${note.title}`} className="grid h-7 w-7 place-items-center text-ink-500 hover:text-accent-300">
+          {pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
+        </button>
+        <button onClick={onRename} aria-label={`Rename ${note.title}`} className="grid h-7 w-7 place-items-center text-ink-500 hover:text-accent-300">
+          <Pencil className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={onDelete} aria-label={`Delete ${note.title}`} className="grid h-7 w-7 place-items-center text-ink-500 hover:text-danger-400">
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+        <button
+          onClick={(event) => {
+            event.stopPropagation();
+            onMenu(event);
+          }}
+          aria-label={`More actions for ${note.title}`}
+          className="grid h-7 w-7 place-items-center text-ink-500 hover:text-ink-100"
+        >
+          <MoreVertical className="h-3.5 w-3.5" />
+        </button>
+      </div>
     </div>
   );
 }
