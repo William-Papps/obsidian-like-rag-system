@@ -95,7 +95,16 @@ export function renderMarkdown(markdown: string, onWikilink?: (title: string) =>
   const flushCode = () => {
     if (code.length) {
       const langAttr = codeLang ? ` class="language-${escapeHtml(codeLang)}"` : "";
-      blocks.push(`<pre><code${langAttr}>${escapeHtml(code.join("\n"))}</code></pre>`);
+      const langLabel = codeLang ? escapeHtml(codeLang) : "code";
+      blocks.push(
+        `<div class="md-code-wrap" data-md-code="1">` +
+          `<div class="md-code-head">` +
+            `<span class="md-code-lang">${langLabel}</span>` +
+            `<button type="button" class="md-code-copy" data-md-code-copy="1">Copy</button>` +
+          `</div>` +
+          `<pre><code${langAttr}>${escapeHtml(code.join("\n"))}</code></pre>` +
+        `</div>`
+      );
       code = [];
       codeLang = "";
     }
@@ -166,6 +175,18 @@ export function MarkdownPreview({
 
   function handleClick(event: React.MouseEvent<HTMLDivElement>) {
     const target = event.target as HTMLElement;
+    const copyBtn = target.closest("[data-md-code-copy]") as HTMLElement | null;
+    if (copyBtn) {
+      const wrap = copyBtn.closest("[data-md-code]") as HTMLElement | null;
+      const codeEl = wrap?.querySelector("pre > code") as HTMLElement | null;
+      const text = codeEl?.textContent ?? "";
+      void navigator.clipboard.writeText(text);
+      (copyBtn as HTMLButtonElement).textContent = "Copied";
+      window.setTimeout(() => {
+        (copyBtn as HTMLButtonElement).textContent = "Copy";
+      }, 900);
+      return;
+    }
     const wikilink = target.closest("[data-title]") as HTMLElement | null;
     if (wikilink && onWikilinkClick) {
       const title = wikilink.getAttribute("data-title");

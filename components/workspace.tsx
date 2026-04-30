@@ -639,30 +639,37 @@ export function Workspace() {
   }
 
   async function insertSnippetFromCodeTab() {
-    if (!activeNote) return;
-    const snippet = codeSnippet.trimEnd();
-    if (!snippet) return notify("Paste or type some code first", "info");
-    const lang =
-      codeLanguage === "typescript" ? "ts" :
-      codeLanguage === "javascript" ? "js" :
-      codeLanguage === "python" ? "python" :
-      codeLanguage === "html" ? "html" :
-      codeLanguage === "css" ? "css" :
-      codeLanguage === "sql" ? "sql" :
-      codeLanguage === "json" ? "json" :
-      "";
+    try {
+      if (!activeNote) return;
+      const snippet = codeSnippet.trimEnd();
+      if (!snippet) return notify("Paste or type some code first", "info");
+      const lang =
+        codeLanguage === "typescript" ? "ts" :
+        codeLanguage === "javascript" ? "js" :
+        codeLanguage === "python" ? "python" :
+        codeLanguage === "html" ? "html" :
+        codeLanguage === "css" ? "css" :
+        codeLanguage === "sql" ? "sql" :
+        codeLanguage === "json" ? "json" :
+        "";
 
-    const fence = `\`\`\`${lang}\n${snippet}\n\`\`\``;
-    const cursor = editorCursor;
-    const currentText = draftMarkdown;
-    const before = currentText.slice(0, cursor);
-    const lead = cursor > 0 && !before.endsWith("\n\n") ? (before.endsWith("\n") ? "\n" : "\n\n") : "";
-    const insert = `${lead}${fence}\n\n`;
-    const nextText = `${before}${insert}${currentText.slice(cursor)}`;
-    await replaceActiveMarkdown(nextText);
-    setCodeSnippet("");
-    setNoteView("write");
-    notify("Snippet inserted", "success");
+      // If the snippet contains ``` already, use a longer fence.
+      const fenceMarker = snippet.includes("```") ? "````" : "```";
+      const fence = `${fenceMarker}${lang}\n${snippet}\n${fenceMarker}`;
+
+      const cursor = clamp(editorCursor, 0, draftMarkdown.length);
+      const currentText = draftMarkdown;
+      const before = currentText.slice(0, cursor);
+      const lead = cursor > 0 && !before.endsWith("\n\n") ? (before.endsWith("\n") ? "\n" : "\n\n") : "";
+      const insert = `${lead}${fence}\n\n`;
+      const nextText = `${before}${insert}${currentText.slice(cursor)}`;
+      await replaceActiveMarkdown(nextText);
+      setCodeSnippet("");
+      setNoteView("write");
+      notify("Snippet inserted", "success");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Unable to insert snippet", "error");
+    }
   }
 
   async function formatActiveMarkdown() {
@@ -3909,12 +3916,17 @@ function createMarkdownCodeBlockInlayExtension() {
 
   function parseFences(text: string) {
     const blocks: Array<{ from: number; to: number; language: string; code: string }> = [];
-    const re = /```([^\n]*)\n([\s\S]*?)\n```/g;
+    // Support 3+ backticks and match the same fence length for closing.
+    // Matches: ```lang\n...\n``` or ````lang\n...\n````
+    const re = /(^|\n)(`{3,})([^\n]*)\n([\s\S]*?)\n\2(?=\n|$)/g;
     let match: RegExpExecArray | null;
     while ((match = re.exec(text))) {
-      const language = (match[1] ?? "").trim();
-      const code = match[2] ?? "";
-      blocks.push({ from: match.index, to: match.index + match[0].length, language, code });
+      const lead = match[1] ?? "";
+      const language = (match[3] ?? "").trim();
+      const code = match[4] ?? "";
+      const from = match.index + lead.length;
+      const to = match.index + match[0].length;
+      blocks.push({ from, to, language, code });
     }
     return blocks;
   }

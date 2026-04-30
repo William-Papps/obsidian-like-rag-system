@@ -199,6 +199,55 @@ textarea:focus-visible {
   line-height: 1.65;
 }
 
+/* Code Blocks (Discord-like) */
+.markdown-preview .md-code-wrap {
+  overflow: hidden;
+  border: 1px solid rgba(138, 128, 163, 0.28);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  margin: 0.75rem 0 1rem;
+}
+
+.markdown-preview .md-code-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid rgba(138, 128, 163, 0.22);
+  background: rgba(8, 10, 14, 0.48);
+}
+
+.markdown-preview .md-code-lang {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: rgba(226, 232, 240, 0.92);
+}
+
+.markdown-preview .md-code-copy {
+  border: 1px solid rgba(138, 128, 163, 0.24);
+  background: rgba(255, 255, 255, 0.02);
+  color: rgba(148, 163, 184, 0.92);
+  border-radius: 10px;
+  padding: 0.35rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.markdown-preview .md-code-copy:hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: rgba(226, 232, 240, 0.96);
+}
+
+.markdown-preview .md-code-wrap pre {
+  margin: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  padding: 0.85rem 0.95rem;
+}
+
 /* Tables */
 .md-table-wrap {
   overflow-x: auto;
