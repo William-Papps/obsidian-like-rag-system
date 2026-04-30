@@ -1054,6 +1054,7 @@ export function Workspace() {
           count={folderNotes.length + childFolders.length}
           collapsed={collapsed}
           active={scope.type === "folder" && scope.folderId === folder.id}
+          depth={depth}
           dragActive={dragItem?.id !== folder.id}
           onClick={() => setScope({ type: "folder", folderId: folder.id })}
           onToggle={() => setCollapsedFolders((current) => ({ ...current, [folder.id]: !collapsed }))}
@@ -2714,6 +2715,7 @@ function FolderRow({
   count,
   collapsed,
   active,
+  depth,
   onClick,
   onToggle,
   onCreate,
@@ -2732,6 +2734,7 @@ function FolderRow({
   count: number;
   collapsed: boolean;
   active: boolean;
+  depth: number;
   onClick: () => void;
   onToggle: () => void;
   onCreate: () => void;
@@ -2746,6 +2749,7 @@ function FolderRow({
   dragActive: boolean;
   onMenu: (event: MouseEvent) => void;
 }) {
+  const compactActions = depth >= 1;
   return (
     <div
       draggable
@@ -2779,18 +2783,22 @@ function FolderRow({
       <button onClick={onCreateLecture} aria-label={`New lecture in ${folder.name}`} className="hidden" />
       <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-1.5 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto">
         <span className="rounded-full border border-ink-700/70 bg-white/[0.03] px-2 py-0.5 text-xs text-ink-400">{count}</span>
-        <button onClick={onCreate} aria-label={`New note in ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 hover:text-accent-300">
-          <FilePlus className="h-3.5 w-3.5" />
-        </button>
-        <button onClick={onCreateFolder} aria-label={`New folder in ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 hover:text-accent-300">
-          <FolderPlus className="h-3.5 w-3.5" />
-        </button>
-        <button onClick={onRename} aria-label={`Rename ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 hover:text-accent-300">
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
-        <button onClick={onDelete} aria-label={`Delete ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 hover:text-danger-400">
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        {!compactActions ? (
+          <>
+            <button onClick={onCreate} aria-label={`New note in ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 hover:text-accent-300">
+              <FilePlus className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={onCreateFolder} aria-label={`New folder in ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 hover:text-accent-300">
+              <FolderPlus className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={onRename} aria-label={`Rename ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 hover:text-accent-300">
+              <Pencil className="h-3.5 w-3.5" />
+            </button>
+            <button onClick={onDelete} aria-label={`Delete ${folder.name}`} className="grid h-8 w-8 place-items-center text-ink-500 hover:text-danger-400">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          </>
+        ) : null}
         <button
           onClick={(event) => {
             event.stopPropagation();
