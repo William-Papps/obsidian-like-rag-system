@@ -13,15 +13,11 @@ export async function evaluateQuizAnswer(
 ): Promise<QuizEvaluation> {
   const trimmedAnswer = input.userAnswer.trim();
   if (!trimmedAnswer) {
-    return {
-      correct: false,
-      verdict: "incorrect",
-      feedback: "No answer entered yet."
-    };
+    return { correct: false, verdict: "incorrect", feedback: "No answer entered yet." };
   }
 
   const apiKey = readUserApiKey(userId);
-  if (!apiKey) return evaluateHeuristically(trimmedAnswer, input.expectedAnswer, input.question);
+  if (!apiKey) return evaluateHeuristically(trimmedAnswer, input.expectedAnswer);
 
   const settings = await getProviderSettings(userId);
   const client = new OpenAI({ apiKey });
@@ -48,7 +44,7 @@ export async function evaluateQuizAnswer(
   });
 
   const raw = response.choices[0]?.message.content?.trim();
-  if (!raw) return evaluateHeuristically(trimmedAnswer, input.expectedAnswer, input.question);
+  if (!raw) return evaluateHeuristically(trimmedAnswer, input.expectedAnswer);
 
   try {
     const parsed = JSON.parse(raw) as Partial<QuizEvaluation>;
@@ -58,42 +54,52 @@ export async function evaluateQuizAnswer(
       feedback: typeof parsed.feedback === "string" && parsed.feedback.trim() ? parsed.feedback.trim() : defaultFeedback(Boolean(parsed.correct))
     };
   } catch {
-    return evaluateHeuristically(trimmedAnswer, input.expectedAnswer, input.question);
+    return evaluateHeuristically(trimmedAnswer, input.expectedAnswer);
   }
 }
 
-function evaluateHeuristically(userAnswer: string, expectedAnswer: string, question: string): QuizEvaluation {
-  const expectedTerms = tokenize(expectedAnswer);
-  const answerTerms = tokenize(userAnswer);
-  const questionTerms = tokenize(question);
-  const overlap = expectedTerms.filter((term) => answerTerms.includes(term));
-  const ratio = expectedTerms.length ? overlap.length / expectedTerms.length : 0;
-  const keyExpectedTerms = expectedTerms.filter((term) => !questionTerms.includes(term));
-  const keyOverlap = keyExpectedTerms.filter((term) => answerTerms.includes(term));
-  const keyRatio = keyExpectedTerms.length ? keyOverlap.length / keyExpectedTerms.length : ratio;
+function evaluateHeuristically(userAnswer: string, expectedAnswer: string): QuizEvaluation {
+  // Exact match (case/punctuation-insensitive) is always correct.
+  if (normalized(userAnswer) === normalized(expectedAnswer)) {
+    return { correct: true, verdict: "correct", feedback: "Matches the source meaning. (offline grading)" };
+  }
 
-  if (ratio >= 0.72 || keyRatio >= 0.72 || normalized(userAnswer) === normalized(expectedAnswer)) {
-    return { correct: true, verdict: "correct", feedback: "Matches the source meaning." };
+  const expectedTokens = tokenize(expectedAnswer);
+  const userTokens = tokenize(userAnswer);
+
+  if (expectedTokens.length === 0) {
+    return { correct: false, verdict: "incorrect", feedback: "Could not evaluate. (offline grading)" };
   }
-  if (ratio >= 0.4 || keyRatio >= 0.4) {
-    return { correct: false, verdict: "partial", feedback: "Partly right, but you missed some source details." };
-  }
-  if (normalized(question).includes("primary function") && keyExpectedTerms.length && keyRatio >= 0.5) {
-    return { correct: true, verdict: "correct", feedback: "Answers the function asked in the question." };
-  }
-  return { correct: false, verdict: "incorrect", feedback: "Does not match the source answer closely enough." };
+
+  const overlap = expectedTokens.filter((t) => userTokens.includes(t)).length;
+  const ratio = overlap / expectedTokens.length;
+
+  if (ratio >= 0.7) return { correct: true, verdict: "correct", feedback: "Matches the source meaning. (offline grading)" };
+  if (ratio >= 0.4) return { correct: false, verdict: "partial", feedback: "Partly right — you missed some key details. (offline grading)" };
+  return { correct: false, verdict: "incorrect", feedback: "Does not match the source answer closely enough. (offline grading)" };
 }
 
-function tokenize(value: string) {
+function tokenize(value: string): string[] {
   return Array.from(
     new Set(
       value
         .toLowerCase()
         .replace(/[^a-z0-9\s]/g, " ")
         .split(/\s+/)
-        .filter((term) => term.length > 2)
+        .filter((t) => t.length > 2)
+        .map(lemmatize)
     )
   );
+}
+
+// Strip common English suffixes so "arrays/array", "running/run", "stored/store" match.
+function lemmatize(word: string): string {
+  if (word.length > 5 && word.endsWith("ing")) return word.slice(0, -3);
+  if (word.length > 4 && word.endsWith("ed")) return word.slice(0, -2);
+  if (word.length > 4 && word.endsWith("er")) return word.slice(0, -2);
+  if (word.length > 4 && word.endsWith("ly")) return word.slice(0, -2);
+  if (word.length > 3 && word.endsWith("s") && !word.endsWith("ss")) return word.slice(0, -1);
+  return word;
 }
 
 function normalized(value: string) {

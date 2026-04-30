@@ -1,5 +1,4 @@
 import OpenAI from "openai";
-import type { SqlValue } from "sql.js";
 import type { AiContext, Flashcard, QuizQuestion, RetrievedChunk } from "@/lib/types";
 import { dbAll } from "@/lib/db";
 import { listDescendantFolderIds } from "@/lib/services/folders";
@@ -23,13 +22,7 @@ export async function generateQuiz(userId: string, scope: { noteId?: string; fol
   if (!source) return [];
 
   const answer = bestSentence(source);
-  return [
-    {
-      question: await buildStudyPrompt(ai, source, answer, "quiz"),
-      answer,
-      source
-    }
-  ];
+  return [{ question: await buildStudyPrompt(ai, source, answer, "quiz"), answer, source }];
 }
 
 export async function generateFlashcards(userId: string, scope: { noteId?: string; folderId?: string | null }): Promise<Flashcard[]> {
@@ -38,29 +31,36 @@ export async function generateFlashcards(userId: string, scope: { noteId?: strin
   if (!source) return [];
 
   const answer = bestSentence(source);
-  return [
-    {
-      prompt: await buildStudyPrompt(ai, source, answer, "flashcard"),
-      answer,
-      source
-    }
-  ];
+  return [{ prompt: await buildStudyPrompt(ai, source, answer, "flashcard"), answer, source }];
 }
 
 async function pickStudyChunk(userId: string, scope: { noteId?: string; folderId?: string | null }) {
   const chunks = await listStudyChunks(userId, scope);
   if (!chunks.length) return null;
 
-  const weighted = chunks
+  // Exclude notes studied in the last 4 hours to encourage breadth across the vault.
+  const cutoff = new Date(Date.now() - 4 * 3600 * 1000).toISOString();
+  const recentRows = await dbAll<{ note_title: string }>(
+    "select distinct note_title from study_activity where user_id = ? and created_at > ? and note_title is not null",
+    [userId, cutoff]
+  );
+  const recentTitles = new Set(recentRows.map((r) => r.note_title));
+  const fresh = chunks.filter((c) => !recentTitles.has(c.noteTitle));
+
+  // Fall back to the full set if the vault is small or everything was recently studied.
+  const candidates = fresh.length >= 3 ? fresh : chunks;
+
+  // Score + noise, take top 30 (was 12) for better vault coverage, then pick randomly.
+  const weighted = candidates
     .map((chunk) => ({ chunk, score: studyChunkScore(chunk) + Math.random() * 0.35 }))
     .sort((a, b) => b.score - a.score)
-    .slice(0, Math.min(chunks.length, 12));
+    .slice(0, Math.min(candidates.length, 30));
 
   return weighted[Math.floor(Math.random() * weighted.length)]?.chunk ?? null;
 }
 
 async function listStudyChunks(userId: string, scope: { noteId?: string; folderId?: string | null }) {
-  const params: SqlValue[] = [userId];
+  const params: (string | null)[] = [userId];
   let where = "c.user_id = ?";
 
   if (scope.noteId) {
@@ -114,12 +114,7 @@ function bestSentence(source: RetrievedChunk) {
   return sentences[0] || cleanExcerpt(source.excerpt);
 }
 
-async function buildStudyPrompt(
-  ai: AiContext,
-  source: RetrievedChunk,
-  answer: string,
-  mode: "quiz" | "flashcard"
-) {
+async function buildStudyPrompt(ai: AiContext, source: RetrievedChunk, answer: string, mode: "quiz" | "flashcard") {
   if (!ai.apiKey) return fallbackPrompt(source, answer, mode);
 
   try {
@@ -175,10 +170,7 @@ function cleanExcerpt(excerpt: string) {
 }
 
 function extractSubject(answer: string) {
-  const cleaned = answer
-    .replace(/^#+\s*/, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  const cleaned = answer.replace(/^#+\s*/, "").replace(/\s+/g, " ").trim();
   const match = cleaned.match(/^(.{2,80}?)\s+(?:is|are|was|were|refers to|means|describes|uses|maintains|includes|occurs|happens)\b/i);
   if (!match) return null;
   const subject = match[1].trim().replace(/[:,"']+$/g, "");

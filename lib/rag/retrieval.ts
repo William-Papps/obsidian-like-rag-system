@@ -5,7 +5,6 @@ import { getProviderSettings } from "@/lib/services/settings";
 import { cosine, embedText } from "@/lib/rag/embeddings";
 import type { AiContext, RetrievedChunk } from "@/lib/types";
 import { truncate } from "@/lib/utils";
-import type { SqlValue } from "sql.js";
 
 export async function retrieveChunks(
   userId: string,
@@ -15,7 +14,7 @@ export async function retrieveChunks(
 ): Promise<RetrievedChunk[]> {
   const settings = await getProviderSettings(userId);
   const queryVector = (await embedText(userId, query, settings.embeddingModel, context)).vector;
-  const params: SqlValue[] = [userId];
+  const params: (string | null)[] = [userId];
   let where = "c.user_id = ?";
   if (scope.noteId) {
     where += " and c.note_id = ?";
@@ -31,8 +30,15 @@ export async function retrieveChunks(
     }
   }
 
-  const rows = await dbAll<{ id: string; note_id: string; title: string; chunk_text: string; vector_json: string }>(
-    `select c.id, c.note_id, c.chunk_text, c.vector_json, n.title
+  const rows = await dbAll<{
+    id: string;
+    note_id: string;
+    title: string;
+    chunk_text: string;
+    vector_json: string | null;
+    vector_blob: Uint8Array | null;
+  }>(
+    `select c.id, c.note_id, c.chunk_text, c.vector_json, c.vector_blob, n.title
      from chunks c
      join notes n on n.id = c.note_id and n.user_id = c.user_id
      where ${where}`,
@@ -40,13 +46,19 @@ export async function retrieveChunks(
   );
 
   return rows
-    .map((row) => ({
-      chunkId: row.id,
-      noteId: row.note_id,
-      noteTitle: row.title,
-      excerpt: truncate(row.chunk_text, 900),
-      similarity: cosine(queryVector, JSON.parse(row.vector_json) as number[])
-    }))
+    .map((row) => {
+      // Prefer compact BLOB; fall back to JSON for chunks indexed before the BLOB migration.
+      const vector: number[] = row.vector_blob
+        ? Array.from(new Float32Array(row.vector_blob.buffer, row.vector_blob.byteOffset, row.vector_blob.byteLength / 4))
+        : JSON.parse(row.vector_json ?? "[]");
+      return {
+        chunkId: row.id,
+        noteId: row.note_id,
+        noteTitle: row.title,
+        excerpt: truncate(row.chunk_text, 900),
+        similarity: cosine(queryVector, vector)
+      };
+    })
     .filter((row) => row.similarity > 0)
     .sort((a, b) => b.similarity - a.similarity)
     .slice(0, scope.limit ?? 6);

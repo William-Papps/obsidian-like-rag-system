@@ -74,14 +74,23 @@ export function readUserApiKey(userId: string): string | null {
   return decryptSecret(fs.readFileSync(file, "utf8").trim());
 }
 
-export function readHostedApiKey() {
+// Cached after first read so the plaintext key is removed from process.env as quickly as possible.
+let _cachedHostedKey: string | null | undefined = undefined;
+
+export function readHostedApiKey(): string | null {
+  if (_cachedHostedKey !== undefined) return _cachedHostedKey;
   const raw = process.env.HOSTED_OPENAI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim() || null;
-  if (!raw) return null;
+  if (!raw) {
+    _cachedHostedKey = null;
+    return null;
+  }
   // Normalize common copy/paste mistakes: OpenAI keys start with "sk-".
-  if (raw.startsWith("SK-")) return `sk-${raw.slice(3)}`;
-  if (raw.startsWith("Sk-")) return `sk-${raw.slice(3)}`;
-  if (raw.startsWith("sK-")) return `sk-${raw.slice(3)}`;
-  return raw;
+  let normalized = raw;
+  if (/^[Ss][Kk]-/.test(raw) && !raw.startsWith("sk-")) normalized = `sk-${raw.slice(3)}`;
+  // Clear from process.env to reduce plaintext exposure window.
+  delete process.env.HOSTED_OPENAI_API_KEY;
+  _cachedHostedKey = normalized;
+  return normalized;
 }
 
 export function hostedProjectId() {

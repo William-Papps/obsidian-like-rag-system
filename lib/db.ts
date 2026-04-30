@@ -1,11 +1,14 @@
 import fs from "fs";
 import path from "path";
-import initSqlJs, { type Database, type SqlJsStatic, type SqlValue } from "sql.js";
+import initSqlJs, { type Database, type SqlJsStatic } from "sql.js";
+
+export type DbValue = string | number | null | Uint8Array;
 
 let sql: SqlJsStatic | null = null;
 let db: Database | null = null;
 let dbPath = "";
-let workerMigrated = false;
+let lastMtime = 0;
+let migrated = false;
 
 function appRoot() {
   return process.env.APP_DIR?.trim() || process.cwd();
@@ -26,13 +29,18 @@ export async function getDb() {
     });
   }
 
-  // Reload from disk on every call so all worker processes see each other's writes.
-  // Next.js production uses multiple workers, each with separate module-level state.
-  db = fs.existsSync(dbPath) ? new sql.Database(fs.readFileSync(dbPath)) : new sql.Database();
+  // Reload from disk only when another worker has written since we last loaded.
+  // Eliminates the per-request disk read while still picking up cross-worker writes.
+  const currentMtime = fs.existsSync(dbPath) ? fs.statSync(dbPath).mtimeMs : 0;
+  if (!db || currentMtime !== lastMtime) {
+    db = fs.existsSync(dbPath) ? new sql.Database(fs.readFileSync(dbPath)) : new sql.Database();
+    lastMtime = currentMtime;
+    migrated = false;
+  }
 
-  if (!workerMigrated) {
+  if (!migrated) {
     migrate(db);
-    workerMigrated = true;
+    migrated = true;
     persist();
   }
 
@@ -50,13 +58,13 @@ export async function dbExec(statement: string) {
   persist();
 }
 
-export async function dbRun(statement: string, params: SqlValue[] = []) {
+export async function dbRun(statement: string, params: DbValue[] = []) {
   const database = await getDb();
   database.run(statement, params);
   persist();
 }
 
-export async function dbGet<T extends Record<string, unknown>>(statement: string, params: SqlValue[] = []) {
+export async function dbGet<T extends Record<string, unknown>>(statement: string, params: DbValue[] = []) {
   const database = await getDb();
   const prepared = database.prepare(statement);
   try {
@@ -67,7 +75,7 @@ export async function dbGet<T extends Record<string, unknown>>(statement: string
   }
 }
 
-export async function dbAll<T extends Record<string, unknown>>(statement: string, params: SqlValue[] = []) {
+export async function dbAll<T extends Record<string, unknown>>(statement: string, params: DbValue[] = []) {
   const database = await getDb();
   const prepared = database.prepare(statement);
   const rows: T[] = [];
@@ -83,6 +91,8 @@ export async function dbAll<T extends Record<string, unknown>>(statement: string
 function persist() {
   if (!db || !dbPath) return;
   fs.writeFileSync(dbPath, Buffer.from(db.export()));
+  // Track our own write so we don't reload ourselves on the next getDb() call.
+  lastMtime = fs.existsSync(dbPath) ? fs.statSync(dbPath).mtimeMs : 0;
 }
 
 function migrate(database: Database) {
@@ -335,6 +345,7 @@ function migrate(database: Database) {
   ensureColumn(database, "flashcards", "ease_factor", "real default 2.5");
   ensureColumn(database, "flashcards", "review_count", "integer default 0");
   ensureColumn(database, "flashcards", "last_reviewed_at", "text");
+  ensureColumn(database, "chunks", "vector_blob", "blob");
 }
 
 function ensureColumn(database: Database, table: string, column: string, type: string) {

@@ -51,10 +51,37 @@ import {
   Upload,
   X
 } from "lucide-react";
-import { type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Component, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MarkdownPreview } from "@/components/markdown";
 import { DocumentImportModal } from "@/components/document-import-modal";
 import type { AnswerResult, Flashcard, Folder as FolderType, Note, ProviderSettings, QuizEvaluation, QuizQuestion } from "@/lib/types";
+
+class PanelErrorBoundary extends Component<{ children: ReactNode; label: string }, { error: Error | null }> {
+  constructor(props: { children: ReactNode; label: string }) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="rounded-xl border border-danger-400/30 bg-danger-400/10 p-4 text-sm text-ink-300">
+          <div className="mb-1 font-semibold text-danger-400">{this.props.label} encountered an error</div>
+          <div className="text-xs text-ink-500">{this.state.error.message}</div>
+          <button
+            className="mt-3 text-xs text-accent-300 underline"
+            onClick={() => this.setState({ error: null })}
+          >
+            Try again
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
 
 type Bootstrap = {
   user: { id: string; email: string; name: string };
@@ -2035,31 +2062,33 @@ function AssistantPanel(props: {
         ))}
       </div>
       <div className="min-h-0 overflow-auto p-4">
-        <div key={props.tab} className="animate-[fadeIn_220ms_ease-out]">
-          {props.tab === "ask" ? <AskTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} /> : null}
-          {props.tab === "find" ? <FindTool onOpenNote={props.onOpenNote} /> : null}
-          {props.tab === "quiz" ? (
-            <QuizTool
-              key={`quiz:${scopeKey(props.scope)}`}
-              scope={props.scope}
-              data={props.data}
-              activeNote={props.activeNote}
-              notify={props.notify}
-              onOpenNote={props.onOpenNote}
-            />
-          ) : null}
-          {props.tab === "flashcards" ? (
-            <FlashcardTool
-              key={`flashcards:${scopeKey(props.scope)}`}
-              scope={props.scope}
-              data={props.data}
-              activeNote={props.activeNote}
-              notify={props.notify}
-              onOpenNote={props.onOpenNote}
-            />
-          ) : null}
-          {props.tab === "summary" ? <SummaryTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} /> : null}
-        </div>
+        <PanelErrorBoundary label={props.tab}>
+          <div key={props.tab} className="animate-[fadeIn_220ms_ease-out]">
+            {props.tab === "ask" ? <AskTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} /> : null}
+            {props.tab === "find" ? <FindTool onOpenNote={props.onOpenNote} /> : null}
+            {props.tab === "quiz" ? (
+              <QuizTool
+                key={`quiz:${scopeKey(props.scope)}`}
+                scope={props.scope}
+                data={props.data}
+                activeNote={props.activeNote}
+                notify={props.notify}
+                onOpenNote={props.onOpenNote}
+              />
+            ) : null}
+            {props.tab === "flashcards" ? (
+              <FlashcardTool
+                key={`flashcards:${scopeKey(props.scope)}`}
+                scope={props.scope}
+                data={props.data}
+                activeNote={props.activeNote}
+                notify={props.notify}
+                onOpenNote={props.onOpenNote}
+              />
+            ) : null}
+            {props.tab === "summary" ? <SummaryTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} /> : null}
+          </div>
+        </PanelErrorBoundary>
       </div>
     </aside>
   );

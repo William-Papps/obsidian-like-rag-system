@@ -3,7 +3,7 @@ import { listDescendantFolderIds } from "@/lib/services/folders";
 import { listNotes } from "@/lib/services/notes";
 import { resolveAiContext } from "@/lib/services/ai-access";
 import { chunkNote } from "@/lib/rag/chunking";
-import { embedText } from "@/lib/rag/embeddings";
+import { embedBatch } from "@/lib/rag/embeddings";
 import { id, now, sha256 } from "@/lib/utils";
 
 export async function reindexNotes(userId: string, scope?: { noteId?: string; folderId?: string | null }) {
@@ -26,26 +26,22 @@ export async function reindexNotes(userId: string, scope?: { noteId?: string; fo
 
     await dbRun("delete from chunks where user_id = ? and note_id = ?", [userId, note.id]);
     const chunks = chunkNote(note);
-    for (let index = 0; index < chunks.length; index += 1) {
+
+    // Batch all chunks for this note into one embedding API call instead of N sequential calls.
+    const embeddings = await embedBatch(userId, chunks, ai.settings.embeddingModel, ai);
+
+    for (let index = 0; index < chunks.length; index++) {
       const text = chunks[index];
-      const embedding = await embedText(userId, text, ai.settings.embeddingModel, ai);
+      const embedding = embeddings[index];
       const chunkId = id();
+      const vectorId = `${embedding.provider}:${sha256(`${note.id}:${index}:${note.contentHash}`).slice(0, 24)}`;
+      // Store as compact Float32Array BLOB. vector_json left null for new chunks.
+      const vectorBlob = new Uint8Array(new Float32Array(embedding.vector).buffer);
       await dbRun(
-        "insert into chunks (id, user_id, note_id, chunk_text, chunk_index, content_hash, embedded, vector_id, vector_json, created_at, updated_at) values (?, ?, ?, ?, ?, ?, 1, ?, ?, ?, ?)",
-        [
-          chunkId,
-          userId,
-          note.id,
-          text,
-          index,
-          note.contentHash,
-          `${embedding.provider}:${sha256(`${note.id}:${index}:${note.contentHash}`).slice(0, 24)}`,
-          JSON.stringify(embedding.vector),
-          now(),
-          now()
-        ]
+        "insert into chunks (id, user_id, note_id, chunk_text, chunk_index, content_hash, embedded, vector_id, vector_blob, vector_json, created_at, updated_at) values (?, ?, ?, ?, ?, ?, 1, ?, ?, null, ?, ?)",
+        [chunkId, userId, note.id, text, index, note.contentHash, vectorId, vectorBlob, now(), now()]
       );
-      indexed += 1;
+      indexed++;
     }
   }
 
@@ -68,8 +64,7 @@ async function purgeOrphanedChunks(userId: string) {
     `delete from chunks
      where user_id = ?
        and not exists (
-         select 1
-         from notes
+         select 1 from notes
          where notes.id = chunks.note_id
            and notes.user_id = chunks.user_id
        )`,
