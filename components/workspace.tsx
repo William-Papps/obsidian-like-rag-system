@@ -101,8 +101,8 @@ export function Workspace() {
   const [saving, setSaving] = useState(false);
   const [scope, setScope] = useState<Scope>({ type: "all" });
   const [tab, setTab] = useState<Tab>("ask");
-  const [leftOpen, setLeftOpen] = useState(true);
-  const [rightOpen, setRightOpen] = useState(true);
+  const [leftOpen, setLeftOpen] = useState(() => readStoredJson("studyos:leftOpen", true));
+  const [rightOpen, setRightOpen] = useState(() => readStoredJson("studyos:rightOpen", true));
   const [railPinned, setRailPinned] = useState(() => readStoredJson("studyos:railPinned", false));
   const [leftWidth, setLeftWidth] = useState(() => readStoredNumber("studyos:leftWidth", 300, 240, 420));
   const [rightWidth, setRightWidth] = useState(() => readStoredNumber("studyos:rightWidth", 410, 340, 560));
@@ -182,6 +182,14 @@ export function Workspace() {
   useEffect(() => {
     window.localStorage.setItem("studyos:pinnedNotes", JSON.stringify(pinnedNoteIds));
   }, [pinnedNoteIds]);
+
+  useEffect(() => {
+    window.localStorage.setItem("studyos:leftOpen", JSON.stringify(leftOpen));
+  }, [leftOpen]);
+
+  useEffect(() => {
+    window.localStorage.setItem("studyos:rightOpen", JSON.stringify(rightOpen));
+  }, [rightOpen]);
 
   useEffect(() => {
     window.localStorage.setItem("studyos:vaultRootId", JSON.stringify(vaultRootId));
