@@ -88,7 +88,20 @@ export function renderMarkdown(markdown: string, onWikilink?: (title: string) =>
   };
   const flushQuote = () => {
     if (quote.length) {
-      blocks.push(`<blockquote>${quote.map((item) => `<p>${inline(item, onWikilink)}</p>`).join("")}</blockquote>`);
+      const callout = /^\[!(\w+)\]\s*(.*)$/.exec(quote[0]?.trim() ?? "");
+      if (callout) {
+        const kind = (callout[1] ?? "note").toLowerCase();
+        const title = (callout[2] ?? "").trim() || kind.toUpperCase();
+        const body = quote.slice(1);
+        blocks.push(
+          `<div class="md-callout md-callout-${escapeHtml(kind)}">` +
+            `<div class="md-callout-title">${inline(title, onWikilink)}</div>` +
+            `<div class="md-callout-body">${body.map((item) => `<p>${inline(item, onWikilink)}</p>`).join("")}</div>` +
+          `</div>`
+        );
+      } else {
+        blocks.push(`<blockquote>${quote.map((item) => `<p>${inline(item, onWikilink)}</p>`).join("")}</blockquote>`);
+      }
       quote = [];
     }
   };

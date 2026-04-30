@@ -27,6 +27,7 @@ import {
   FolderOpen,
   FolderPlus,
   GripVertical,
+  Info,
   ImagePlus,
   LayoutPanelLeft,
   Layers3,
@@ -589,6 +590,22 @@ export function Workspace() {
       .map((line) => `> ${line}`)
       .join("\n");
     await replaceSelectionWith(quoted);
+  }
+
+  async function insertCalloutBox() {
+    if (!editorView || !activeNote) return;
+    const selection = editorView.state.selection.main;
+    const currentText = editorView.state.doc.toString();
+    const selected = currentText.slice(selection.from, selection.to).trim();
+    const title = "Title";
+    const body = selected || "Write your key idea here.";
+    const block =
+      `> [!info] ${title}\n` +
+      body
+        .split("\n")
+        .map((line) => `> ${line}`)
+        .join("\n");
+    await replaceSelectionWith(block);
   }
 
   async function insertCodeBlock() {
@@ -1372,6 +1389,7 @@ export function Workspace() {
                 codeLanguage={codeLanguage}
                 onChangeCodeLanguage={setCodeLanguage}
                 onInsertSnippet={noteView === "code" ? () => void insertSnippetFromCodeTab() : undefined}
+                onInsertCallout={noteView !== "code" ? () => void insertCalloutBox() : undefined}
                 onInsertHeading={() => void insertHeading()}
                 onInsertList={() => void insertListItem()}
                 onInsertQuote={() => void insertQuote()}
@@ -1797,6 +1815,7 @@ function NoteViewTabs({
   codeLanguage,
   onChangeCodeLanguage,
   onInsertSnippet,
+  onInsertCallout,
   onInsertHeading,
   onInsertList,
   onInsertQuote,
@@ -1817,6 +1836,7 @@ function NoteViewTabs({
   codeLanguage?: CodeLanguage;
   onChangeCodeLanguage?: (lang: CodeLanguage) => void;
   onInsertSnippet?: () => void;
+  onInsertCallout?: () => void;
   onInsertHeading: () => void;
   onInsertList: () => void;
   onInsertQuote: () => void;
@@ -1895,6 +1915,12 @@ function NoteViewTabs({
         <button onClick={onInsertQuote} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
           Quote
         </button>
+        {onInsertCallout ? (
+          <button onClick={onInsertCallout} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+            <Info className="h-3.5 w-3.5" />
+            Box
+          </button>
+        ) : null}
         <button onClick={onInsertCode} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
           Code
         </button>
