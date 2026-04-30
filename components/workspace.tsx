@@ -10,7 +10,6 @@ import { EditorSelection, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import {
-  AlertCircle,
   BookOpen,
   Brain,
   Check,
@@ -2303,26 +2302,26 @@ function AskTool({
   }
 
   async function explainPlain() {
-    if (!question.trim() || !result?.citations?.length) return;
+    if (!question.trim() || !result || result.unsupported) return;
     setExplaining(true);
     try {
       const response = await fetch("/api/ask/explain", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question, scope: apiScope(scope) })
+        body: JSON.stringify({ question, answer: result.answer })
       });
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || "Explain request failed");
+      if (!response.ok) throw new Error(body.error || "Paraphrase request failed");
       setExplanation(body as AnswerResult);
     } catch (error) {
-      notify(error instanceof Error ? error.message : "Explain request failed", "error");
+      notify(error instanceof Error ? error.message : "Paraphrase request failed", "error");
     } finally {
       setExplaining(false);
     }
   }
   return (
     <div className="space-y-4">
-      <ToolHeader title="Ask your notes" description="Find exact references from your notes. Use Plain English only if you want a paraphrase." />
+      <ToolHeader title="Ask your notes" description="Your notes answer the question. Use Paraphrase for a plain-English example." />
       <textarea
         value={question}
         onKeyDown={allowNativeTextShortcuts}
@@ -2331,51 +2330,48 @@ function AskTool({
         className="control-soft h-32 w-full resize-none rounded-xl p-3 text-sm leading-6 text-ink-100 outline-none placeholder:text-ink-500"
       />
       <button onClick={ask} disabled={busy || !question.trim()} className="primary-action w-full">
-        {busy ? "Finding references..." : "Find references"}
+        {busy ? "Asking..." : "Ask"}
       </button>
       {busy ? <SkeletonStack /> : null}
       {result ? (
-        <div className="space-y-3">
-          <div className="grid grid-cols-3 gap-2">
-            <MetricPill label="References" value={String(result.citations.length)} />
-            <MetricPill label="Scope" value={scopeLabel(scope)} />
-            <MetricPill label="Mode" value={explanation ? (explanation.unsupported ? "Related" : "Plain") : result.unsupported ? "Related" : "Exact"} />
-          </div>
+        <div className="space-y-4">
+          {result.unsupported ? (
+            <div className="rounded-xl border border-ink-700/60 bg-ink-850/60 p-4 text-sm text-ink-400">
+              {result.answer}
+            </div>
+          ) : (
+            <div className="rounded-xl border border-ink-700/80 bg-ink-850/80 p-4">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">Answer</div>
+              <div className="space-y-1.5 text-sm leading-6 text-ink-100">
+                {result.answer.split("\n").filter((l) => l.trim()).map((line, i) => (
+                  <div key={i}>{line.startsWith("- ") ? line.slice(2) : line}</div>
+                ))}
+              </div>
+            </div>
+          )}
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={explainPlain}
-              disabled={explaining || !result.citations.length}
-              className="secondary-action"
-            >
-              {explaining ? "Plain English..." : "Plain English"}
-            </button>
-            <div className="text-xs text-ink-500">Uses AI but must quote your notes.</div>
-          </div>
+          {!result.unsupported ? (
+            <div className="flex items-center gap-2">
+              <button onClick={explainPlain} disabled={explaining} className="secondary-action">
+                {explaining ? "Paraphrasing..." : "Paraphrase"}
+              </button>
+              <div className="text-xs text-ink-500">Rewrites the answer as a simple example.</div>
+            </div>
+          ) : null}
 
           {explanation ? (
-            <div
-              className={`rounded-xl border p-4 text-sm leading-6 ${
-                explanation.unsupported ? "border-danger-400/30 bg-danger-400/10 text-ink-100" : "border-accent-500/20 bg-accent-500/10 text-ink-100"
-              }`}
-            >
-              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">
-                {explanation.unsupported ? <AlertCircle className="h-4 w-4 text-danger-400" /> : <ShieldCheck className="h-4 w-4" />}
-                Plain-language explanation
-              </div>
+            <div className="rounded-xl border border-accent-500/20 bg-accent-500/10 p-4 text-sm leading-6 text-ink-100">
+              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">Paraphrase</div>
               <div className="whitespace-pre-wrap">{explanation.answer}</div>
             </div>
           ) : null}
 
-          {result.unsupported && result.citations.length > 0 ? (
-            <div className="rounded-xl border border-accent-500/20 bg-accent-500/8 p-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">Closest related information</div>
-              <div className="mt-1 text-xs leading-5 text-ink-400">
-                Your notes don't contain a direct answer. These are the nearest indexed excerpts.
-              </div>
+          {result.citations.length > 0 ? (
+            <div>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-ink-400">Best sources</div>
+              <SourceList sources={result.citations} compact query={question} onOpenNote={onOpenNote} />
             </div>
           ) : null}
-          <SourceList sources={result.citations} compact query={question} onOpenNote={onOpenNote} />
         </div>
       ) : null}
     </div>

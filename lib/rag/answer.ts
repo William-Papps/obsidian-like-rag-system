@@ -4,9 +4,9 @@ import type { AnswerResult, RetrievedChunk } from "@/lib/types";
 import { resolveAiContext } from "@/lib/services/ai-access";
 import { retrieveChunks } from "@/lib/rag/retrieval";
 
-const relevanceSchema = z.object({
+const answerSchema = z.object({
   supported: z.boolean(),
-  answer: z.string().nullable().optional(),
+  points: z.array(z.string().min(1)).optional(),
   evidence: z
     .array(
       z.object({
@@ -18,7 +18,7 @@ const relevanceSchema = z.object({
 });
 
 function normalizeForMatch(s: string) {
-  return s.toLowerCase().replace(/[\s ]+/g, " ").replace(/[^\w\s]/g, "").trim();
+  return s.toLowerCase().replace(/[\s ]+/g, " ").replace(/[^\w\s]/g, "").trim();
 }
 
 function evidenceLooksValid(citations: RetrievedChunk[], evidence?: { source: number; quote: string }[]) {
@@ -39,30 +39,6 @@ export async function answerFromNotes(
 ): Promise<AnswerResult> {
   const ai = await resolveAiContext(userId, "ask");
   const citations = await retrieveChunks(userId, question, { ...scope, limit: 6 }, ai);
-  if (citations.length === 0) {
-    return {
-      answer: "Not found in the indexed notes. Add or index notes that directly support this question, then try again.",
-      citations,
-      unsupported: true
-    };
-  }
-
-  // Default Ask returns references only (no generated paragraph). "Plain English" is a separate action.
-  const supported = citations[0].similarity >= 0.08;
-  return {
-    answer: supported ? "References found in your notes." : "Not found in the indexed notes. Add or index notes that directly support this question, then try again.",
-    citations,
-    unsupported: !supported
-  };
-}
-
-export async function explainFromNotes(
-  userId: string,
-  question: string,
-  scope: { noteId?: string; folderId?: string | null } = {}
-): Promise<AnswerResult> {
-  const ai = await resolveAiContext(userId, "ask");
-  const citations = await retrieveChunks(userId, question, { ...scope, limit: 6 }, ai);
 
   if (citations.length === 0 || citations[0].similarity < 0.08) {
     return {
@@ -74,7 +50,7 @@ export async function explainFromNotes(
 
   if (!ai.apiKey) {
     return {
-      answer: "No OpenAI key is configured for plain-language explanations. Add a hosted or personal key, then try again.",
+      answer: "Add an OpenAI key in Settings to generate answers. Your best sources are shown below.",
       citations,
       unsupported: true
     };
@@ -83,40 +59,85 @@ export async function explainFromNotes(
   const client = new OpenAI({ apiKey: ai.apiKey });
   const response = await client.chat.completions.create({
     model: ai.settings.answerModel,
-    temperature: 0.2,
+    temperature: 0.1,
     response_format: { type: "json_object" },
     messages: [
       {
         role: "system",
         content:
-          "You explain ONLY from the provided notes. Do not use outside knowledge. " +
-          "Write in plain language suitable for a learner. Keep it concise. " +
+          "You answer ONLY from the provided note excerpts. Do not use outside knowledge. Do not guess. " +
+          "Write 2-4 bullet points as short, clear, complete sentences. Cite sources inline like [1]. " +
+          "Focus on what directly answers the question. " +
           "If the excerpts do not contain enough evidence, set supported=false. " +
-          "When supported=true, cite sources like [1] and include evidence quotes copied verbatim from the excerpts (exact substrings) " +
-          'as evidence: Array<{source:number, quote:string}>. Return ONLY JSON: {"supported":boolean,"answer"?:string|null,"evidence"?:Array<{source:number,quote:string}>}.'
+          "When supported=true, include evidence quotes copied verbatim (exact substrings) from the excerpts. " +
+          'Return ONLY JSON: {"supported":boolean,"points":string[],"evidence":Array<{source:number,quote:string}>}.'
       },
-      { role: "user", content: `Question: ${question}\n\nRetrieved note excerpts:\n${formatCitations(citations)}` }
+      { role: "user", content: `Question: ${question}\n\nNote excerpts:\n${formatCitations(citations)}` }
     ]
   });
 
   const raw = response.choices[0]?.message.content?.trim() || "";
-  let judged: z.infer<typeof relevanceSchema>;
+  let judged: z.infer<typeof answerSchema>;
   try {
-    judged = relevanceSchema.parse(JSON.parse(raw));
+    judged = answerSchema.parse(JSON.parse(raw));
   } catch {
-    return { answer: "Not found in the notes.", citations, unsupported: true };
+    return { answer: "Not found in the indexed notes.", citations, unsupported: true };
   }
-  const answer = (judged.supported ? (judged.answer ?? "").trim() : "") || "Not found in the notes.";
-  const supported = Boolean(judged.supported) && Boolean(answer) && evidenceLooksValid(citations, judged.evidence);
+
+  const points = judged.supported && judged.points?.length ? judged.points : [];
+  const valid = points.length > 0 && evidenceLooksValid(citations, judged.evidence);
+
+  if (!valid) {
+    return { answer: "Not found in the indexed notes.", citations, unsupported: true };
+  }
 
   return {
-    answer: supported ? answer : "Not found in the notes.",
+    answer: points.map((p) => `- ${p}`).join("\n"),
     citations,
-    unsupported: !supported
+    unsupported: false
+  };
+}
+
+export async function explainFromNotes(
+  userId: string,
+  question: string,
+  answer: string
+): Promise<AnswerResult> {
+  const ai = await resolveAiContext(userId, "ask");
+
+  if (!ai.apiKey) {
+    return {
+      answer: "No OpenAI key is configured for paraphrasing. Add a hosted or personal key, then try again.",
+      citations: [],
+      unsupported: true
+    };
+  }
+
+  const client = new OpenAI({ apiKey: ai.apiKey });
+  const response = await client.chat.completions.create({
+    model: ai.settings.answerModel,
+    temperature: 0.3,
+    messages: [
+      {
+        role: "system",
+        content:
+          "You are given an answer derived from study notes. Rewrite it as a simple, concrete example a beginner would understand. " +
+          "Use plain English. Keep it under 120 words. " +
+          "Do not add information not present in the original answer. " +
+          "Do not use bullet points — write 1-2 short paragraphs or show a worked example."
+      },
+      { role: "user", content: `Question: ${question}\n\nAnswer from notes:\n${answer}` }
+    ]
+  });
+
+  const paraphrase = response.choices[0]?.message.content?.trim() || "";
+  return {
+    answer: paraphrase || "Could not generate a paraphrase.",
+    citations: [],
+    unsupported: !paraphrase
   };
 }
 
 function formatCitations(citations: RetrievedChunk[]) {
   return citations.map((citation, index) => `[${index + 1}] ${citation.noteTitle}\n${citation.excerpt}`).join("\n\n");
 }
-
