@@ -2767,21 +2767,21 @@ function FolderRow({
       </button>
       <button onClick={onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-start gap-2 py-2 text-left text-sm text-ink-200">
         {collapsed ? <Folder className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" /> : <FolderOpen className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" />}
-        <span title={folder.name} className="min-w-0 flex-1 leading-5 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden">
+        <span title={folder.name} className="min-w-0 flex-1 whitespace-normal break-words leading-5 text-ink-100">
           {folder.name}
         </span>
       </button>
       <span className="mt-2 px-2 text-xs text-ink-500">{count}</span>
-      <button onClick={onCreate} aria-label={`New note in ${folder.name}`} className="mt-1 grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
+      <button onClick={onCreate} aria-label={`New note in ${folder.name}`} className="mt-1 hidden h-8 w-8 place-items-center text-ink-500 hover:text-accent-300 group-hover:grid">
         <FilePlus className="h-3.5 w-3.5" />
       </button>
-      <button onClick={onCreateFolder} aria-label={`New folder in ${folder.name}`} className="mt-1 grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
+      <button onClick={onCreateFolder} aria-label={`New folder in ${folder.name}`} className="mt-1 hidden h-8 w-8 place-items-center text-ink-500 hover:text-accent-300 group-hover:grid">
         <FolderPlus className="h-3.5 w-3.5" />
       </button>
-      <button onClick={onRename} aria-label={`Rename ${folder.name}`} className="mt-1 grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
+      <button onClick={onRename} aria-label={`Rename ${folder.name}`} className="mt-1 hidden h-8 w-8 place-items-center text-ink-500 hover:text-accent-300 group-hover:grid">
         <Pencil className="h-3.5 w-3.5" />
       </button>
-      <button onClick={onDelete} aria-label={`Delete ${folder.name}`} className="mt-1 grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-danger-400 group-hover:opacity-100">
+      <button onClick={onDelete} aria-label={`Delete ${folder.name}`} className="mt-1 hidden h-8 w-8 place-items-center text-ink-500 hover:text-danger-400 group-hover:grid">
         <Trash2 className="h-3.5 w-3.5" />
       </button>
       <button onClick={onMove} aria-label={`Move ${folder.name}`} className="hidden" />
@@ -2793,7 +2793,7 @@ function FolderRow({
           onMenu(event);
         }}
         aria-label={`More actions for ${folder.name}`}
-        className="mt-1 grid h-8 w-8 place-items-center text-ink-500 opacity-0 hover:text-ink-100 group-hover:opacity-100"
+        className="mt-1 hidden h-8 w-8 place-items-center text-ink-500 hover:text-ink-100 group-hover:grid"
       >
         <MoreVertical className="h-3.5 w-3.5" />
       </button>
@@ -2838,19 +2838,19 @@ function NoteRow({
       <button onClick={onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-start gap-2 text-left">
         {pinned ? <Pin className="mt-0.5 h-4 w-4 shrink-0 text-accent-300" /> : <FileText className={`mt-0.5 h-4 w-4 shrink-0 ${active ? "text-accent-300" : "text-ink-500 group-hover:text-ink-300"}`} />}
         <span className="min-w-0 flex-1">
-        <span title={note.title} className="block text-sm font-medium leading-5 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden">
+        <span title={note.title} className="block whitespace-normal break-words text-sm font-medium leading-5 text-ink-100">
           {note.title}
         </span>
         <span className="mt-1 block truncate text-xs text-ink-500">{new Date(note.updatedAt).toLocaleDateString()}</span>
         </span>
       </button>
-      <button onClick={onTogglePin} aria-label={pinned ? `Unpin ${note.title}` : `Pin ${note.title}`} className="grid h-7 w-7 shrink-0 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
+      <button onClick={onTogglePin} aria-label={pinned ? `Unpin ${note.title}` : `Pin ${note.title}`} className="hidden h-7 w-7 shrink-0 place-items-center text-ink-500 hover:text-accent-300 group-hover:grid">
         {pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
       </button>
-      <button onClick={onRename} aria-label={`Rename ${note.title}`} className="grid h-7 w-7 shrink-0 place-items-center text-ink-500 opacity-0 hover:text-accent-300 group-hover:opacity-100">
+      <button onClick={onRename} aria-label={`Rename ${note.title}`} className="hidden h-7 w-7 shrink-0 place-items-center text-ink-500 hover:text-accent-300 group-hover:grid">
         <Pencil className="h-3.5 w-3.5" />
       </button>
-      <button onClick={onDelete} aria-label={`Delete ${note.title}`} className="grid h-7 w-7 shrink-0 place-items-center text-ink-500 opacity-0 hover:text-danger-400 group-hover:opacity-100">
+      <button onClick={onDelete} aria-label={`Delete ${note.title}`} className="hidden h-7 w-7 shrink-0 place-items-center text-ink-500 hover:text-danger-400 group-hover:grid">
         <Trash2 className="h-3.5 w-3.5" />
       </button>
       <button onClick={onMove} aria-label={`Move ${note.title}`} className="hidden" />
@@ -2861,7 +2861,7 @@ function NoteRow({
           onMenu(event);
         }}
         aria-label={`More actions for ${note.title}`}
-        className="grid h-7 w-7 shrink-0 place-items-center text-ink-500 opacity-0 hover:text-ink-100 group-hover:opacity-100"
+        className="hidden h-7 w-7 shrink-0 place-items-center text-ink-500 hover:text-ink-100 group-hover:grid"
       >
         <MoreVertical className="h-3.5 w-3.5" />
       </button>
