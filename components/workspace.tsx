@@ -1,6 +1,11 @@
 "use client";
 
 import { markdown } from "@codemirror/lang-markdown";
+import { javascript } from "@codemirror/lang-javascript";
+import { python } from "@codemirror/lang-python";
+import { html } from "@codemirror/lang-html";
+import { css } from "@codemirror/lang-css";
+import { sql } from "@codemirror/lang-sql";
 import { EditorSelection, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
@@ -60,7 +65,8 @@ type Bootstrap = {
 
 type Scope = { type: "all" } | { type: "note"; noteId: string } | { type: "folder"; folderId: string | null };
 type Tab = "ask" | "find" | "quiz" | "flashcards" | "summary";
-type NoteView = "write" | "preview" | "split";
+type NoteView = "write" | "preview" | "split" | "code";
+type CodeLanguage = "plaintext" | "typescript" | "javascript" | "python" | "html" | "css" | "sql" | "json";
 type Toast = { id: number; tone: "success" | "info" | "error"; message: string };
 type VaultMenu = { kind: "folder" | "note"; id: string; x: number; y: number } | null;
 type DragItem = { kind: "folder" | "note"; id: string } | null;
@@ -107,6 +113,7 @@ export function Workspace() {
   const [leftWidth, setLeftWidth] = useState(() => readStoredNumber("studyos:leftWidth", 300, 240, 420));
   const [rightWidth, setRightWidth] = useState(() => readStoredNumber("studyos:rightWidth", 410, 340, 560));
   const [noteView, setNoteView] = useState<NoteView>("write");
+  const [codeLanguage, setCodeLanguage] = useState<CodeLanguage>(() => readStoredJson("studyos:codeLanguage", "typescript"));
   const [draftTitle, setDraftTitle] = useState("");
   const [draftMarkdown, setDraftMarkdown] = useState("");
   const [openNoteIds, setOpenNoteIds] = useState<string[]>([]);
@@ -190,6 +197,10 @@ export function Workspace() {
   useEffect(() => {
     window.localStorage.setItem("studyos:rightOpen", JSON.stringify(rightOpen));
   }, [rightOpen]);
+
+  useEffect(() => {
+    window.localStorage.setItem("studyos:codeLanguage", JSON.stringify(codeLanguage));
+  }, [codeLanguage]);
 
   useEffect(() => {
     window.localStorage.setItem("studyos:vaultRootId", JSON.stringify(vaultRootId));
@@ -451,6 +462,28 @@ export function Workspace() {
 
   const imagePreviewExtension = useMemo(() => createMarkdownImagePreviewExtension(), []);
 
+  const codeLanguageExtension = useMemo(() => {
+    switch (codeLanguage) {
+      case "typescript":
+        return javascript({ typescript: true, jsx: true });
+      case "javascript":
+        return javascript({ typescript: false, jsx: true });
+      case "python":
+        return python();
+      case "html":
+        return html();
+      case "css":
+        return css();
+      case "sql":
+        return sql();
+      case "json":
+        return javascript({ typescript: false });
+      case "plaintext":
+      default:
+        return [];
+    }
+  }, [codeLanguage]);
+
   const editorExtensions = useMemo(() => {
     const extensions = [
       markdown(),
@@ -504,6 +537,11 @@ export function Workspace() {
     if (!editorHighlight?.excerpt.trim()) return extensions;
     return [...extensions, createSourceHighlightExtension(editorHighlight.excerpt)];
   }, [activeNote, editorHighlight, imagePreviewExtension, pasteClipboardImage]);
+
+  const codeEditorExtensions = useMemo(() => {
+    const base = [EditorView.lineWrapping, codeLanguageExtension].flat();
+    return base;
+  }, [codeLanguageExtension]);
 
   async function replaceSelectionWith(text: string) {
     if (!editorView || !activeNote) return;
@@ -1294,6 +1332,8 @@ export function Workspace() {
               <NoteViewTabs
                 value={noteView}
                 onChange={setNoteView}
+                codeLanguage={codeLanguage}
+                onChangeCodeLanguage={setCodeLanguage}
                 onInsertHeading={() => void insertHeading()}
                 onInsertList={() => void insertListItem()}
                 onInsertQuote={() => void insertQuote()}
@@ -1310,7 +1350,7 @@ export function Workspace() {
                 onUploadImage={activeNote ? (file) => void uploadNoteImage(file) : undefined}
               />
               <div className={`h-full min-h-0 min-w-0 overflow-hidden ${noteView === "split" ? "grid grid-cols-2" : "grid grid-cols-1"}`}>
-                {(noteView === "write" || noteView === "split") ? (
+                {(noteView === "write" || noteView === "split" || noteView === "code") ? (
                 <div className={`h-full min-h-0 min-w-0 overflow-hidden bg-ink-900/50 ${noteView === "split" ? "border-r border-ink-700/80" : ""}`}>
                   <CodeMirror
                     className="h-full"
@@ -1318,7 +1358,7 @@ export function Workspace() {
                     onCreateEditor={setEditorView}
                     onUpdate={(update) => setEditorCursor(update.state.selection.main.head)}
                     value={draftMarkdown}
-                    extensions={editorExtensions}
+                    extensions={noteView === "code" ? codeEditorExtensions : editorExtensions}
                     theme="dark"
                     basicSetup={{ foldGutter: false, highlightActiveLine: true }}
                     onChange={(value) => replaceActiveMarkdown(value)}
@@ -1703,6 +1743,8 @@ function EditorNoteTabs({
 function NoteViewTabs({
   value,
   onChange,
+  codeLanguage,
+  onChangeCodeLanguage,
   onInsertHeading,
   onInsertList,
   onInsertQuote,
@@ -1720,6 +1762,8 @@ function NoteViewTabs({
 }: {
   value: NoteView;
   onChange: (value: NoteView) => void;
+  codeLanguage?: CodeLanguage;
+  onChangeCodeLanguage?: (lang: CodeLanguage) => void;
   onInsertHeading: () => void;
   onInsertList: () => void;
   onInsertQuote: () => void;
@@ -1739,7 +1783,8 @@ function NoteViewTabs({
   const tabs: Array<{ id: NoteView; label: string }> = [
     { id: "write", label: "Write" },
     { id: "preview", label: "Preview" },
-    { id: "split", label: "Split" }
+    { id: "split", label: "Split" },
+    { id: "code", label: "Code" }
   ];
 
   return (
@@ -1759,7 +1804,24 @@ function NoteViewTabs({
           </button>
         ))}
       </div>
-      <div className="hidden min-w-max items-center gap-1 pb-1.5 lg:flex">
+      <div className="hidden min-w-max items-center gap-2 pb-1.5 lg:flex">
+        {value === "code" && codeLanguage && onChangeCodeLanguage ? (
+          <select
+            value={codeLanguage}
+            onChange={(e) => onChangeCodeLanguage(e.target.value as CodeLanguage)}
+            className="control-soft h-7 rounded-md px-2 text-xs font-semibold text-ink-300 outline-none"
+            aria-label="Code language"
+          >
+            <option value="typescript">TypeScript</option>
+            <option value="javascript">JavaScript</option>
+            <option value="python">Python</option>
+            <option value="html">HTML</option>
+            <option value="css">CSS</option>
+            <option value="sql">SQL</option>
+            <option value="json">JSON</option>
+            <option value="plaintext">Plain text</option>
+          </select>
+        ) : null}
         <button onClick={onInsertHeading} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
           H2
         </button>
