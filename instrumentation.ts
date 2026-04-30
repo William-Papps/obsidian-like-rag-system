@@ -32,4 +32,14 @@ export async function register() {
         "Set a stable random value in .env.local / server environment to avoid invalidating stored secrets on restart."
     );
   }
+
+  const hostedKey = process.env.HOSTED_OPENAI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim() || "";
+  // settings.ts normalizes SK-/Sk-/sK- → sk- at runtime, so only flag keys that won't be fixed.
+  if (hostedKey && !/^[Ss][Kk]-/.test(hostedKey)) {
+    // eslint-disable-next-line no-console
+    console.error(
+      "[EternalNotes] Hosted OpenAI key does not look like an API key (expected to start with sk-). " +
+        "Ask/Index requests will fail until HOSTED_OPENAI_API_KEY (or OPENAI_API_KEY) is corrected."
+    );
+  }
 }

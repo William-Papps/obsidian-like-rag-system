@@ -21,7 +21,7 @@ export async function POST(request: Request) {
         return NextResponse.json({ markdown: fallback, mode: "local" });
       }
 
-      const client = new OpenAI({ apiKey: ai.apiKey, project: ai.projectId || undefined });
+      const client = new OpenAI({ apiKey: ai.apiKey });
       const response = await client.chat.completions.create({
         model: ai.settings.answerModel,
         temperature: 0.1,

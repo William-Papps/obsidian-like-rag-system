@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withAuthenticatedUser } from "@/lib/auth";
-import { answerFromNotes } from "@/lib/rag/answer";
+import { explainFromNotes } from "@/lib/rag/answer";
 import { QuotaExceededError } from "@/lib/services/ai-access";
 import { resolveScopeTitle } from "@/lib/rag/retrieval";
 import { recordStudyActivity } from "@/lib/services/study-history";
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
     try {
       const body = schema.parse(await request.json());
       const scope = body.scope ?? {};
-      const answer = await answerFromNotes(user.id, body.question, scope);
+      const answer = await explainFromNotes(user.id, body.question, scope);
       await recordStudyActivity(user.id, "ask", { scopeLabel: await resolveScopeTitle(user.id, scope), noteTitle: answer.citations[0]?.noteTitle ?? null });
       return NextResponse.json(answer);
     } catch (error) {
@@ -29,8 +29,9 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: error.message }, { status: 402 });
       }
       const message = error instanceof Error ? error.message : "Ask request failed";
-      console.error("[ask] failed", error);
+      console.error("[ask] explain failed", error);
       return NextResponse.json({ error: message }, { status: 500 });
     }
   });
 }
+

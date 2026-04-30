@@ -1009,7 +1009,8 @@ export function Workspace() {
       body: JSON.stringify(input)
     });
     if (!response.ok) {
-      notify("Indexing failed", "error");
+      const body = await response.json().catch(() => ({}));
+      notify(body?.error || "Indexing failed", "error");
       return;
     }
     await refresh();
@@ -2276,12 +2277,15 @@ function AskTool({
   onOpenNote: (source: SourceRef) => void;
 }) {
   const [question, setQuestion] = useState("");
-  const [answer, setAnswer] = useState<AnswerResult | null>(null);
+  const [result, setResult] = useState<AnswerResult | null>(null);
+  const [explanation, setExplanation] = useState<AnswerResult | null>(null);
   const [busy, setBusy] = useState(false);
+  const [explaining, setExplaining] = useState(false);
   async function ask() {
     if (!question.trim()) return;
     setBusy(true);
-    setAnswer(null);
+    setResult(null);
+    setExplanation(null);
     try {
       const response = await fetch("/api/ask", {
         method: "POST",
@@ -2290,16 +2294,35 @@ function AskTool({
       });
       const body = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(body.error || "Ask request failed");
-      setAnswer(body as AnswerResult);
+      setResult(body as AnswerResult);
     } catch (error) {
       notify(error instanceof Error ? error.message : "Ask request failed", "error");
     } finally {
       setBusy(false);
     }
   }
+
+  async function explainPlain() {
+    if (!question.trim() || !result?.citations?.length) return;
+    setExplaining(true);
+    try {
+      const response = await fetch("/api/ask/explain", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ question, scope: apiScope(scope) })
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(body.error || "Explain request failed");
+      setExplanation(body as AnswerResult);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Explain request failed", "error");
+    } finally {
+      setExplaining(false);
+    }
+  }
   return (
     <div className="space-y-4">
-      <ToolHeader title="Ask your notes" description="Answers are limited to indexed source excerpts." />
+      <ToolHeader title="Ask your notes" description="Find exact references from your notes. Use Plain English only if you want a paraphrase." />
       <textarea
         value={question}
         onKeyDown={allowNativeTextShortcuts}
@@ -2308,36 +2331,51 @@ function AskTool({
         className="control-soft h-32 w-full resize-none rounded-xl p-3 text-sm leading-6 text-ink-100 outline-none placeholder:text-ink-500"
       />
       <button onClick={ask} disabled={busy || !question.trim()} className="primary-action w-full">
-        {busy ? "Retrieving sources..." : "Answer from selected sources"}
+        {busy ? "Finding references..." : "Find references"}
       </button>
       {busy ? <SkeletonStack /> : null}
-      {answer ? (
+      {result ? (
         <div className="space-y-3">
           <div className="grid grid-cols-3 gap-2">
-            <MetricPill label="Sources" value={String(answer.citations.length)} />
+            <MetricPill label="References" value={String(result.citations.length)} />
             <MetricPill label="Scope" value={scopeLabel(scope)} />
-            <MetricPill label="Mode" value={answer.unsupported ? "Related" : "Grounded"} />
+            <MetricPill label="Mode" value={explanation ? (explanation.unsupported ? "Related" : "Plain") : result.unsupported ? "Related" : "Exact"} />
           </div>
-          <div
-            className={`rounded-xl border p-4 text-sm leading-6 ${
-              answer.unsupported ? "border-danger-400/30 bg-danger-400/10 text-ink-100" : "border-accent-500/20 bg-accent-500/10 text-ink-100"
-            }`}
-          >
-            <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">
-              {answer.unsupported ? <AlertCircle className="h-4 w-4 text-danger-400" /> : <ShieldCheck className="h-4 w-4" />}
-              Grounded answer
+
+          <div className="flex items-center gap-2">
+            <button
+              onClick={explainPlain}
+              disabled={explaining || !result.citations.length}
+              className="secondary-action"
+            >
+              {explaining ? "Plain English..." : "Plain English"}
+            </button>
+            <div className="text-xs text-ink-500">Uses AI but must quote your notes.</div>
+          </div>
+
+          {explanation ? (
+            <div
+              className={`rounded-xl border p-4 text-sm leading-6 ${
+                explanation.unsupported ? "border-danger-400/30 bg-danger-400/10 text-ink-100" : "border-accent-500/20 bg-accent-500/10 text-ink-100"
+              }`}
+            >
+              <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">
+                {explanation.unsupported ? <AlertCircle className="h-4 w-4 text-danger-400" /> : <ShieldCheck className="h-4 w-4" />}
+                Plain-language explanation
+              </div>
+              <div className="whitespace-pre-wrap">{explanation.answer}</div>
             </div>
-            <div className="whitespace-pre-wrap">{answer.answer}</div>
-          </div>
-          {answer.unsupported && answer.citations.length > 0 ? (
+          ) : null}
+
+          {result.unsupported && result.citations.length > 0 ? (
             <div className="rounded-xl border border-accent-500/20 bg-accent-500/8 p-3">
               <div className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">Closest related information</div>
               <div className="mt-1 text-xs leading-5 text-ink-400">
-                The direct answer was not supported by your notes. These are the nearest indexed excerpts.
+                Your notes don't contain a direct answer. These are the nearest indexed excerpts.
               </div>
             </div>
           ) : null}
-          <SourceList sources={answer.citations} onOpenNote={onOpenNote} />
+          <SourceList sources={result.citations} compact query={question} onOpenNote={onOpenNote} />
         </div>
       ) : null}
     </div>
@@ -2667,11 +2705,13 @@ function SourceList({
   sources,
   compact = false,
   empty = "No source excerpts found.",
+  query,
   onOpenNote
 }: {
   sources: Array<{ chunkId: string; noteId?: string; noteTitle: string; excerpt: string; similarity: number }>;
   compact?: boolean;
   empty?: string;
+  query?: string;
   onOpenNote?: (source: SourceRef) => void;
 }) {
   if (!sources.length) return <div className="surface-soft rounded-xl px-3 py-4 text-sm text-ink-500">{empty}</div>;
@@ -2691,7 +2731,9 @@ function SourceList({
               <ChevronDown className="h-3.5 w-3.5 text-ink-500 transition-transform group-open:rotate-180" />
             </div>
           </summary>
-          <blockquote className="mt-3 border-l-2 border-accent-400/70 pl-3 text-xs leading-5 text-ink-300">{cleanSourceExcerpt(source.excerpt)}</blockquote>
+          <blockquote className="mt-3 border-l-2 border-accent-400/70 pl-3 text-xs leading-5 text-ink-300">
+            {cleanSourceExcerpt(source.excerpt, query)}
+          </blockquote>
           <div className="mt-3 flex flex-wrap gap-2">
             {source.noteId && onOpenNote ? (
               <>
@@ -3944,8 +3986,102 @@ function sourceContextLabel(
   return `Matching excerpt ${index + 1}`;
 }
 
-function cleanSourceExcerpt(excerpt: string) {
-  return excerpt.replace(/^Note:\s*.*$/gim, "").replace(/^Section:\s*.*$/gim, "").trim();
+function cleanSourceExcerpt(excerpt: string, query?: string) {
+  const raw = excerpt.replace(/^Note:\s*.*$/gim, "").replace(/^Section:\s*.*$/gim, "").trim();
+  if (!raw) return raw;
+
+  const lines = raw.split(/\r?\n/).map((line) => line.trimEnd());
+  const stop = new Set([
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "be",
+    "but",
+    "by",
+    "for",
+    "from",
+    "how",
+    "in",
+    "is",
+    "it",
+    "of",
+    "on",
+    "or",
+    "so",
+    "that",
+    "the",
+    "their",
+    "then",
+    "this",
+    "to",
+    "what",
+    "when",
+    "where",
+    "why",
+    "with",
+    "you"
+  ]);
+
+  const tokens = (query ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, " ")
+    .split(/\s+/)
+    .map((t) => t.trim())
+    .filter((t) => t.length >= 3 && !stop.has(t))
+    .slice(0, 12);
+
+  const hasTokens = tokens.length > 0;
+
+  const scored = lines
+    .map((line, idx) => {
+      const lower = line.toLowerCase();
+      const score = hasTokens ? tokens.reduce((sum, t) => sum + (lower.includes(t) ? 1 : 0), 0) : 0;
+      const structural =
+        /^#{1,6}\s+/.test(line) ||
+        /^>\s*\[!/.test(line) ||
+        /^>\s+/.test(line) ||
+        /^[-*]\s+/.test(line) ||
+        /^\d+\.\s+/.test(line) ||
+        line.trimStart().startsWith("```");
+      return { idx, line, score, structural };
+    })
+    .filter((row) => row.line.trim().length > 0);
+
+  let picked: number[] = [];
+  const matches = scored.filter((row) => row.score > 0);
+  if (matches.length) {
+    picked = [...matches].sort((a, b) => b.score - a.score || a.idx - b.idx).slice(0, 10).map((row) => row.idx);
+  } else {
+    picked = scored.filter((row) => row.structural).slice(0, 10).map((row) => row.idx);
+  }
+
+  // Keep at most one small code block (first) if present.
+  const codeStart = lines.findIndex((line) => line.trimStart().startsWith("```"));
+  if (codeStart >= 0) {
+    const codeEnd = lines.findIndex((line, i) => i > codeStart && line.trimStart().startsWith("```"));
+    const snippetStart = Math.max(0, codeStart - 1);
+    const snippetEnd = Math.min(lines.length - 1, codeEnd > codeStart ? Math.min(codeEnd + 1, codeStart + 14) : codeStart + 14);
+    for (let i = snippetStart; i <= snippetEnd; i += 1) picked.push(i);
+  }
+
+  const uniq = Array.from(new Set(picked)).sort((a, b) => a - b);
+  const out: string[] = [];
+  for (const idx of uniq) {
+    const line = lines[idx];
+    if (!line) continue;
+    out.push(line);
+    if (out.length >= 14) break;
+  }
+
+  if (!out.length) out.push(...lines.filter((l) => l.trim()).slice(0, 6));
+
+  let text = out.join("\n").trim();
+  const maxChars = 650;
+  if (text.length > maxChars) text = `${text.slice(0, maxChars).trimEnd()}…`;
+  return text;
 }
 
 function clamp(value: number, min: number, max: number) {

@@ -75,7 +75,13 @@ export function readUserApiKey(userId: string): string | null {
 }
 
 export function readHostedApiKey() {
-  return process.env.HOSTED_OPENAI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim() || null;
+  const raw = process.env.HOSTED_OPENAI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim() || null;
+  if (!raw) return null;
+  // Normalize common copy/paste mistakes: OpenAI keys start with "sk-".
+  if (raw.startsWith("SK-")) return `sk-${raw.slice(3)}`;
+  if (raw.startsWith("Sk-")) return `sk-${raw.slice(3)}`;
+  if (raw.startsWith("sK-")) return `sk-${raw.slice(3)}`;
+  return raw;
 }
 
 export function hostedProjectId() {

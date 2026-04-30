@@ -22,7 +22,9 @@ export async function POST(request: Request) {
       if (error instanceof QuotaExceededError) {
         return NextResponse.json({ error: error.message }, { status: 402 });
       }
-      throw error;
+      const message = error instanceof Error ? error.message : "Indexing failed";
+      console.error("[index] reindex failed", error);
+      return NextResponse.json({ error: message }, { status: 500 });
     }
   });
 }

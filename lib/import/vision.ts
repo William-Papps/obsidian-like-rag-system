@@ -17,7 +17,7 @@ export async function extractTextFromImage(
     return { text: null, warning: `Skipped ${input.label}: configure a vision-capable model in Settings.` };
   }
 
-  const client = new OpenAI({ apiKey: ai.apiKey, project: ai.projectId || undefined });
+  const client = new OpenAI({ apiKey: ai.apiKey });
   const dataUrl = `data:${input.contentType};base64,${input.bytes.toString("base64")}`;
   const response = await client.chat.completions.create({
     model,

@@ -123,7 +123,7 @@ async function buildStudyPrompt(
   if (!ai.apiKey) return fallbackPrompt(source, answer, mode);
 
   try {
-    const client = new OpenAI({ apiKey: ai.apiKey, project: ai.projectId || undefined });
+    const client = new OpenAI({ apiKey: ai.apiKey });
     const response = await client.chat.completions.create({
       model: ai.settings.answerModel,
       temperature: 0.2,

@@ -24,7 +24,7 @@ export async function evaluateQuizAnswer(
   if (!apiKey) return evaluateHeuristically(trimmedAnswer, input.expectedAnswer, input.question);
 
   const settings = await getProviderSettings(userId);
-  const client = new OpenAI({ apiKey, project: settings.projectId || undefined });
+  const client = new OpenAI({ apiKey });
   const response = await client.chat.completions.create({
     model: settings.answerModel,
     temperature: 0,

@@ -12,7 +12,9 @@ export async function embedText(
   const apiKey = context?.apiKey ?? null;
   if (!apiKey) return { vector: localEmbedding(text), provider: "local" };
 
-  const client = new OpenAI({ apiKey, project: context?.projectId || undefined });
+  // Do not force an OpenAI-Project header by default. Some keys are not scoped to
+  // the configured project id, and OpenAI will return `mismatched_project`.
+  const client = new OpenAI({ apiKey });
   const response = await client.embeddings.create({ model, input: text });
   return { vector: response.data[0].embedding, provider: "openai" };
 }
