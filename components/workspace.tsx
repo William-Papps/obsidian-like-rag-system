@@ -101,12 +101,6 @@ type TableDialogState = {
   rows: number;
   columns: number;
 } | null;
-type CodeBlockDialogState = {
-  from: number;
-  to: number;
-  language: string;
-  code: string;
-} | null;
 
 export function Workspace() {
   const [data, setData] = useState<Bootstrap | null>(null);
@@ -141,7 +135,6 @@ export function Workspace() {
   const [moveDialog, setMoveDialog] = useState<MoveDialogState>(null);
   const [confirmState, setConfirmState] = useState<ConfirmState>(null);
   const [tableDialog, setTableDialog] = useState<TableDialogState>(null);
-  const [codeBlockDialog, setCodeBlockDialog] = useState<CodeBlockDialogState>(null);
   const [formatting, setFormatting] = useState(false);
   const [pastingImage, setPastingImage] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
@@ -470,7 +463,6 @@ export function Workspace() {
   );
 
   const imagePreviewExtension = useMemo(() => createMarkdownImagePreviewExtension(), []);
-  const codeBlockInlayExtension = useMemo(() => createMarkdownCodeBlockInlayExtension(), []);
 
   const codeLanguageExtension = useMemo(() => {
     switch (codeLanguage) {
@@ -499,7 +491,6 @@ export function Workspace() {
       markdown(),
       EditorView.lineWrapping,
       imagePreviewExtension,
-      codeBlockInlayExtension,
       EditorView.domEventHandlers({
         mousedown: (event, view) => {
           const target = event.target as HTMLElement | null;
@@ -533,35 +524,6 @@ export function Workspace() {
           }
           return false;
         },
-        click: (event, view) => {
-          const target = event.target as HTMLElement | null;
-          const actionEl = target?.closest?.("[data-codeblock-action]") as HTMLElement | null;
-          if (!actionEl) return false;
-          const root = actionEl.closest?.("[data-codeblock='1']") as HTMLElement | null;
-          if (!root) return false;
-          event.preventDefault();
-          event.stopPropagation();
-          const from = Number.parseInt(root.dataset.from ?? "", 10);
-          const to = Number.parseInt(root.dataset.to ?? "", 10);
-          if (Number.isNaN(from) || Number.isNaN(to)) return true;
-          const action = actionEl.dataset.codeblockAction;
-          view.dispatch({ selection: { anchor: from, head: to } });
-          if (action === "edit") {
-            const text = view.state.sliceDoc(from, to);
-            const match = /^```([^\n]*)\n([\s\S]*?)\n```/.exec(text);
-            const language = (match?.[1] ?? "").trim();
-            const code = match?.[2] ?? "";
-            setCodeBlockDialog({ from, to, language, code });
-          } else if (action === "copy") {
-            void navigator.clipboard.writeText(view.state.sliceDoc(from, to));
-            notify("Code block copied", "success");
-          } else if (action === "delete") {
-            view.dispatch({ changes: { from, to, insert: "" } });
-            void replaceActiveMarkdown(view.state.doc.toString());
-            notify("Code block removed", "success");
-          }
-          return true;
-        },
         paste: (event, view) => {
           const items = Array.from(event.clipboardData?.items ?? []);
           const imageItem = items.find((item) => item.type.startsWith("image/"));
@@ -576,7 +538,7 @@ export function Workspace() {
     ];
     if (!editorHighlight?.excerpt.trim()) return extensions;
     return [...extensions, createSourceHighlightExtension(editorHighlight.excerpt)];
-  }, [activeNote, codeBlockInlayExtension, editorHighlight, imagePreviewExtension, notify, pasteClipboardImage, replaceActiveMarkdown]);
+  }, [activeNote, editorHighlight, imagePreviewExtension, pasteClipboardImage]);
 
   const codeEditorExtensions = useMemo(() => {
     const base = [EditorView.lineWrapping, codeLanguageExtension].flat();
@@ -1556,20 +1518,6 @@ export function Workspace() {
       <ConfirmModal
         confirmState={confirmState}
         onClose={() => setConfirmState(null)}
-      />
-      <CodeBlockModal
-        state={codeBlockDialog}
-        onClose={() => setCodeBlockDialog(null)}
-        onSubmit={async (nextLang, nextCode) => {
-          if (!editorView) return;
-          const payload = codeBlockDialog;
-          if (!payload) return;
-          const next = `\`\`\`${nextLang.trim()}\n${nextCode.replace(/\r\n/g, "\n").replace(/\s+$/g, "")}\n\`\`\``;
-          editorView.dispatch({ changes: { from: payload.from, to: payload.to, insert: next } });
-          await replaceActiveMarkdown(editorView.state.doc.toString());
-          setCodeBlockDialog(null);
-          notify("Code block updated", "success");
-        }}
       />
       <TableInsertModal
         key={tableDialog ? `${tableDialog.rows}:${tableDialog.columns}` : "table-dialog"}
@@ -3348,91 +3296,6 @@ function MoveTargetModal({
   );
 }
 
-function CodeBlockModal({
-  state,
-  onClose,
-  onSubmit
-}: {
-  state: CodeBlockDialogState;
-  onClose: () => void;
-  onSubmit: (language: string, code: string) => Promise<void> | void;
-}) {
-  const [busy, setBusy] = useState(false);
-  const [language, setLanguage] = useState(state?.language ?? "");
-  const [code, setCode] = useState(state?.code ?? "");
-
-  useEffect(() => {
-    setLanguage(state?.language ?? "");
-    setCode(state?.code ?? "");
-  }, [state?.from, state?.to]);
-
-  if (!state) return null;
-
-  async function handleSubmit() {
-    setBusy(true);
-    try {
-      await onSubmit(language, code);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-3xl overflow-hidden rounded-2xl border border-ink-700 bg-ink-900 shadow-panel">
-        <div className="flex items-center justify-between gap-4 border-b border-ink-700/80 px-5 py-4">
-          <div>
-            <div className="text-lg font-semibold text-ink-100">Edit code block</div>
-            <div className="mt-1 text-sm text-ink-500">This stays embedded in your note as a code snippet.</div>
-          </div>
-          <div className="flex items-center gap-2">
-            <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className="control-soft h-9 rounded-lg px-3 text-sm text-ink-100 outline-none"
-              aria-label="Code language"
-            >
-              <option value="">(auto)</option>
-              <option value="ts">ts</option>
-              <option value="tsx">tsx</option>
-              <option value="js">js</option>
-              <option value="jsx">jsx</option>
-              <option value="python">python</option>
-              <option value="html">html</option>
-              <option value="css">css</option>
-              <option value="sql">sql</option>
-              <option value="json">json</option>
-              <option value="bash">bash</option>
-            </select>
-            <button
-              onClick={onClose}
-              className="rounded-lg border border-ink-700/80 px-3 py-2 text-sm font-semibold text-ink-300 hover:bg-ink-800"
-            >
-              Close
-            </button>
-            <button
-              disabled={busy}
-              onClick={() => void handleSubmit()}
-              className="rounded-lg bg-accent-500 px-3 py-2 text-sm font-semibold text-white hover:bg-accent-400 disabled:opacity-60"
-            >
-              {busy ? "Saving..." : "Save"}
-            </button>
-          </div>
-        </div>
-        <div className="p-5">
-          <textarea
-            value={code}
-            onKeyDown={allowNativeTextShortcuts}
-            onChange={(e) => setCode(e.target.value)}
-            className="control-soft h-[360px] w-full resize-none rounded-xl p-3 font-mono text-sm leading-6 text-ink-100 outline-none placeholder:text-ink-500"
-            placeholder="Paste or type your snippet here…"
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function ConfirmModal({
   confirmState,
   onClose
@@ -3821,146 +3684,6 @@ function createMarkdownImagePreviewExtension() {
             pos = line.to + 1;
             if (line.to >= to) break;
           }
-        }
-        return builder.finish();
-      }
-    },
-    {
-      decorations: (value) => value.decorations
-    }
-  );
-}
-
-function createMarkdownCodeBlockInlayExtension() {
-  class CodeBlockWidget extends WidgetType {
-    constructor(
-      private readonly from: number,
-      private readonly to: number,
-      private readonly language: string,
-      private readonly code: string
-    ) {
-      super();
-    }
-    eq(other: CodeBlockWidget) {
-      return other.from === this.from && other.to === this.to && other.language === this.language && other.code === this.code;
-    }
-    toDOM() {
-      const wrap = document.createElement("div");
-      wrap.dataset.codeblock = "1";
-      wrap.dataset.from = String(this.from);
-      wrap.dataset.to = String(this.to);
-      wrap.style.margin = "10px 0";
-      wrap.style.border = "1px solid rgba(148, 163, 184, 0.14)";
-      wrap.style.borderRadius = "12px";
-      wrap.style.background = "rgba(255,255,255,0.03)";
-      wrap.style.overflow = "hidden";
-
-      const header = document.createElement("div");
-      header.style.display = "flex";
-      header.style.alignItems = "center";
-      header.style.justifyContent = "space-between";
-      header.style.gap = "10px";
-      header.style.padding = "10px 12px";
-      header.style.borderBottom = "1px solid rgba(148, 163, 184, 0.12)";
-      header.style.background = "rgba(0,0,0,0.12)";
-
-      const label = document.createElement("div");
-      label.style.fontSize = "12px";
-      label.style.fontWeight = "600";
-      label.style.color = "rgba(226, 232, 240, 0.92)";
-      label.textContent = this.language ? this.language : "code";
-      header.appendChild(label);
-
-      const actions = document.createElement("div");
-      actions.style.display = "flex";
-      actions.style.gap = "8px";
-
-      const mkBtn = (text: string, action: string) => {
-        const b = document.createElement("button");
-        b.type = "button";
-        b.textContent = text;
-        b.dataset.codeblockAction = action;
-        b.style.fontSize = "12px";
-        b.style.fontWeight = "600";
-        b.style.color = "rgba(148, 163, 184, 0.9)";
-        b.style.border = "1px solid rgba(148, 163, 184, 0.14)";
-        b.style.background = "rgba(255,255,255,0.02)";
-        b.style.borderRadius = "10px";
-        b.style.padding = "6px 10px";
-        b.style.cursor = "pointer";
-        return b;
-      };
-
-      actions.appendChild(mkBtn("Edit", "edit"));
-      actions.appendChild(mkBtn("Copy", "copy"));
-      actions.appendChild(mkBtn("Delete", "delete"));
-      header.appendChild(actions);
-
-      const body = document.createElement("pre");
-      body.style.margin = "0";
-      body.style.padding = "12px";
-      body.style.fontFamily = "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, \"Liberation Mono\", \"Courier New\", monospace";
-      body.style.fontSize = "12px";
-      body.style.lineHeight = "1.5";
-      body.style.color = "rgba(226, 232, 240, 0.92)";
-      body.style.whiteSpace = "pre";
-      body.style.overflowX = "auto";
-      const preview = this.code.split("\n").slice(0, 14).join("\n");
-      body.textContent = preview + (this.code.split("\n").length > 14 ? "\n…" : "");
-
-      wrap.appendChild(header);
-      wrap.appendChild(body);
-      return wrap;
-    }
-  }
-
-  function parseFences(text: string) {
-    const blocks: Array<{ from: number; to: number; language: string; code: string }> = [];
-    // Support 3+ backticks and match the same fence length for closing.
-    // Matches: ```lang\n...\n``` or ````lang\n...\n````
-    const re = /(^|\n)(`{3,})([^\n]*)\n([\s\S]*?)\n\2(?=\n|$)/g;
-    let match: RegExpExecArray | null;
-    while ((match = re.exec(text))) {
-      const lead = match[1] ?? "";
-      const language = (match[3] ?? "").trim();
-      const code = match[4] ?? "";
-      const from = match.index + lead.length;
-      const to = match.index + match[0].length;
-      blocks.push({ from, to, language, code });
-    }
-    return blocks;
-  }
-
-  function overlapsVisible(from: number, to: number, visible: readonly { from: number; to: number }[]) {
-    return visible.some((r) => !(to < r.from || from > r.to));
-  }
-
-  return ViewPlugin.fromClass(
-    class {
-      decorations: DecorationSet;
-
-      constructor(view: EditorView) {
-        this.decorations = this.build(view);
-      }
-
-      update(update: ViewUpdate) {
-        if (update.docChanged || update.viewportChanged) {
-          this.decorations = this.build(update.view);
-        }
-      }
-
-      build(view: EditorView) {
-        const doc = view.state.doc.toString();
-        const builder = new RangeSetBuilder<Decoration>();
-        for (const block of parseFences(doc)) {
-          if (!overlapsVisible(block.from, block.to, view.visibleRanges)) continue;
-          builder.add(
-            block.from,
-            block.to,
-            Decoration.replace({
-              widget: new CodeBlockWidget(block.from, block.to, block.language, block.code)
-            })
-          );
         }
         return builder.finish();
       }
