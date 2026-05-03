@@ -144,28 +144,10 @@ export async function exactSearch(userId: string, query: string) {
   const term = query.trim();
   if (!term) return [];
 
-  let rows: { id: string; title: string; markdown_content: string }[] = [];
-  try {
-    // FTS5 ranked search — escape special FTS characters to avoid parse errors.
-    const escaped = term.replace(/["'*^()]/g, " ").trim();
-    if (escaped) {
-      rows = await dbAll<{ id: string; title: string; markdown_content: string }>(
-        `select n.id, n.title, n.markdown_content
-         from notes_fts f
-         join notes n on n.rowid = f.rowid
-         where n.user_id = ? and notes_fts match ?
-         order by rank
-         limit 30`,
-        [userId, escaped]
-      );
-    }
-  } catch {
-    // Fall back to LIKE search if FTS table is not yet populated or query is invalid.
-    rows = await dbAll<{ id: string; title: string; markdown_content: string }>(
-      "select id, title, markdown_content from notes where user_id = ? and (title like ? or markdown_content like ?) order by updated_at desc limit 30",
-      [userId, `%${term}%`, `%${term}%`]
-    );
-  }
+  const rows = await dbAll<{ id: string; title: string; markdown_content: string }>(
+    "select id, title, markdown_content from notes where user_id = ? and (title like ? or markdown_content like ?) order by updated_at desc limit 30",
+    [userId, `%${term}%`, `%${term}%`]
+  );
 
   return rows.map((row) => {
     const lower = row.markdown_content.toLowerCase();

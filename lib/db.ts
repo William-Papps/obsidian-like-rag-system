@@ -357,43 +357,60 @@ function migrate(database: Database) {
       created_at text not null
     );
     create index if not exists idx_note_versions_note on note_versions(note_id, created_at desc);
-
-    create virtual table if not exists notes_fts using fts5(
-      title,
-      markdown_content,
-      content='notes',
-      content_rowid='rowid'
-    );
   `);
 
-  ensureFtsTriggers(database);
-  rebuildFtsIfNeeded(database);
-}
-
-function ensureFtsTriggers(database: Database) {
   database.exec(`
-    create trigger if not exists notes_fts_insert after insert on notes begin
-      insert into notes_fts(rowid, title, markdown_content) values (new.rowid, new.title, new.markdown_content);
-    end;
-    create trigger if not exists notes_fts_delete after delete on notes begin
-      insert into notes_fts(notes_fts, rowid, title, markdown_content) values ('delete', old.rowid, old.title, old.markdown_content);
-    end;
-    create trigger if not exists notes_fts_update after update on notes begin
-      insert into notes_fts(notes_fts, rowid, title, markdown_content) values ('delete', old.rowid, old.title, old.markdown_content);
-      insert into notes_fts(rowid, title, markdown_content) values (new.rowid, new.title, new.markdown_content);
-    end;
+    create table if not exists study_attempts (
+      id text primary key,
+      user_id text not null references users(id) on delete cascade,
+      mode text not null,
+      note_id text,
+      chunk_id text,
+      prompt text,
+      expected_answer text,
+      user_answer text,
+      score real,
+      result text not null,
+      confidence integer,
+      created_at text not null
+    );
+    create index if not exists idx_study_attempts_user on study_attempts(user_id, created_at desc);
+    create index if not exists idx_study_attempts_note on study_attempts(user_id, note_id);
+    create index if not exists idx_study_attempts_chunk on study_attempts(user_id, chunk_id);
+
+    create table if not exists exam_sessions (
+      id text primary key,
+      user_id text not null references users(id) on delete cascade,
+      scope_label text,
+      scope_json text,
+      status text not null default 'active',
+      started_at text not null,
+      finished_at text,
+      duration_seconds integer,
+      score real,
+      total_questions integer not null default 0,
+      correct_count integer not null default 0
+    );
+    create index if not exists idx_exam_sessions_user on exam_sessions(user_id, started_at desc);
+
+    create table if not exists exam_questions (
+      id text primary key,
+      session_id text not null references exam_sessions(id) on delete cascade,
+      note_id text,
+      chunk_id text,
+      note_title text,
+      question text not null,
+      expected_answer text not null,
+      user_answer text,
+      score real,
+      result text,
+      confidence integer,
+      answered_at text
+    );
+    create index if not exists idx_exam_questions_session on exam_questions(session_id);
   `);
 }
 
-function rebuildFtsIfNeeded(database: Database) {
-  const ftsCount = database.exec("select count(*) from notes_fts");
-  const noteCount = database.exec("select count(*) from notes");
-  const ftsRows = ftsCount[0]?.values[0]?.[0] ?? 0;
-  const noteRows = noteCount[0]?.values[0]?.[0] ?? 0;
-  if (ftsRows === 0 && Number(noteRows) > 0) {
-    database.exec("insert into notes_fts(rowid, title, markdown_content) select rowid, title, markdown_content from notes");
-  }
-}
 
 function ensureColumn(database: Database, table: string, column: string, type: string) {
   const rows = database.exec(`pragma table_info(${table});`);

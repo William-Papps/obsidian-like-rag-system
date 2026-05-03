@@ -10,6 +10,7 @@ import { EditorSelection, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
 import {
+  AlertCircle,
   BookOpen,
   Brain,
   Check,
@@ -48,6 +49,7 @@ import {
   Sparkles,
   Table2,
   Trash2,
+  Trophy,
   Upload,
   X
 } from "lucide-react";
@@ -92,7 +94,7 @@ type Bootstrap = {
 };
 
 type Scope = { type: "all" } | { type: "note"; noteId: string } | { type: "folder"; folderId: string | null };
-type Tab = "ask" | "find" | "quiz" | "flashcards" | "summary";
+type Tab = "ask" | "find" | "quiz" | "flashcards" | "summary" | "today" | "exam";
 type NoteView = "write" | "preview" | "split" | "code";
 type CodeLanguage = "plaintext" | "typescript" | "javascript" | "python" | "html" | "css" | "sql" | "json";
 type Toast = { id: number; tone: "success" | "info" | "error"; message: string };
@@ -1705,7 +1707,9 @@ function SideRail(props: {
     ["find", "Find", <Search className="h-4 w-4" key="find" />],
     ["quiz", "Quiz", <Check className="h-4 w-4" key="quiz" />],
     ["flashcards", "Cards", <Brain className="h-4 w-4" key="cards" />],
-    ["summary", "Summary", <PanelRight className="h-4 w-4" key="summary" />]
+    ["summary", "Summary", <PanelRight className="h-4 w-4" key="summary" />],
+    ["today", "Today", <BookOpen className="h-4 w-4" key="today" />],
+    ["exam", "Exam", <Trophy className="h-4 w-4" key="exam" />]
   ];
 
   function RailIconButton({
@@ -2082,7 +2086,9 @@ function AssistantPanel(props: {
     ["find", "Find", <Search className="h-4 w-4" key="find" />],
     ["quiz", "Quiz", <Check className="h-4 w-4" key="quiz" />],
     ["flashcards", "Cards", <Brain className="h-4 w-4" key="cards" />],
-    ["summary", "Summary", <PanelRight className="h-4 w-4" key="summary" />]
+    ["summary", "Summary", <PanelRight className="h-4 w-4" key="summary" />],
+    ["today", "Today", <BookOpen className="h-4 w-4" key="today" />],
+    ["exam", "Exam", <Trophy className="h-4 w-4" key="exam" />]
   ];
 
   return (
@@ -2142,6 +2148,8 @@ function AssistantPanel(props: {
               />
             ) : null}
             {props.tab === "summary" ? <SummaryTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} /> : null}
+            {props.tab === "today" ? <StudyPlanTool notify={props.notify} /> : null}
+            {props.tab === "exam" ? <ExamTool scope={props.scope} data={props.data} notify={props.notify} /> : null}
           </div>
         </PanelErrorBoundary>
       </div>
@@ -2893,6 +2901,434 @@ function SummaryTool({
       )}
     />
   );
+}
+
+// ── Study Plan (Today tab) ─────────────────────────────────────────────────────
+
+type PlanItem = {
+  type: "flashcard" | "quiz" | "review";
+  source: string;
+  cardId?: string;
+  noteId: string | null;
+  chunkId?: string | null;
+  title: string;
+  reason: string;
+};
+
+type RecentPerf = {
+  totalAttempts: number;
+  avgScore: number;
+  streakDays: number;
+};
+
+function StudyPlanTool({ notify }: { notify: (m: string, tone?: Toast["tone"]) => void }) {
+  const [items, setItems] = useState<PlanItem[] | null>(null);
+  const [perf, setPerf] = useState<RecentPerf | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [dismissed, setDismissed] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("plan_dismissed") ?? "[]")); } catch { return new Set(); }
+  });
+
+  useEffect(() => { void load(); }, []);
+
+  async function load() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/study-plan");
+      if (!res.ok) throw new Error("Failed to load study plan");
+      const body = await res.json();
+      setItems(body.items);
+      setPerf(body.performance);
+    } catch {
+      notify("Could not load study plan", "error");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function dismiss(key: string) {
+    setDismissed((prev) => {
+      const next = new Set(prev);
+      next.add(key);
+      try { localStorage.setItem("plan_dismissed", JSON.stringify([...next])); } catch { /* ignore */ }
+      return next;
+    });
+  }
+
+  const visible = (items ?? []).filter((item) => !dismissed.has(itemKey(item)));
+
+  function itemKey(item: PlanItem) {
+    return `${item.type}:${item.cardId ?? item.noteId ?? ""}:${item.chunkId ?? ""}`;
+  }
+
+  const typeLabel: Record<PlanItem["type"], string> = { flashcard: "Flashcard", quiz: "Quiz", review: "Review" };
+  const typeColor: Record<PlanItem["type"], string> = {
+    flashcard: "text-accent-300",
+    quiz: "text-emerald-400",
+    review: "text-amber-400"
+  };
+
+  return (
+    <div className="space-y-4">
+      <ToolHeader title="Today's Study Plan" description="Personalized items based on due cards, weak areas, and fresh content." />
+      {perf && perf.totalAttempts > 0 ? (
+        <div className="flex gap-3 rounded-xl border border-ink-700/80 bg-ink-900/50 p-3 text-xs">
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="font-bold text-accent-300">{Math.round(perf.avgScore * 100)}%</span>
+            <span className="text-ink-500">avg score</span>
+          </div>
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="font-bold text-ink-100">{perf.totalAttempts}</span>
+            <span className="text-ink-500">attempts</span>
+          </div>
+          <div className="flex flex-col items-center gap-0.5">
+            <span className="font-bold text-amber-400">{perf.streakDays}</span>
+            <span className="text-ink-500">day streak</span>
+          </div>
+        </div>
+      ) : null}
+      {loading ? <SkeletonStack /> : null}
+      {!loading && visible.length === 0 ? (
+        <div className="rounded-xl border border-ink-700/60 bg-ink-900/30 p-4 text-center text-sm text-ink-500">
+          {items === null ? "Loading…" : "Nothing scheduled — great work! Study some notes to build your plan."}
+        </div>
+      ) : null}
+      <div className="space-y-3">
+        {visible.map((item) => (
+          <div key={itemKey(item)} className="study-card flex items-start gap-3">
+            <div className="flex min-w-0 flex-1 flex-col gap-1">
+              <div className={`text-xs font-semibold uppercase tracking-[0.12em] ${typeColor[item.type]}`}>
+                {typeLabel[item.type]}
+              </div>
+              <div className="truncate text-sm font-medium text-ink-100">{item.title}</div>
+              <div className="text-xs text-ink-500">{item.reason}</div>
+            </div>
+            <button
+              onClick={() => dismiss(itemKey(item))}
+              className="shrink-0 rounded p-1 text-ink-600 hover:text-ink-300"
+              aria-label="Dismiss"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          </div>
+        ))}
+      </div>
+      {!loading ? (
+        <button onClick={() => void load()} className="w-full rounded-lg border border-ink-700/60 py-2 text-xs text-ink-400 hover:text-ink-200">
+          Refresh plan
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+// ── Exam Mode tab ─────────────────────────────────────────────────────────────
+
+type ExamSession = {
+  id: string;
+  scopeLabel: string | null;
+  status: "active" | "finished";
+  score: number | null;
+  totalQuestions: number;
+  correctCount: number;
+  durationSeconds: number | null;
+};
+
+type ExamQuestion = {
+  id: string;
+  sessionId: string;
+  question: string;
+  noteTitle: string | null;
+  userAnswer: string | null;
+  score: number | null;
+  result: string | null;
+  index: number;
+  total: number;
+};
+
+type ExamReviewItem = {
+  questionId: string;
+  question: string;
+  userAnswer: string;
+  expectedAnswer: string;
+  score: number;
+  result: string;
+  noteTitle: string | null;
+  advice: string;
+};
+
+function ExamTool({
+  scope,
+  data,
+  notify
+}: {
+  scope: Scope;
+  data: Bootstrap;
+  notify: (m: string, tone?: Toast["tone"]) => void;
+}) {
+  const [phase, setPhase] = useState<"setup" | "active" | "review">("setup");
+  const [session, setSession] = useState<ExamSession | null>(null);
+  const [question, setQuestion] = useState<ExamQuestion | null>(null);
+  const [answer, setAnswer] = useState("");
+  const [confidence, setConfidence] = useState(3);
+  const [submitting, setSubmitting] = useState(false);
+  const [starting, setStarting] = useState(false);
+  const [review, setReview] = useState<ExamReviewItem[]>([]);
+  const [elapsed, setElapsed] = useState(0);
+  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [questionCount, setQuestionCount] = useState(5);
+
+  useEffect(() => {
+    if (phase === "active") {
+      timerRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
+    } else {
+      if (timerRef.current) clearInterval(timerRef.current);
+    }
+    return () => { if (timerRef.current) clearInterval(timerRef.current); };
+  }, [phase]);
+
+  function fmtTime(s: number) {
+    return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
+  }
+
+  function buildScopeLabel() {
+    if (scope.type === "note") {
+      const note = data.notes.find((n) => n.id === scope.noteId);
+      return note?.title ?? "Current note";
+    }
+    if (scope.type === "folder") {
+      const folder = data.folders.find((f) => f.id === scope.folderId);
+      return folder?.name ?? "Current folder";
+    }
+    return "All notes";
+  }
+
+  async function startExam() {
+    setStarting(true);
+    try {
+      const scopeLabel = buildScopeLabel();
+      const body: Record<string, unknown> = { scopeLabel, questionCount };
+      if (scope.type === "note") body.noteId = scope.noteId;
+      if (scope.type === "folder") body.folderId = scope.folderId ?? null;
+      const res = await fetch("/api/exam/start", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to start exam");
+      setSession(json.session);
+      setQuestion(json.firstQuestion);
+      setAnswer("");
+      setConfidence(3);
+      setElapsed(0);
+      setPhase("active");
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Failed to start exam", "error");
+    } finally {
+      setStarting(false);
+    }
+  }
+
+  async function submitAnswer() {
+    if (!session || !question || !answer.trim()) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/exam/answer", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sessionId: session.id, questionId: question.id, userAnswer: answer.trim(), confidence })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to submit answer");
+      if (json.nextQuestion) {
+        setQuestion(json.nextQuestion);
+        setAnswer("");
+        setConfidence(3);
+      } else {
+        await finishExam();
+      }
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Failed to submit", "error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function finishExam() {
+    if (!session) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/exam/finish", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ sessionId: session.id })
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || "Failed to finish exam");
+      setSession(json.session);
+      setReview(json.review);
+      setPhase("review");
+    } catch (err) {
+      notify(err instanceof Error ? err.message : "Failed to finish exam", "error");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  const confidenceLabels = ["", "Guessing", "Unsure", "Fairly sure", "Confident", "Certain"];
+
+  if (phase === "setup") {
+    return (
+      <div className="space-y-4">
+        <ToolHeader title="Exam Mode" description="Answer questions from memory. Expected answers are only revealed after the exam ends." />
+        <div className="space-y-3">
+          <div>
+            <label className="mb-1 block text-xs text-ink-400">Scope</label>
+            <div className="rounded-lg border border-ink-700/60 bg-ink-900/40 px-3 py-2 text-sm text-ink-200">
+              {buildScopeLabel()}
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-ink-400">Questions</label>
+            <div className="flex gap-2">
+              {[3, 5, 10, 15].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => setQuestionCount(n)}
+                  className={`flex-1 rounded-lg border py-1.5 text-sm font-medium transition-colors ${
+                    questionCount === n
+                      ? "border-accent-500/40 bg-accent-500/15 text-accent-200"
+                      : "border-ink-700/60 text-ink-400 hover:text-ink-200"
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        <button
+          onClick={() => void startExam()}
+          disabled={starting}
+          className="w-full rounded-xl bg-accent-500 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+        >
+          {starting ? "Generating questions…" : "Start Exam"}
+        </button>
+      </div>
+    );
+  }
+
+  if (phase === "active" && question) {
+    const progressPct = Math.round(((question.index - 1) / question.total) * 100);
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <span className="text-xs font-semibold text-ink-400">
+            Question {question.index} / {question.total}
+          </span>
+          <span className="font-mono text-xs text-ink-500">{fmtTime(elapsed)}</span>
+        </div>
+        <div className="h-1.5 w-full overflow-hidden rounded-full bg-ink-800">
+          <div className="h-full rounded-full bg-accent-500 transition-all" style={{ width: `${progressPct}%` }} />
+        </div>
+        {question.noteTitle ? (
+          <div className="text-xs text-ink-500">From: {question.noteTitle}</div>
+        ) : null}
+        <div className="rounded-xl border border-ink-700/60 bg-ink-900/50 p-3 text-sm leading-relaxed text-ink-100">
+          {question.question}
+        </div>
+        <textarea
+          value={answer}
+          onChange={(e) => setAnswer(e.target.value)}
+          placeholder="Type your answer…"
+          rows={4}
+          className="w-full resize-none rounded-xl border border-ink-700/60 bg-ink-900/40 p-3 text-sm text-ink-100 placeholder-ink-600 focus:border-accent-500/50 focus:outline-none"
+          onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void submitAnswer(); }}
+        />
+        <div>
+          <div className="mb-1.5 flex items-center justify-between text-xs text-ink-400">
+            <span>Confidence</span>
+            <span className="text-ink-300">{confidenceLabels[confidence]}</span>
+          </div>
+          <input
+            type="range"
+            min={1}
+            max={5}
+            value={confidence}
+            onChange={(e) => setConfidence(Number(e.target.value))}
+            className="w-full accent-accent-400"
+          />
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => void submitAnswer()}
+            disabled={submitting || !answer.trim()}
+            className="flex-1 rounded-xl bg-accent-500 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {submitting ? "Submitting…" : question.index === question.total ? "Submit & Finish" : "Next →"}
+          </button>
+          <button
+            onClick={() => void finishExam()}
+            disabled={submitting}
+            className="rounded-xl border border-ink-700/60 px-3 py-2.5 text-xs text-ink-500 hover:text-ink-200 disabled:opacity-50"
+          >
+            End exam
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (phase === "review" && session) {
+    const pct = Math.round((session.score ?? 0) * 100);
+    const scoreColor = pct >= 80 ? "text-emerald-400" : pct >= 50 ? "text-amber-400" : "text-danger-400";
+    return (
+      <div className="space-y-4">
+        <div className="rounded-xl border border-ink-700/60 bg-ink-900/50 p-4 text-center">
+          <div className={`mb-1 text-4xl font-bold ${scoreColor}`}>{pct}%</div>
+          <div className="text-xs text-ink-400">
+            {session.correctCount} / {session.totalQuestions} correct
+            {session.durationSeconds ? ` · ${fmtTime(session.durationSeconds)}` : ""}
+          </div>
+        </div>
+        <div className="space-y-3">
+          {review.map((item, i) => {
+            const verdict = item.result === "correct" ? "correct" : item.result === "partial" ? "partial" : "incorrect";
+            const borderColor = verdict === "correct" ? "border-emerald-500/30" : verdict === "partial" ? "border-amber-500/30" : "border-danger-400/30";
+            const badgeColor = verdict === "correct" ? "text-emerald-400" : verdict === "partial" ? "text-amber-400" : "text-danger-400";
+            return (
+              <div key={item.questionId} className={`rounded-xl border bg-ink-900/40 p-3 ${borderColor}`}>
+                <div className="mb-2 flex items-start justify-between gap-2">
+                  <span className="text-xs font-medium text-ink-400">Q{i + 1}</span>
+                  <span className={`text-xs font-semibold uppercase ${badgeColor}`}>{verdict}</span>
+                </div>
+                <div className="mb-2 text-sm text-ink-100">{item.question}</div>
+                <div className="mb-1 text-xs text-ink-500">Your answer:</div>
+                <div className="mb-2 text-xs text-ink-300">{item.userAnswer}</div>
+                <div className="mb-1 text-xs text-ink-500">Expected:</div>
+                <div className="mb-2 text-xs text-ink-300">{item.expectedAnswer}</div>
+                {item.advice && verdict !== "correct" ? (
+                  <div className="flex gap-2 rounded-lg bg-ink-800/50 p-2 text-xs text-ink-400">
+                    <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
+                    {item.advice}
+                  </div>
+                ) : null}
+              </div>
+            );
+          })}
+        </div>
+        <button
+          onClick={() => { setPhase("setup"); setSession(null); setQuestion(null); setReview([]); }}
+          className="w-full rounded-xl border border-ink-700/60 py-2.5 text-sm text-ink-300 hover:text-ink-100"
+        >
+          New exam
+        </button>
+      </div>
+    );
+  }
+
+  return null;
 }
 
 function StudyList<T>({
