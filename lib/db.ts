@@ -346,6 +346,53 @@ function migrate(database: Database) {
   ensureColumn(database, "flashcards", "review_count", "integer default 0");
   ensureColumn(database, "flashcards", "last_reviewed_at", "text");
   ensureColumn(database, "chunks", "vector_blob", "blob");
+
+  database.exec(`
+    create table if not exists note_versions (
+      id text primary key,
+      note_id text not null references notes(id) on delete cascade,
+      user_id text not null references users(id) on delete cascade,
+      title text not null,
+      markdown_content text not null,
+      created_at text not null
+    );
+    create index if not exists idx_note_versions_note on note_versions(note_id, created_at desc);
+
+    create virtual table if not exists notes_fts using fts5(
+      title,
+      markdown_content,
+      content='notes',
+      content_rowid='rowid'
+    );
+  `);
+
+  ensureFtsTriggers(database);
+  rebuildFtsIfNeeded(database);
+}
+
+function ensureFtsTriggers(database: Database) {
+  database.exec(`
+    create trigger if not exists notes_fts_insert after insert on notes begin
+      insert into notes_fts(rowid, title, markdown_content) values (new.rowid, new.title, new.markdown_content);
+    end;
+    create trigger if not exists notes_fts_delete after delete on notes begin
+      insert into notes_fts(notes_fts, rowid, title, markdown_content) values ('delete', old.rowid, old.title, old.markdown_content);
+    end;
+    create trigger if not exists notes_fts_update after update on notes begin
+      insert into notes_fts(notes_fts, rowid, title, markdown_content) values ('delete', old.rowid, old.title, old.markdown_content);
+      insert into notes_fts(rowid, title, markdown_content) values (new.rowid, new.title, new.markdown_content);
+    end;
+  `);
+}
+
+function rebuildFtsIfNeeded(database: Database) {
+  const ftsCount = database.exec("select count(*) from notes_fts");
+  const noteCount = database.exec("select count(*) from notes");
+  const ftsRows = ftsCount[0]?.values[0]?.[0] ?? 0;
+  const noteRows = noteCount[0]?.values[0]?.[0] ?? 0;
+  if (ftsRows === 0 && Number(noteRows) > 0) {
+    database.exec("insert into notes_fts(rowid, title, markdown_content) select rowid, title, markdown_content from notes");
+  }
 }
 
 function ensureColumn(database: Database, table: string, column: string, type: string) {

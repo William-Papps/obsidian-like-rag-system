@@ -8,7 +8,12 @@ export const dynamic = "force-dynamic";
 const schema = z.object({
   name: z.string().trim().min(1).max(80),
   email: z.string().email(),
-  password: z.string().min(8).max(200)
+  password: z
+    .string()
+    .min(12, "Password must be at least 12 characters")
+    .max(200)
+    .refine((p) => /[A-Z]/.test(p), "Password must contain at least one uppercase letter")
+    .refine((p) => /[0-9]/.test(p), "Password must contain at least one number")
 });
 
 export async function POST(request: Request) {

@@ -168,6 +168,9 @@ export function Workspace() {
   const [mobileTab, setMobileTab] = useState<"vault" | "editor" | "study">("editor");
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 1024);
   const [reindexingAll, setReindexingAll] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const [historyVersions, setHistoryVersions] = useState<{ id: string; noteId: string; title: string; createdAt: string }[]>([]);
+  const [historyRestoring, setHistoryRestoring] = useState(false);
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const next = { id: Date.now(), tone, message };
@@ -303,6 +306,7 @@ export function Workspace() {
   useEffect(() => {
     setDraftTitle(activeNote?.title ?? "");
     setDraftMarkdown(activeNote?.markdownContent ?? "");
+    setHistoryOpen(false);
   }, [activeNote?.id]);
   const openNoteFromSource = useCallback(
     (source: SourceRef) => {
@@ -1392,10 +1396,61 @@ export function Workspace() {
                     ))}
                   </select>
                   <SaveBadge saving={saving} stale={data.indexStatus.staleNotes > 0} />
+                  <IconButton
+                    label="Version history"
+                    onClick={async () => {
+                      if (historyOpen) { setHistoryOpen(false); return; }
+                      const res = await fetch(`/api/notes/${activeNote.id}/versions`);
+                      setHistoryVersions(await res.json() as typeof historyVersions);
+                      setHistoryOpen(true);
+                    }}
+                  >
+                    <RotateCw className="h-4 w-4" />
+                  </IconButton>
                   <IconButton label="Delete note" onClick={deleteActiveNote} tone="danger">
                     <Trash2 className="h-4 w-4" />
                   </IconButton>
                 </div>
+                {historyOpen && activeNote ? (
+                  <div className="mx-4 mb-2 rounded-xl border border-ink-700/80 bg-ink-900 p-3 text-sm">
+                    <div className="mb-2 flex items-center justify-between">
+                      <span className="text-xs font-semibold uppercase tracking-widest text-ink-400">Version history</span>
+                      <button onClick={() => setHistoryOpen(false)} className="text-ink-500 hover:text-ink-200"><X className="h-3.5 w-3.5" /></button>
+                    </div>
+                    {historyVersions.length === 0 ? (
+                      <div className="text-xs text-ink-500">No saved versions yet. Versions are captured automatically when content changes.</div>
+                    ) : historyVersions.map((v) => (
+                      <div key={v.id} className="flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-ink-800/60">
+                        <div className="text-xs text-ink-300">{new Date(v.createdAt).toLocaleString()}</div>
+                        <button
+                          disabled={historyRestoring}
+                          onClick={async () => {
+                            if (!confirm("Restore this version? The current content will be saved as a new version first.")) return;
+                            setHistoryRestoring(true);
+                            try {
+                              const res = await fetch(`/api/notes/${activeNote.id}/versions`, {
+                                method: "POST",
+                                headers: { "content-type": "application/json" },
+                                body: JSON.stringify({ versionId: v.id })
+                              });
+                              if (res.ok) {
+                                const restored = await res.json() as Note;
+                                setData((d) => d ? { ...d, notes: d.notes.map((n) => n.id === restored.id ? restored : n) } : d);
+                                setDraftMarkdown(restored.markdownContent);
+                                setDraftTitle(restored.title);
+                                setHistoryOpen(false);
+                                notify("Version restored", "success");
+                              }
+                            } finally { setHistoryRestoring(false); }
+                          }}
+                          className="text-xs text-accent-300 hover:underline disabled:opacity-50"
+                        >
+                          Restore
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 overflow-hidden text-xs text-ink-500">
                   <Pill icon={<Folder className="h-3.5 w-3.5" />} label={noteFolder} />
                   <Pill icon={<Clock3 className="h-3.5 w-3.5" />} label={`Updated ${new Date(activeNote.updatedAt).toLocaleString()}`} />
@@ -2305,14 +2360,23 @@ function AskTool({
   onOpenNote: (source: SourceRef) => void;
 }) {
   const [question, setQuestion] = useState("");
-  const [result, setResult] = useState<AnswerResult | null>(null);
+  const [citations, setCitations] = useState<AnswerResult["citations"]>([]);
+  const [streamedText, setStreamedText] = useState("");
+  const [done, setDone] = useState(false);
   const [explanation, setExplanation] = useState<AnswerResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [explaining, setExplaining] = useState(false);
+
+  const answerText = streamedText.trim();
+  const unsupported = done && (answerText === "NOT_FOUND" || answerText.startsWith("NOT_FOUND") || answerText === "" || (citations.length === 0 && !answerText.startsWith("-")));
+  const displayAnswer = unsupported ? (answerText === "NOT_FOUND" || answerText === "" ? "Not found in the indexed notes. Add or index notes that directly support this question, then try again." : answerText) : answerText;
+
   async function ask() {
     if (!question.trim()) return;
     setBusy(true);
-    setResult(null);
+    setStreamedText("");
+    setCitations([]);
+    setDone(false);
     setExplanation(null);
     try {
       const response = await fetch("/api/ask", {
@@ -2320,9 +2384,35 @@ function AskTool({
         headers: { "content-type": "application/json" },
         body: JSON.stringify({ question, scope: apiScope(scope) })
       });
-      const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || "Ask request failed");
-      setResult(body as AnswerResult);
+      if (!response.ok || !response.body) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error((body as { error?: string }).error || "Ask request failed");
+      }
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      while (true) {
+        const { done: readerDone, value } = await reader.read();
+        if (readerDone) break;
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split("\n\n");
+        buf = parts.pop() ?? "";
+        for (const part of parts) {
+          const line = part.startsWith("data: ") ? part.slice(6) : part;
+          if (!line.trim()) continue;
+          try {
+            const ev = JSON.parse(line) as { type: string; data?: unknown };
+            if (ev.type === "citations") setCitations(ev.data as AnswerResult["citations"]);
+            else if (ev.type === "chunk") setStreamedText((t) => t + (ev.data as string));
+            else if (ev.type === "done") setDone(true);
+            else if (ev.type === "error") throw new Error(ev.data as string);
+          } catch (parseErr) {
+            if (parseErr instanceof SyntaxError) continue;
+            throw parseErr;
+          }
+        }
+      }
+      setDone(true);
     } catch (error) {
       notify(error instanceof Error ? error.message : "Ask request failed", "error");
     } finally {
@@ -2331,16 +2421,16 @@ function AskTool({
   }
 
   async function explainPlain() {
-    if (!question.trim() || !result || result.unsupported) return;
+    if (!question.trim() || unsupported) return;
     setExplaining(true);
     try {
       const response = await fetch("/api/ask/explain", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ question, answer: result.answer })
+        body: JSON.stringify({ question, answer: displayAnswer })
       });
       const body = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(body.error || "Paraphrase request failed");
+      if (!response.ok) throw new Error((body as { error?: string }).error || "Paraphrase request failed");
       setExplanation(body as AnswerResult);
     } catch (error) {
       notify(error instanceof Error ? error.message : "Paraphrase request failed", "error");
@@ -2348,6 +2438,9 @@ function AskTool({
       setExplaining(false);
     }
   }
+
+  const showResult = streamedText.length > 0 || (done && citations.length > 0);
+
   return (
     <div className="space-y-4">
       <ToolHeader title="Ask your notes" description="Your notes answer the question. Use Paraphrase for a plain-English example." />
@@ -2361,25 +2454,32 @@ function AskTool({
       <button onClick={ask} disabled={busy || !question.trim()} className="primary-action w-full">
         {busy ? "Asking..." : "Ask"}
       </button>
-      {busy ? <SkeletonStack /> : null}
-      {result ? (
+      {busy && !showResult ? <SkeletonStack /> : null}
+      {showResult ? (
         <div className="space-y-4">
-          {result.unsupported ? (
-            <div className="rounded-xl border border-ink-700/60 bg-ink-850/60 p-4 text-sm text-ink-400">
-              {result.answer}
+          {citations.length > 0 && !done ? (
+            <div>
+              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-ink-400">Searching sources…</div>
+              <SourceList sources={citations} compact query={question} onOpenNote={onOpenNote} />
             </div>
-          ) : (
-            <div className="rounded-xl border border-ink-700/80 bg-ink-850/80 p-4">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">Answer</div>
-              <div className="space-y-1.5 text-sm leading-6 text-ink-100">
-                {result.answer.split("\n").filter((l) => l.trim()).map((line, i) => (
-                  <div key={i}>{line.startsWith("- ") ? line.slice(2) : line}</div>
-                ))}
+          ) : null}
+          {streamedText ? (
+            unsupported ? (
+              <div className="rounded-xl border border-ink-700/60 bg-ink-850/60 p-4 text-sm text-ink-400">{displayAnswer}</div>
+            ) : (
+              <div className="rounded-xl border border-ink-700/80 bg-ink-850/80 p-4">
+                <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">Answer</div>
+                <div className="space-y-1.5 text-sm leading-6 text-ink-100">
+                  {displayAnswer.split("\n").filter((l) => l.trim()).map((line, i) => (
+                    <div key={i}>{line.startsWith("- ") ? line.slice(2) : line}</div>
+                  ))}
+                  {!done ? <span className="inline-block h-4 w-0.5 animate-pulse bg-accent-300 align-middle" /> : null}
+                </div>
               </div>
-            </div>
-          )}
+            )
+          ) : null}
 
-          {!result.unsupported ? (
+          {done && !unsupported ? (
             <div className="flex items-center gap-2">
               <button onClick={explainPlain} disabled={explaining} className="secondary-action">
                 {explaining ? "Paraphrasing..." : "Paraphrase"}
@@ -2395,10 +2495,10 @@ function AskTool({
             </div>
           ) : null}
 
-          {result.citations.length > 0 ? (
+          {done && citations.length > 0 ? (
             <div>
               <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-ink-400">Best sources</div>
-              <SourceList sources={result.citations} compact query={question} onOpenNote={onOpenNote} />
+              <SourceList sources={citations} compact query={question} onOpenNote={onOpenNote} />
             </div>
           ) : null}
         </div>
@@ -2568,6 +2668,8 @@ function QuizTool({
   );
 }
 
+type DueCard = { id: string; prompt: string; answer: string; sourceExcerpt: string; noteId: string | null };
+
 function FlashcardTool({
   scope,
   data,
@@ -2583,13 +2685,126 @@ function FlashcardTool({
 }) {
   const [items, setItems] = useState<Flashcard[]>([]);
   const [localScope, setLocalScope] = useState<Scope>(scope);
-  const [open, setOpen] = useState<Record<number, boolean>>({});
-  function handleItems(next: Flashcard[]) {
-    setItems(next.slice(0, 1));
-    setOpen({});
+  const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<"generate" | "review">("generate");
+  const [dueCards, setDueCards] = useState<DueCard[]>([]);
+  const [dueIndex, setDueIndex] = useState(0);
+  const [dueOpen, setDueOpen] = useState(false);
+  const [dueStats, setDueStats] = useState<{ due: number; total: number } | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [rating, setRating] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/deck?mode=stats")
+      .then((r) => r.json())
+      .then((s) => setDueStats(s as { due: number; total: number }))
+      .catch(() => null);
+  }, [mode]);
+
+  async function startReview() {
+    const res = await fetch("/api/deck?mode=due");
+    const cards = (await res.json()) as DueCard[];
+    setDueCards(cards);
+    setDueIndex(0);
+    setDueOpen(false);
+    setMode("review");
   }
-  const currentIndex = 0;
+
+  async function saveToDecк(card: Flashcard) {
+    setSaving(true);
+    try {
+      await fetch("/api/deck", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ noteId: card.source.noteId ?? null, prompt: card.prompt, answer: card.answer, sourceExcerpt: card.source.excerpt })
+      });
+      notify("Saved to deck", "success");
+      const s = await fetch("/api/deck?mode=stats").then((r) => r.json());
+      setDueStats(s as { due: number; total: number });
+    } catch {
+      notify("Failed to save card", "error");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function rateCard(cardId: string, quality: number) {
+    setRating(true);
+    try {
+      await fetch(`/api/deck/${cardId}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ quality })
+      });
+      const next = dueIndex + 1;
+      if (next >= dueCards.length) {
+        notify(`Review complete — ${dueCards.length} card${dueCards.length !== 1 ? "s" : ""} reviewed`, "success");
+        setMode("generate");
+        const s = await fetch("/api/deck?mode=stats").then((r) => r.json());
+        setDueStats(s as { due: number; total: number });
+      } else {
+        setDueIndex(next);
+        setDueOpen(false);
+      }
+    } catch {
+      notify("Failed to record rating", "error");
+    } finally {
+      setRating(false);
+    }
+  }
+
   const currentItem = items[0];
+
+  if (mode === "review") {
+    const card = dueCards[dueIndex];
+    if (!card) {
+      return (
+        <div className="space-y-3">
+          <ToolHeader title="Flashcard review" description="All due cards have been reviewed." />
+          <EmptyToolState message="No cards due — check back tomorrow." />
+          <button onClick={() => setMode("generate")} className="secondary-action">Back to generate</button>
+        </div>
+      );
+    }
+    return (
+      <div className="space-y-3">
+        <ToolHeader title="Flashcard review" description={`Card ${dueIndex + 1} of ${dueCards.length}`} />
+        <div className="study-card">
+          <div className="mb-3 flex items-center justify-between text-xs text-ink-500">
+            <span>Due card</span>
+            <button onClick={() => setMode("generate")} className="text-ink-500 hover:text-ink-300">Exit</button>
+          </div>
+          <div className="text-sm font-medium leading-6 text-ink-100">{card.prompt}</div>
+          <button onClick={() => setDueOpen((v) => !v)} className="mt-5 text-xs font-semibold text-accent-300">
+            {dueOpen ? "Hide answer" : "Reveal answer"}
+          </button>
+          <div className={`grid transition-all duration-300 ease-premium ${dueOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+            <div className="overflow-hidden">
+              <div className="mt-3 rounded-lg border border-success-400/25 bg-success-400/10 p-3 text-sm leading-6 text-ink-200">{card.answer}</div>
+              {dueOpen ? (
+                <div className="mt-4 space-y-2">
+                  <div className="text-xs text-ink-500">How well did you recall this?</div>
+                  <div className="flex flex-wrap gap-2">
+                    {([["Again", 0, "bg-danger-400/10 text-danger-400 border-danger-400/30"], ["Hard", 2, "bg-amber-400/10 text-amber-400 border-amber-400/30"], ["Good", 4, "bg-success-400/10 text-success-400 border-success-400/30"], ["Easy", 5, "bg-accent-500/10 text-accent-300 border-accent-500/30"]] as [string, number, string][]).map(([label, q, cls]) => (
+                      <button
+                        key={label}
+                        disabled={rating}
+                        onClick={() => void rateCard(card.id, q)}
+                        className={`rounded-xl border px-4 py-2 text-sm font-semibold disabled:opacity-60 ${cls}`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <StudyList
       title="Flashcards"
@@ -2597,9 +2812,18 @@ function FlashcardTool({
       label="Generate flashcard"
       mode="flashcards"
       scope={localScope}
-      controls={<StudyScopePicker scope={localScope} setScope={setLocalScope} data={data} activeNote={activeNote} label="Flashcard source" />}
+      controls={
+        <div className="flex flex-wrap items-center gap-2">
+          <StudyScopePicker scope={localScope} setScope={setLocalScope} data={data} activeNote={activeNote} label="Flashcard source" />
+          {dueStats && dueStats.due > 0 ? (
+            <button onClick={() => void startReview()} className="rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-1.5 text-xs font-semibold text-amber-400 hover:bg-amber-400/20">
+              Review {dueStats.due} due
+            </button>
+          ) : null}
+        </div>
+      }
       notify={notify}
-      onResult={handleItems}
+      onResult={(next: Flashcard[]) => { setItems(next.slice(0, 1)); setOpen(false); }}
       render={(busy, rerun) => (
         <div className="space-y-3">
           {busy ? <SkeletonStack /> : null}
@@ -2611,22 +2835,20 @@ function FlashcardTool({
                 <span className="rounded-full bg-amber-400/10 px-2 py-0.5 text-amber-400">Review</span>
               </div>
               <div className="text-sm font-medium leading-6 text-ink-100">{currentItem.prompt}</div>
-              <button onClick={() => setOpen({ ...open, [currentIndex]: !open[currentIndex] })} className="mt-5 text-xs font-semibold text-accent-300">
-                {open[currentIndex] ? "Hide answer" : "Reveal answer"}
+              <button onClick={() => setOpen((v) => !v)} className="mt-5 text-xs font-semibold text-accent-300">
+                {open ? "Hide answer" : "Reveal answer"}
               </button>
-              <div className={`grid transition-all duration-300 ease-premium ${open[currentIndex] ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
+              <div className={`grid transition-all duration-300 ease-premium ${open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
                 <div className="overflow-hidden">
                   <div className="mt-3 rounded-lg border border-success-400/25 bg-success-400/10 p-3 text-sm leading-6 text-ink-200">{currentItem.answer}</div>
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => void rerun()}
-                  disabled={busy}
-                  className="rounded-xl border border-ink-700 bg-ink-950/40 px-4 py-2 text-sm font-semibold text-ink-200 hover:border-accent-500/30 hover:bg-accent-500/10 hover:text-white disabled:opacity-60"
-                >
+                <button type="button" onClick={() => void rerun()} disabled={busy} className="rounded-xl border border-ink-700 bg-ink-950/40 px-4 py-2 text-sm font-semibold text-ink-200 hover:border-accent-500/30 hover:bg-accent-500/10 hover:text-white disabled:opacity-60">
                   New flashcard
+                </button>
+                <button type="button" onClick={() => void saveToDecк(currentItem)} disabled={saving} className="rounded-xl border border-accent-500/30 bg-accent-500/10 px-4 py-2 text-sm font-semibold text-accent-300 hover:bg-accent-500/20 disabled:opacity-60">
+                  {saving ? "Saving..." : "Save to deck"}
                 </button>
               </div>
               <SourceList sources={[currentItem.source]} compact onOpenNote={onOpenNote} />

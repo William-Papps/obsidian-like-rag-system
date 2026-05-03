@@ -1,9 +1,19 @@
 import type { AiContext, AiFeature } from "@/lib/types";
 import { userCanUseHostedAi } from "@/lib/services/billing";
-import { QuotaExceededError, consumeQuota } from "@/lib/services/quotas";
+import { QuotaExceededError, consumeQuota, peekQuota } from "@/lib/services/quotas";
 import { getProviderSettings, hostedAiAvailable, hostedProjectId, readHostedApiKey, readUserApiKey } from "@/lib/services/settings";
 
 export { QuotaExceededError };
+
+export async function checkHostedQuota(userId: string, feature: AiFeature): Promise<void> {
+  if (readUserApiKey(userId)) return;
+  const hostedKey = (await hostedAiAvailable()) ? readHostedApiKey() : null;
+  if (!hostedKey) return;
+  const settings = await getProviderSettings(userId);
+  if (settings.hostedPlan === "free") return;
+  if (!(await userCanUseHostedAi(userId))) return;
+  await peekQuota(userId, settings.hostedPlan, feature);
+}
 
 export async function resolveAiContext(userId: string, feature: AiFeature): Promise<AiContext> {
   const settings = await getProviderSettings(userId);

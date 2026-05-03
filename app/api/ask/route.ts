@@ -1,7 +1,6 @@
-import { NextResponse } from "next/server";
 import { z } from "zod";
-import { withAuthenticatedUser } from "@/lib/auth";
-import { answerFromNotes } from "@/lib/rag/answer";
+import { getCurrentUser } from "@/lib/auth";
+import { streamAnswerFromNotes } from "@/lib/rag/answer";
 import { QuotaExceededError } from "@/lib/services/ai-access";
 import { resolveScopeTitle } from "@/lib/rag/retrieval";
 import { recordStudyActivity } from "@/lib/services/study-history";
@@ -14,23 +13,50 @@ const schema = z.object({
 });
 
 export async function POST(request: Request) {
-  return withAuthenticatedUser(async (user) => {
-    try {
-      const body = schema.parse(await request.json());
-      const scope = body.scope ?? {};
-      const answer = await answerFromNotes(user.id, body.question, scope);
-      await recordStudyActivity(user.id, "ask", { scopeLabel: await resolveScopeTitle(user.id, scope), noteTitle: answer.citations[0]?.noteTitle ?? null });
-      return NextResponse.json(answer);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        return NextResponse.json({ error: "Invalid request" }, { status: 400 });
+  let user;
+  try {
+    user = await getCurrentUser();
+  } catch {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
+  }
+
+  let body: z.infer<typeof schema>;
+  try {
+    body = schema.parse(await request.json());
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid request" }), { status: 400 });
+  }
+
+  const scope = body.scope ?? {};
+  const userId = user.id;
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      try {
+        await streamAnswerFromNotes(userId, body.question, scope, controller);
+        await recordStudyActivity(userId, "ask", {
+          scopeLabel: await resolveScopeTitle(userId, scope),
+          noteTitle: null
+        });
+      } catch (err) {
+        const enc = new TextEncoder();
+        if (err instanceof QuotaExceededError) {
+          controller.enqueue(enc.encode(`data: ${JSON.stringify({ type: "error", data: err.message })}\n\n`));
+        } else {
+          console.error("[ask] stream failed", err);
+          controller.enqueue(enc.encode(`data: ${JSON.stringify({ type: "error", data: "Ask request failed" })}\n\n`));
+        }
+      } finally {
+        controller.close();
       }
-      if (error instanceof QuotaExceededError) {
-        return NextResponse.json({ error: error.message }, { status: 402 });
-      }
-      const message = error instanceof Error ? error.message : "Ask request failed";
-      console.error("[ask] failed", error);
-      return NextResponse.json({ error: message }, { status: 500 });
+    }
+  });
+
+  return new Response(stream, {
+    headers: {
+      "content-type": "text/event-stream",
+      "cache-control": "no-cache",
+      connection: "keep-alive"
     }
   });
 }

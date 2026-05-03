@@ -67,6 +67,21 @@ export async function getUsageSummary(userId: string, plan: HostedPlan): Promise
   return usage;
 }
 
+export async function peekQuota(userId: string, plan: HostedPlan, feature: AiFeature) {
+  const limit = PLAN_LIMITS[plan][feature];
+  if (typeof limit !== "number") {
+    throw new QuotaExceededError(feature, "Hosted AI is not enabled for this account.");
+  }
+  const period = currentUsagePeriod();
+  const current = await dbGet<{ count: number }>(
+    "select count from ai_usage where user_id = ? and period = ? and feature = ?",
+    [userId, period, feature]
+  );
+  if ((current?.count ?? 0) >= limit) {
+    throw new QuotaExceededError(feature, `Your hosted AI quota for ${feature} is exhausted this month.`);
+  }
+}
+
 export async function consumeQuota(userId: string, plan: HostedPlan, feature: AiFeature) {
   const limit = PLAN_LIMITS[plan][feature];
   if (typeof limit !== "number") {

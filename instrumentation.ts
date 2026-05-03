@@ -1,3 +1,38 @@
+import fs from "fs";
+import path from "path";
+
+function scheduleAutoBackup() {
+  const dataDir = process.env.DATA_DIR?.trim() || path.join(process.env.APP_DIR?.trim() || process.cwd(), "data");
+  const backupDir = path.join(dataDir, "backups");
+  const dbPath = path.join(dataDir, "study.db");
+
+  async function runBackup() {
+    if (!fs.existsSync(dbPath)) return;
+    try {
+      fs.mkdirSync(backupDir, { recursive: true });
+      const stamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+      const dest = path.join(backupDir, `study-${stamp}.db`);
+      fs.copyFileSync(dbPath, dest);
+      // Prune: keep only the 7 most recent daily backups.
+      const files = fs
+        .readdirSync(backupDir)
+        .filter((f) => /^study-\d{4}-\d{2}-\d{2}\.db$/.test(f))
+        .sort()
+        .reverse();
+      for (const file of files.slice(7)) {
+        fs.unlinkSync(path.join(backupDir, file));
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error("[EternalNotes] Auto-backup failed:", err);
+    }
+  }
+
+  // Run once at startup, then every 24 hours.
+  void runBackup();
+  setInterval(() => void runBackup(), 24 * 60 * 60 * 1000);
+}
+
 export async function register() {
   if (process.env.NODE_ENV !== "production") return;
 
@@ -32,6 +67,8 @@ export async function register() {
         "Set a stable random value in .env.local / server environment to avoid invalidating stored secrets on restart."
     );
   }
+
+  scheduleAutoBackup();
 
   const hostedKey = process.env.HOSTED_OPENAI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim() || "";
   // settings.ts normalizes SK-/Sk-/sK- → sk- at runtime, so only flag keys that won't be fixed.

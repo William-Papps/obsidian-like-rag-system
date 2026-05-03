@@ -5,11 +5,18 @@ import { RateLimitError, clientIp, enforceRateLimit } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
+const passwordPolicy = z
+  .string()
+  .min(12, "Password must be at least 12 characters")
+  .max(200)
+  .refine((p) => /[A-Z]/.test(p), "Password must contain at least one uppercase letter")
+  .refine((p) => /[0-9]/.test(p), "Password must contain at least one number");
+
 const schema = z
   .object({
-    currentPassword: z.string().min(8).max(200),
-    newPassword: z.string().min(8).max(200),
-    confirmPassword: z.string().min(8).max(200)
+    currentPassword: z.string().min(1).max(200),
+    newPassword: passwordPolicy,
+    confirmPassword: z.string().min(1).max(200)
   })
   .refine((input) => input.newPassword === input.confirmPassword, {
     message: "New passwords do not match.",

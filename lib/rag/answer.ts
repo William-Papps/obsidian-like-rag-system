@@ -4,6 +4,73 @@ import type { AnswerResult, RetrievedChunk } from "@/lib/types";
 import { resolveAiContext } from "@/lib/services/ai-access";
 import { retrieveChunks } from "@/lib/rag/retrieval";
 
+export type AskStreamEvent =
+  | { type: "citations"; data: RetrievedChunk[] }
+  | { type: "chunk"; data: string }
+  | { type: "done" }
+  | { type: "error"; data: string };
+
+function sseEncode(event: AskStreamEvent, enc: TextEncoder) {
+  return enc.encode(`data: ${JSON.stringify(event)}\n\n`);
+}
+
+export async function streamAnswerFromNotes(
+  userId: string,
+  question: string,
+  scope: { noteId?: string; folderId?: string | null },
+  controller: ReadableStreamDefaultController<Uint8Array>
+) {
+  const enc = new TextEncoder();
+  const send = (ev: AskStreamEvent) => controller.enqueue(sseEncode(ev, enc));
+
+  try {
+    const ai = await resolveAiContext(userId, "ask");
+    const citations = await retrieveChunks(userId, question, { ...scope, limit: 6 }, ai);
+    send({ type: "citations", data: citations });
+
+    if (citations.length === 0 || citations[0].similarity < 0.08) {
+      send({ type: "chunk", data: "Not found in the indexed notes. Add or index notes that directly support this question, then try again." });
+      send({ type: "done" });
+      return;
+    }
+
+    if (!ai.apiKey) {
+      send({ type: "chunk", data: "Add an OpenAI key in Settings to generate answers. Your best sources are shown below." });
+      send({ type: "done" });
+      return;
+    }
+
+    const client = new OpenAI({ apiKey: ai.apiKey });
+    const stream = await client.chat.completions.create({
+      model: ai.settings.answerModel,
+      temperature: 0.1,
+      stream: true,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You answer ONLY from the provided note excerpts. Do not use outside knowledge. Do not guess. " +
+            "Write 2-4 bullet points as short, clear, complete sentences (start each with '- '). " +
+            "Focus on what directly answers the question. " +
+            "If the excerpts do not contain enough evidence, write only: NOT_FOUND"
+        },
+        { role: "user", content: `Question: ${question}\n\nNote excerpts:\n${formatCitations(citations)}` }
+      ]
+    });
+
+    for await (const chunk of stream) {
+      const token = chunk.choices[0]?.delta?.content;
+      if (token) send({ type: "chunk", data: token });
+    }
+
+    send({ type: "done" });
+  } catch (err) {
+    send({ type: "error", data: err instanceof Error ? err.message : "Stream failed" });
+    controller.close();
+    throw err;
+  }
+}
+
 const answerSchema = z.object({
   supported: z.boolean(),
   points: z.array(z.string().min(1)).optional(),
