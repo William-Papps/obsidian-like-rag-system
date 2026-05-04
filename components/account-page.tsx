@@ -419,21 +419,19 @@ export function AccountPage({
                 <SectionHeading
                   eyebrow="Billing"
                   title="Plan and billing setup"
-                  description="The payment provider is not connected yet. This section stores billing identity, plan intent, and subscription state so Stripe can be added later without changing the product model."
+                  description="Manage your plan. Online payments are coming soon — contact support to upgrade to Pro."
                 />
                 <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
                   <div className="space-y-4">
                     <div className="grid gap-4 sm:grid-cols-2">
-                      <MetricCard label="Current plan" value={billing.subscription.plan === "free" ? "Free" : billing.subscription.plan === "starter" ? "AI Starter" : "AI Pro"} />
+                      <MetricCard label="Current plan" value={billing.subscription.plan === "free" ? "Personal (Free)" : "Pro ($12/mo)"} />
                       <MetricCard label="Subscription status" value={formatBillingStatus(billing.subscription.status)} />
                     </div>
 
                     <div className="rounded-xl border border-ink-700/80 bg-ink-950/35 p-4 text-sm leading-6 text-ink-400">
                       {billing.subscription.plan === "free"
-                        ? "You are on the free notes-only tier. AI can still run with a personal key."
-                        : billing.subscription.status === "manual"
-                          ? "This hosted plan is active in manual pre-billing mode. It is suitable for local testing before Stripe is added."
-                          : "Hosted billing has not been connected to a payment provider yet."}
+                        ? "You are on the Personal plan. Add your own OpenAI API key in the AI Settings tab to enable AI features."
+                        : "You are on the Pro plan. Hosted AI is active — no API key required."}
                     </div>
 
                     <div className="grid gap-3 sm:grid-cols-2">
@@ -456,15 +454,14 @@ export function AccountPage({
                       </Field>
                     </div>
 
-                    <Field label={`Hosted AI plan${settings.hostedKeyAvailable ? "" : " (hosted key not configured on server)"}`}>
+                    <Field label={`Plan${settings.hostedKeyAvailable ? "" : " (hosted AI not configured on this server)"}`}>
                       <select
-                        value={hostedPlan}
+                        value={hostedPlan === "pro" ? "starter" : hostedPlan}
                         onChange={(event) => setHostedPlan(event.target.value as typeof hostedPlan)}
                         className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
                       >
-                        <option value="free">Free notes-only / BYOK</option>
-                        <option value="starter">AI Starter</option>
-                        <option value="pro">AI Pro</option>
+                        <option value="free">Personal — Bring your own key (Free)</option>
+                        <option value="starter">Pro — Hosted AI ($12/mo)</option>
                       </select>
                     </Field>
 
@@ -480,7 +477,7 @@ export function AccountPage({
                     ) : null}
 
                     <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm leading-6 text-amber-300">
-                      Checkout, invoices, and payment methods are not active yet. Plan changes here are recorded locally and used to scaffold the future billing flow. Hosted server-key access is separately controlled by the owner per account.
+                      Online payments are coming soon. To upgrade to Pro, contact support and we will activate your account manually.
                     </div>
 
                     <button
@@ -495,22 +492,16 @@ export function AccountPage({
 
                   <div className="space-y-4">
                     <PlanCard
-                      title="Free"
+                      title="Personal — Free"
                       active={hostedPlan === "free"}
-                      description="Unlimited notes. Bring your own API key for AI."
-                      bullets={["No hosted AI quota", "Notes and organization stay free", "BYOK enabled"]}
+                      description="Full access to all features. Bring your own OpenAI API key."
+                      bullets={["Unlimited documents", "All AI tools (BYOK)", "Team workspaces", "Version history", "No monthly cost"]}
                     />
                     <PlanCard
-                      title="AI Starter"
-                      active={hostedPlan === "starter"}
-                      description="Hosted AI with a conservative monthly cap."
-                      bullets={["Ask 200", "Knowledge Check 100", "Training Cards 100", "Briefing 100", "OCR 50", "Index 75"]}
-                    />
-                    <PlanCard
-                      title="AI Pro"
-                      active={hostedPlan === "pro"}
-                      description="Larger hosted allocation for regular usage."
-                      bullets={["Ask 600", "Knowledge Check 300", "Training Cards 300", "Briefing 300", "OCR 150", "Index 200"]}
+                      title="Pro — $12/mo"
+                      active={hostedPlan === "starter" || hostedPlan === "pro"}
+                      description="Everything in Personal plus hosted AI — no API key needed."
+                      bullets={["500 Ask queries/mo", "200 Knowledge Checks/mo", "200 Training Cards/mo", "100 Briefings/mo", "50 OCR scans/mo", "Team workspaces"]}
                     />
                   </div>
                 </div>

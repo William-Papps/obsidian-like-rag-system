@@ -209,7 +209,7 @@ function LandingPage() {
         </div>
         <div className="mx-auto grid max-w-4xl gap-6 sm:grid-cols-2">
 
-          {/* Free */}
+          {/* Personal */}
           <div className="flex flex-col rounded-2xl border border-white/[0.08] bg-ink-900/40 p-8">
             <div className="mb-6">
               <div className="mb-1 text-xs font-bold uppercase tracking-widest text-ink-500">Personal</div>
@@ -217,16 +217,15 @@ function LandingPage() {
                 <span className="text-5xl font-bold text-ink-100">$0</span>
                 <span className="mb-1.5 text-sm text-ink-500">/ month</span>
               </div>
-              <p className="mt-3 text-sm leading-relaxed text-ink-400">Everything you need to build your own AI knowledge base.</p>
+              <p className="mt-3 text-sm leading-relaxed text-ink-400">Full access to all features. Bring your own OpenAI API key.</p>
             </div>
             <ul className="mb-8 flex-1 space-y-3">
               {[
                 "Unlimited documents",
-                "AI-powered Q&A",
-                "Briefings & knowledge checks",
+                "All AI tools (BYOK)",
+                "Team workspaces",
                 "Version history",
-                "Bring your own OpenAI key",
-                "Self-hosted & private"
+                "No monthly cost"
               ].map((item) => (
                 <li key={item} className="flex items-center gap-2.5 text-sm text-ink-300">
                   <svg className="h-4 w-4 shrink-0 text-success-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -244,29 +243,29 @@ function LandingPage() {
             </Link>
           </div>
 
-          {/* Team */}
+          {/* Pro */}
           <div className="relative flex flex-col rounded-2xl border border-accent-500/40 bg-gradient-to-b from-accent-500/10 to-ink-900/60 p-8">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2">
               <span className="rounded-full bg-accent-500 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white">
-                Coming soon
+                Most popular
               </span>
             </div>
             <div className="mb-6">
-              <div className="mb-1 text-xs font-bold uppercase tracking-widest text-accent-400">Team</div>
+              <div className="mb-1 text-xs font-bold uppercase tracking-widest text-accent-400">Pro</div>
               <div className="flex items-end gap-1.5">
-                <span className="text-5xl font-bold text-ink-100">$29</span>
+                <span className="text-5xl font-bold text-ink-100">$12</span>
                 <span className="mb-1.5 text-sm text-ink-500">/ month</span>
               </div>
-              <p className="mt-3 text-sm leading-relaxed text-ink-400">Collaborate across your whole team with shared workspaces and managed AI.</p>
+              <p className="mt-3 text-sm leading-relaxed text-ink-400">Everything in Personal plus hosted AI — no API key needed.</p>
             </div>
             <ul className="mb-8 flex-1 space-y-3">
               {[
-                "Everything in Personal",
-                "Unlimited team workspaces",
-                "Invite collaborators by email",
-                "Shared document libraries",
-                "Hosted AI — no API key needed",
-                "Priority support"
+                "500 Ask queries / month",
+                "200 Knowledge Checks / month",
+                "200 Training Cards / month",
+                "100 Briefings / month",
+                "50 OCR scans / month",
+                "Team workspaces"
               ].map((item) => (
                 <li key={item} className="flex items-center gap-2.5 text-sm text-ink-300">
                   <svg className="h-4 w-4 shrink-0 text-accent-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -276,12 +275,12 @@ function LandingPage() {
                 </li>
               ))}
             </ul>
-            <button
-              disabled
-              className="block w-full cursor-not-allowed rounded-xl bg-accent-500/40 py-3 text-center text-sm font-semibold text-white/50"
+            <Link
+              href="/auth"
+              className="block rounded-xl bg-accent-500 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-accent-400"
             >
-              Notify me when available
-            </button>
+              Get started
+            </Link>
           </div>
 
         </div>
