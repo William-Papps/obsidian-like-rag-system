@@ -1388,7 +1388,7 @@ export function Workspace() {
         >
         <aside className={`panel-shell relative min-h-0 overflow-hidden border-r transition-opacity duration-200 ${leftOpen && !zenMode ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "vault" ? "hidden" : ""}`}>
           <div className="border-b border-ink-700/80 px-3 py-2">
-            {/* Breadcrumb: Workspace › Folder */}
+            {/* Breadcrumb: Workspace › Folder  +  actions */}
             <div className="flex min-w-0 items-center gap-1">
               {activeWorkspace ? <Users className="h-3 w-3 shrink-0 text-accent-400" /> : <BookOpen className="h-3 w-3 shrink-0 text-accent-400" />}
               <select
@@ -1414,26 +1414,12 @@ export function Workspace() {
                   <option key={folder.id} value={folder.id}>{folder.name}</option>
                 ))}
               </select>
-              <div className="ml-auto flex shrink-0 items-center gap-0.5">
-                {activeWorkspace && (
-                  <IconButton label="Manage workspace" onClick={() => { setWorkspaceModal("manage"); setInviteToken(null); setInviteEmail(""); }}>
-                    <Settings className="h-3.5 w-3.5" />
-                  </IconButton>
-                )}
-                <IconButton label="New workspace" onClick={() => setWorkspaceModal("create")}>
-                  <UserPlus className="h-3.5 w-3.5" />
-                </IconButton>
-                <IconButton label="New folder" onClick={() => createFolder()}>
-                  <FolderPlus className="h-3.5 w-3.5" />
-                </IconButton>
+              <div className="ml-1 flex shrink-0 items-center gap-0.5">
                 <IconButton label="New note" onClick={() => createNote()}>
                   <FilePlus className="h-3.5 w-3.5" />
                 </IconButton>
-                <IconButton
-                  label={bulkMode ? "Exit bulk select" : "Bulk select"}
-                  onClick={() => { setBulkMode((m) => !m); setBulkSelectedIds(new Set()); }}
-                >
-                  {bulkMode ? <SquareCheck className="h-3.5 w-3.5 text-accent-300" /> : <Square className="h-3.5 w-3.5" />}
+                <IconButton label="New folder" onClick={() => createFolder()}>
+                  <FolderPlus className="h-3.5 w-3.5" />
                 </IconButton>
               </div>
             </div>
@@ -2136,8 +2122,9 @@ function SideRail(props: {
       </div>
 
       <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${expanded ? "px-3" : "px-2"}`}>
-        <div className={`flex flex-col gap-2 pt-3 ${expanded ? "" : "items-center"}`}>
-          <RailIconButton label={props.leftOpen ? "Hide workspace" : "Show workspace"} onClick={props.onToggleLeft} active={props.leftOpen}>
+        {/* Document nav */}
+        <div className={`flex flex-col gap-1 pt-3 ${expanded ? "" : "items-center"}`}>
+          <RailIconButton label={props.leftOpen ? "Hide documents" : "Show documents"} onClick={props.onToggleLeft} active={props.leftOpen}>
             <LayoutPanelLeft className="h-4 w-4" />
           </RailIconButton>
           <RailIconButton label="New note" onClick={props.onNewNote}>
@@ -2146,9 +2133,29 @@ function SideRail(props: {
           <RailIconButton label="New folder" onClick={props.onNewFolder}>
             <FolderPlus className="h-4 w-4" />
           </RailIconButton>
-          <RailIconButton label={props.rightOpen ? "Hide tools panel" : "Show tools panel"} onClick={props.onToggleRight} active={props.rightOpen}>
-            {props.rightOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
-          </RailIconButton>
+        </div>
+        {/* Divider */}
+        <div className={`my-3 border-t border-ink-700/50 ${expanded ? "" : "mx-2"}`} />
+        {/* AI tools — clicking opens right panel to that tab */}
+        <div className={`flex flex-col gap-1 ${expanded ? "" : "items-center"}`}>
+          {([
+            ["ask",       "Ask",            <MessageSquareText className="h-4 w-4" key="ask" />],
+            ["find",      "Find",           <Search className="h-4 w-4" key="find" />],
+            ["quiz",      "Knowledge Check",<Check className="h-4 w-4" key="quiz" />],
+            ["flashcards","Training Cards", <Brain className="h-4 w-4" key="cards" />],
+            ["summary",   "Briefing",       <PanelRight className="h-4 w-4" key="summary" />],
+            ["today",     "Planner",        <BookOpen className="h-4 w-4" key="today" />],
+            ["exam",      "Assessment",     <Trophy className="h-4 w-4" key="exam" />],
+          ] as [Tab, string, React.ReactNode][]).map(([id, label, icon]) => (
+            <RailIconButton
+              key={id}
+              label={label}
+              onClick={() => { props.onSetTab(id); if (!props.rightOpen) props.onToggleRight(); }}
+              active={props.rightOpen && props.tab === id}
+            >
+              {icon}
+            </RailIconButton>
+          ))}
         </div>
       </div>
 
