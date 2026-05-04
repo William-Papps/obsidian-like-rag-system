@@ -209,6 +209,7 @@ export function Workspace() {
   const [tocOpen, setTocOpen] = useState(false);
   const [symbolsOpen, setSymbolsOpen] = useState(false);
   const [symbolsQuery, setSymbolsQuery] = useState("");
+  const symbolInsertPosRef = useRef<number>(0);
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [workspaceModal, setWorkspaceModal] = useState<"manage" | "invite" | "create" | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -1873,11 +1874,11 @@ export function Workspace() {
                   </div>
                   {/* Symbol picker */}
                   <div className="relative">
-                    <IconButton label="Insert symbol" onClick={() => { setSymbolsOpen((o) => !o); setSymbolsQuery(""); }}>
+                    <IconButton label="Insert symbol" onClick={(e) => { e.stopPropagation(); if (editorView) symbolInsertPosRef.current = editorView.state.selection.main.from; setSymbolsOpen((o) => !o); setSymbolsQuery(""); }}>
                       <span className={`text-base leading-none font-serif ${symbolsOpen ? "text-accent-300" : ""}`}>∑</span>
                     </IconButton>
                     {symbolsOpen && (
-                      <div className="absolute right-0 top-[calc(100%+6px)] z-50 w-80 overflow-hidden rounded-xl border border-ink-700/90 bg-ink-925 shadow-panel">
+                      <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-[calc(100%+6px)] z-50 w-80 overflow-hidden rounded-xl border border-ink-700/90 bg-ink-925 shadow-panel">
                         <div className="border-b border-ink-700/80 p-2">
                           <input
                             autoFocus
@@ -1901,7 +1902,18 @@ export function Workspace() {
                                     <button
                                       key={sym}
                                       title={sym}
-                                      onClick={() => { void replaceSelectionWith(sym); setSymbolsOpen(false); editorView?.focus(); }}
+                                      onClick={() => {
+                                        if (editorView && activeNote) {
+                                          const pos = symbolInsertPosRef.current;
+                                          editorView.dispatch({
+                                            changes: { from: pos, to: pos, insert: sym },
+                                            selection: EditorSelection.cursor(pos + sym.length)
+                                          });
+                                          void replaceActiveMarkdown(editorView.state.doc.toString());
+                                          editorView.focus();
+                                        }
+                                        setSymbolsOpen(false);
+                                      }}
                                       className="h-8 w-8 rounded-md text-center text-base text-ink-200 hover:bg-accent-500/20 hover:text-accent-300 font-serif"
                                     >
                                       {sym}
@@ -5313,7 +5325,7 @@ function IconButton({
   tone = "default"
 }: {
   label: string;
-  onClick: () => void;
+  onClick: (e: React.MouseEvent<HTMLButtonElement>) => void;
   children: React.ReactNode;
   tone?: "default" | "danger";
 }) {
