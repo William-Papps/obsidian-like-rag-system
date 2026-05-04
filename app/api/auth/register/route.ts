@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     return response;
   } catch (error) {
     if (error instanceof RateLimitError) {
-      return NextResponse.json({ error: error.message }, { status: 429 });
+      return NextResponse.json({ error: error.message, retryAfterSeconds: Math.ceil(error.retryAfterMs / 1000) }, { status: 429 });
     }
     return NextResponse.json({ error: error instanceof Error ? error.message : "Registration failed" }, { status: 400 });
   }

@@ -21,6 +21,13 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [retryAfter, setRetryAfter] = useState(0);
+
+  useEffect(() => {
+    if (retryAfter <= 0) return;
+    const id = setTimeout(() => setRetryAfter((s) => Math.max(0, s - 1)), 1000);
+    return () => clearTimeout(id);
+  }, [retryAfter]);
 
   // Handle ?reset=token&email=... from the reset link
   useEffect(() => {
@@ -53,7 +60,9 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
         error?: string;
         verificationRequired?: boolean;
         email?: string;
+        retryAfterSeconds?: number;
       };
+      if (response.status === 429) { setRetryAfter(body.retryAfterSeconds ?? 60); return; }
       if (!response.ok) {
         if (response.status === 403 && body.verificationRequired && body.email) {
           setPendingEmail(body.email);
@@ -90,7 +99,8 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
         cache: "no-store",
         body: JSON.stringify({ email: pendingEmail, code })
       });
-      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      const body = (await response.json().catch(() => ({}))) as { error?: string; retryAfterSeconds?: number };
+      if (response.status === 429) { setRetryAfter(body.retryAfterSeconds ?? 60); return; }
       if (!response.ok) throw new Error(body.error || "Verification failed");
       window.location.replace("/");
     } catch (err) {
@@ -111,7 +121,8 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
         cache: "no-store",
         body: JSON.stringify({ email: pendingEmail })
       });
-      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      const body = (await response.json().catch(() => ({}))) as { error?: string; retryAfterSeconds?: number };
+      if (response.status === 429) { setRetryAfter(body.retryAfterSeconds ?? 60); return; }
       if (!response.ok) throw new Error(body.error || "Unable to resend code");
       setInfo("A new verification code has been sent.");
     } catch (err) {
@@ -132,6 +143,8 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
         cache: "no-store",
         body: JSON.stringify({ email })
       });
+      const body = (await response.json().catch(() => ({}))) as { retryAfterSeconds?: number };
+      if (response.status === 429) { setRetryAfter(body.retryAfterSeconds ?? 60); return; }
       setInfo("If an account exists for that email, a reset link has been sent.");
     } catch {
       setInfo("If an account exists for that email, a reset link has been sent.");
@@ -152,7 +165,8 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
         cache: "no-store",
         body: JSON.stringify({ email: pendingEmail, token: resetToken, newPassword })
       });
-      const body = (await response.json().catch(() => ({}))) as { error?: string };
+      const body = (await response.json().catch(() => ({}))) as { error?: string; retryAfterSeconds?: number };
+      if (response.status === 429) { setRetryAfter(body.retryAfterSeconds ?? 60); return; }
       if (!response.ok) throw new Error(body.error || "Password reset failed");
       setStage("auth");
       setMode("login");
@@ -206,8 +220,8 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
               </Field>
             </div>
             {info ? <InfoBanner>{info}</InfoBanner> : null}
-            {error ? <ErrorBanner>{error}</ErrorBanner> : null}
-            <button type="button" onClick={() => void submit()} disabled={busy || !email.trim() || password.trim().length < 8 || (mode === "signup" && !name.trim())} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-accent-400 disabled:opacity-60">
+            {retryAfter > 0 ? <RateLimitBanner seconds={retryAfter} /> : error ? <ErrorBanner>{error}</ErrorBanner> : null}
+            <button type="button" onClick={() => void submit()} disabled={busy || retryAfter > 0 || !email.trim() || password.trim().length < 8 || (mode === "signup" && !name.trim())} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-accent-400 disabled:opacity-60">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {mode === "login" ? "Sign in" : "Create account"}
             </button>
@@ -229,8 +243,8 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
               </Field>
             </div>
             {info ? <InfoBanner>{info}</InfoBanner> : null}
-            {error ? <ErrorBanner>{error}</ErrorBanner> : null}
-            <button type="button" onClick={() => void verify()} disabled={busy || code.trim().length < 4} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-accent-400 disabled:opacity-60">
+            {retryAfter > 0 ? <RateLimitBanner seconds={retryAfter} /> : error ? <ErrorBanner>{error}</ErrorBanner> : null}
+            <button type="button" onClick={() => void verify()} disabled={busy || retryAfter > 0 || code.trim().length < 4} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-accent-400 disabled:opacity-60">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Verify email
             </button>
@@ -247,8 +261,8 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
               </Field>
             </div>
             {info ? <InfoBanner>{info}</InfoBanner> : null}
-            {error ? <ErrorBanner>{error}</ErrorBanner> : null}
-            <button type="button" onClick={() => void sendForgotPassword()} disabled={busy || !email.trim()} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-accent-400 disabled:opacity-60">
+            {retryAfter > 0 ? <RateLimitBanner seconds={retryAfter} /> : error ? <ErrorBanner>{error}</ErrorBanner> : null}
+            <button type="button" onClick={() => void sendForgotPassword()} disabled={busy || retryAfter > 0 || !email.trim()} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-accent-400 disabled:opacity-60">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Send reset link
             </button>
@@ -262,8 +276,8 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
               </Field>
             </div>
             {info ? <InfoBanner>{info}</InfoBanner> : null}
-            {error ? <ErrorBanner>{error}</ErrorBanner> : null}
-            <button type="button" onClick={() => void submitReset()} disabled={busy || newPassword.length < 8} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-accent-400 disabled:opacity-60">
+            {retryAfter > 0 ? <RateLimitBanner seconds={retryAfter} /> : error ? <ErrorBanner>{error}</ErrorBanner> : null}
+            <button type="button" onClick={() => void submitReset()} disabled={busy || retryAfter > 0 || newPassword.length < 8} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-accent-400 disabled:opacity-60">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Set new password
             </button>
@@ -297,4 +311,15 @@ function InfoBanner({ children }: { children: ReactNode }) {
 
 function ErrorBanner({ children }: { children: ReactNode }) {
   return <div className="mt-4 rounded-xl border border-danger-400/30 bg-danger-400/10 px-3 py-2 text-sm text-danger-400">{children}</div>;
+}
+
+function RateLimitBanner({ seconds }: { seconds: number }) {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  const display = m > 0 ? `${m}:${String(s).padStart(2, "0")}` : `${s}s`;
+  return (
+    <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-sm text-amber-300">
+      Too many attempts. Try again in <span className="font-semibold tabular-nums">{display}</span>.
+    </div>
+  );
 }

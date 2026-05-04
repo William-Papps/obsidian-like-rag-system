@@ -17,7 +17,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, ...result });
   } catch (error) {
     if (error instanceof RateLimitError) {
-      return NextResponse.json({ error: error.message }, { status: 429 });
+      return NextResponse.json({ error: error.message, retryAfterSeconds: Math.ceil(error.retryAfterMs / 1000) }, { status: 429 });
     }
     return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to resend code" }, { status: 400 });
   }
