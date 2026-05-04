@@ -20,9 +20,11 @@ import {
   Clock3,
   Code2,
   Command,
+  Download,
   FilePlus,
   FileStack,
   FileText,
+  Filter,
   Folder,
   FolderOpen,
   FolderPlus,
@@ -31,9 +33,12 @@ import {
   ImagePlus,
   LayoutPanelLeft,
   Layers3,
+  Link,
   Loader2,
   LogOut,
+  Maximize2,
   MessageSquareText,
+  Minimize2,
   MoreVertical,
   PanelRight,
   PanelRightClose,
@@ -47,7 +52,10 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  Square,
+  SquareCheck,
   Table2,
+  Tag,
   Trash2,
   Trophy,
   Upload,
@@ -91,6 +99,7 @@ type Bootstrap = {
   notes: Note[];
   settings: ProviderSettings;
   indexStatus: { notes: number; chunks: number; staleNotes: number };
+  noteTags: Record<string, string[]>;
 };
 
 type Scope = { type: "all" } | { type: "note"; noteId: string } | { type: "folder"; folderId: string | null };
@@ -173,6 +182,10 @@ export function Workspace() {
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyVersions, setHistoryVersions] = useState<{ id: string; noteId: string; title: string; createdAt: string }[]>([]);
   const [historyRestoring, setHistoryRestoring] = useState(false);
+  const [zenMode, setZenMode] = useState(false);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const next = { id: Date.now(), tone, message };
@@ -263,10 +276,17 @@ export function Workspace() {
         event.preventDefault();
         setCommandOpen(true);
       }
+      if ((event.metaKey || event.ctrlKey) && event.shiftKey && event.key.toLowerCase() === "z") {
+        event.preventDefault();
+        setZenMode((z) => !z);
+      }
+      if (event.key === "Escape" && zenMode) {
+        setZenMode(false);
+      }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [zenMode]);
 
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 1024);
@@ -334,12 +354,13 @@ export function Workspace() {
   );
   const workspaceGridStyle = useMemo<CSSProperties>(() => {
     if (isMobile) return { gridTemplateColumns: "1fr" };
+    if (zenMode) return { gridTemplateColumns: "0px minmax(0, 1fr) 0px" };
     const left = leftOpen ? `${leftWidth}px` : "0px";
     const right = rightOpen ? `${rightWidth}px` : "0px";
     return {
       gridTemplateColumns: `${left} minmax(0, 1fr) ${right}`
     };
-  }, [isMobile, leftOpen, leftWidth, rightOpen, rightWidth]);
+  }, [isMobile, zenMode, leftOpen, leftWidth, rightOpen, rightWidth]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -930,6 +951,52 @@ export function Workspace() {
     notify(folderId ? "Note moved" : "Note moved to Unfiled notes", "success");
   }
 
+  async function bulkDeleteSelected() {
+    const ids = [...bulkSelectedIds];
+    if (!ids.length) return;
+    setConfirmState({
+      title: `Delete ${ids.length} note${ids.length === 1 ? "" : "s"}?`,
+      description: "This removes the selected notes and their indexed chunks.",
+      confirmLabel: "Delete all",
+      tone: "danger",
+      onConfirm: async () => {
+        for (const id of ids) {
+          await fetch(`/api/notes/${id}`, { method: "DELETE" });
+        }
+        setBulkSelectedIds(new Set());
+        setBulkMode(false);
+        await refresh();
+        notify(`${ids.length} note${ids.length === 1 ? "" : "s"} deleted`, "info");
+      }
+    });
+  }
+
+  function bulkMoveSelected() {
+    const ids = [...bulkSelectedIds];
+    if (!ids.length) return;
+    setMoveDialog({
+      title: `Move ${ids.length} note${ids.length === 1 ? "" : "s"}`,
+      description: "Choose a destination folder.",
+      submitLabel: "Move notes",
+      currentFolderId: undefined,
+      allowRootLabel: "Vault root / Unfiled notes",
+      options: data?.folders ?? [],
+      onSubmit: async (folderId) => {
+        for (const id of ids) {
+          await fetch(`/api/notes/${id}`, {
+            method: "PATCH",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ folderId })
+          });
+        }
+        setBulkSelectedIds(new Set());
+        setBulkMode(false);
+        await refresh();
+        notify(`${ids.length} note${ids.length === 1 ? "" : "s"} moved`, "success");
+      }
+    });
+  }
+
   function chooseFolderForNote(note: Note) {
     setMoveDialog({
       title: `Move "${note.title}"`,
@@ -1033,6 +1100,43 @@ export function Workspace() {
     requestDeleteNote(activeNote);
   }
 
+  function exportActiveNote() {
+    if (!activeNote) return;
+    const blob = new Blob([activeNote.markdownContent], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${activeNote.title.replace(/[/\\:*?"<>|]/g, "-")}.md`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const backlinks = useMemo(() => {
+    if (!activeNote || !data) return [];
+    const titleLower = activeNote.title.toLowerCase();
+    return data.notes.filter(
+      (note) =>
+        note.id !== activeNote.id &&
+        note.markdownContent.toLowerCase().includes(`[[${titleLower}]]`)
+    );
+  }, [activeNote, data]);
+
+  const allTags = useMemo(() => {
+    if (!data?.noteTags) return [];
+    const tagSet = new Set<string>();
+    for (const tags of Object.values(data.noteTags)) {
+      for (const tag of tags) tagSet.add(tag);
+    }
+    return [...tagSet].sort();
+  }, [data?.noteTags]);
+
+  const vaultNotes = useMemo(() => {
+    if (!data) return [];
+    let notes = data.notes;
+    if (selectedTag) notes = notes.filter((n) => (data.noteTags[n.id] ?? []).includes(selectedTag));
+    return notes;
+  }, [data, selectedTag]);
+
   async function reindexScope(input: { noteId?: string; folderId?: string | null }, label: string) {
     notify(`Indexing ${label}`, "info");
     const response = await fetch("/api/index", {
@@ -1094,7 +1198,7 @@ export function Workspace() {
 
   const rootFolders = data.folders.filter((folder) => !folder.parentId);
   const renderFolderNode = (folder: FolderType, depth = 0): ReactNode => {
-    const folderNotes = data.notes.filter((note) => note.folderId === folder.id);
+    const folderNotes = vaultNotes.filter((note) => note.folderId === folder.id);
     const childFolders = data.folders.filter((child) => child.parentId === folder.id);
     const collapsed = collapsedFolders[folder.id] ?? false;
     return (
@@ -1132,6 +1236,9 @@ export function Workspace() {
                 note={note}
                 active={activeNoteId === note.id}
                 pinned={pinnedNoteIds.includes(note.id)}
+                bulkMode={bulkMode}
+                bulkSelected={bulkSelectedIds.has(note.id)}
+                onToggleBulk={() => setBulkSelectedIds((prev) => { const next = new Set(prev); next.has(note.id) ? next.delete(note.id) : next.add(note.id); return next; })}
                 onClick={() => selectNote(note.id)}
                 onTogglePin={() => togglePinNote(note)}
                 onRename={() => renameNoteById(note)}
@@ -1194,7 +1301,7 @@ export function Workspace() {
           className="grid flex-1 overflow-hidden transition-[grid-template-columns] duration-300 ease-premium"
           style={{ ...workspaceGridStyle, height: isMobile ? "calc(100vh - 56px)" : "100vh" }}
         >
-        <aside className={`panel-shell relative min-h-0 overflow-hidden border-r transition-opacity duration-200 ${leftOpen ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "vault" ? "hidden" : ""}`}>
+        <aside className={`panel-shell relative min-h-0 overflow-hidden border-r transition-opacity duration-200 ${leftOpen && !zenMode ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "vault" ? "hidden" : ""}`}>
           <div className="flex h-16 items-center justify-between border-b border-ink-700/80 px-4">
             <div>
               <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-300/75">Vault</div>
@@ -1221,6 +1328,12 @@ export function Workspace() {
               </div>
             </div>
             <div className="flex gap-1.5">
+              <IconButton
+                label={bulkMode ? "Exit bulk select" : "Bulk select"}
+                onClick={() => { setBulkMode((m) => !m); setBulkSelectedIds(new Set()); }}
+              >
+                {bulkMode ? <SquareCheck className="h-4 w-4 text-accent-300" /> : <Square className="h-4 w-4" />}
+              </IconButton>
               <IconButton label="New folder" onClick={() => createFolder()}>
                 <FolderPlus className="h-4 w-4" />
               </IconButton>
@@ -1231,6 +1344,38 @@ export function Workspace() {
           </div>
 
           <div className="h-[calc(100%-64px)] overflow-auto px-3 py-4">
+            {bulkMode && bulkSelectedIds.size > 0 ? (
+              <div className="mb-3 flex items-center gap-2 rounded-lg border border-accent-500/25 bg-accent-500/10 px-3 py-2">
+                <span className="flex-1 text-xs font-semibold text-accent-300">{bulkSelectedIds.size} selected</span>
+                <button onClick={() => void bulkMoveSelected()} className="rounded px-2 py-1 text-xs font-medium text-ink-300 hover:text-white">Move</button>
+                <button onClick={() => void bulkDeleteSelected()} className="rounded px-2 py-1 text-xs font-medium text-danger-400 hover:text-danger-300">Delete</button>
+              </div>
+            ) : null}
+            {allTags.length > 0 ? (
+              <div className="mb-3 flex flex-wrap gap-1.5">
+                {selectedTag ? (
+                  <button
+                    onClick={() => setSelectedTag(null)}
+                    className="flex items-center gap-1 rounded-full border border-accent-500/40 bg-accent-500/15 px-2 py-0.5 text-xs font-semibold text-accent-300"
+                  >
+                    <Tag className="h-3 w-3" />
+                    {selectedTag}
+                    <X className="h-3 w-3" />
+                  </button>
+                ) : (
+                  allTags.slice(0, 8).map((tag) => (
+                    <button
+                      key={tag}
+                      onClick={() => setSelectedTag(tag)}
+                      className="flex items-center gap-1 rounded-full border border-ink-700/60 bg-ink-900/40 px-2 py-0.5 text-xs text-ink-400 hover:border-accent-500/30 hover:text-ink-200"
+                    >
+                      <Tag className="h-3 w-3" />
+                      {tag}
+                    </button>
+                  ))
+                )}
+              </div>
+            ) : null}
             {vaultRootFolder ? (
               <>
                 <button
@@ -1260,7 +1405,7 @@ export function Workspace() {
                     <Layers3 className="h-4 w-4" />
                     All notes
                   </span>
-                  <span className="rounded-full bg-white/6 px-2 py-0.5 text-xs text-ink-300">{data.notes.length}</span>
+                  <span className="rounded-full bg-white/6 px-2 py-0.5 text-xs text-ink-300">{vaultNotes.length}</span>
                 </button>
 
                 {pinnedNotes.length ? (
@@ -1273,6 +1418,9 @@ export function Workspace() {
                           note={note}
                           active={activeNoteId === note.id}
                           pinned
+                          bulkMode={bulkMode}
+                          bulkSelected={bulkSelectedIds.has(note.id)}
+                          onToggleBulk={() => setBulkSelectedIds((prev) => { const next = new Set(prev); next.has(note.id) ? next.delete(note.id) : next.add(note.id); return next; })}
                           onClick={() => selectNote(note.id)}
                           onTogglePin={() => togglePinNote(note)}
                           onRename={() => renameNoteById(note)}
@@ -1341,12 +1489,15 @@ export function Workspace() {
                 >
                   <SectionLabel label="Unfiled notes" />
                   <div className="space-y-1">
-                    {data.notes
+                    {vaultNotes
                       .filter((note) => !note.folderId)
                       .map((note) => (
                         <NoteRow
                           key={note.id}
                           note={note}
+                          bulkMode={bulkMode}
+                          bulkSelected={bulkSelectedIds.has(note.id)}
+                          onToggleBulk={() => setBulkSelectedIds((prev) => { const next = new Set(prev); next.has(note.id) ? next.delete(note.id) : next.add(note.id); return next; })}
                           active={activeNoteId === note.id}
                           pinned={pinnedNoteIds.includes(note.id)}
                           onClick={() => selectNote(note.id)}
@@ -1398,6 +1549,12 @@ export function Workspace() {
                     ))}
                   </select>
                   <SaveBadge saving={saving} stale={data.indexStatus.staleNotes > 0} />
+                  <IconButton label="Export as Markdown" onClick={exportActiveNote}>
+                    <Download className="h-4 w-4" />
+                  </IconButton>
+                  <IconButton label={zenMode ? "Exit zen mode (Ctrl+Shift+Z)" : "Zen mode (Ctrl+Shift+Z)"} onClick={() => setZenMode((z) => !z)}>
+                    {zenMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+                  </IconButton>
                   <IconButton
                     label="Version history"
                     onClick={async () => {
@@ -1457,6 +1614,23 @@ export function Workspace() {
                   <Pill icon={<Folder className="h-3.5 w-3.5" />} label={noteFolder} />
                   <Pill icon={<Clock3 className="h-3.5 w-3.5" />} label={`Updated ${new Date(activeNote.updatedAt).toLocaleString()}`} />
                   <Pill icon={<ShieldCheck className="h-3.5 w-3.5" />} label="Source of truth" accent />
+                  {backlinks.length > 0 ? (
+                    <span className="group relative inline-flex max-w-full items-center gap-1.5 rounded-full border border-ink-700/80 bg-ink-850/70 px-2.5 py-1 text-ink-400 hover:border-accent-500/25 hover:text-accent-300 cursor-pointer">
+                      <Link className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{backlinks.length} backlink{backlinks.length !== 1 ? "s" : ""}</span>
+                      <div className="pointer-events-none absolute left-0 top-full z-30 mt-1 hidden min-w-[180px] rounded-xl border border-ink-700/80 bg-ink-900 p-2 shadow-panel group-hover:block">
+                        {backlinks.map((bl) => (
+                          <button
+                            key={bl.id}
+                            onClick={() => selectNote(bl.id)}
+                            className="block w-full truncate rounded px-2 py-1 text-left text-xs text-ink-200 hover:bg-white/[0.06]"
+                          >
+                            {bl.title}
+                          </button>
+                        ))}
+                      </div>
+                    </span>
+                  ) : null}
                 </div>
               </div>
               <EditorNoteTabs
@@ -1541,7 +1715,7 @@ export function Workspace() {
           )}
         </section>
 
-        <div className={`relative min-w-0 overflow-hidden transition-opacity duration-200 ${rightOpen ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "study" ? "hidden" : ""}`}>
+        <div className={`relative min-w-0 overflow-hidden transition-opacity duration-200 ${rightOpen && !zenMode ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "study" ? "hidden" : ""}`}>
           <ResizeHandle side="right" onPointerDown={(event) => resizePanel("right", event)} />
           <AssistantPanel
               tab={tab}
@@ -2375,6 +2549,10 @@ function AskTool({
   const [explanation, setExplanation] = useState<AnswerResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [explaining, setExplaining] = useState(false);
+  const [recentQueries, setRecentQueries] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem("ask:recent") ?? "[]") as string[]; } catch { return []; }
+  });
+  const [showRecent, setShowRecent] = useState(false);
 
   const answerText = streamedText.trim();
   const unsupported = done && (answerText === "NOT_FOUND" || answerText.startsWith("NOT_FOUND") || answerText === "" || (citations.length === 0 && !answerText.startsWith("-")));
@@ -2388,6 +2566,13 @@ function AskTool({
     setDone(false);
     setLowConfidence(false);
     setExplanation(null);
+    setShowRecent(false);
+    const q = question.trim();
+    setRecentQueries((prev) => {
+      const next = [q, ...prev.filter((x) => x !== q)].slice(0, 8);
+      try { localStorage.setItem("ask:recent", JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
+    });
     try {
       const response = await fetch("/api/ask", {
         method: "POST",
@@ -2457,13 +2642,35 @@ function AskTool({
   return (
     <div className="space-y-4">
       <ToolHeader title="Ask your notes" description="Your notes answer the question. Use Paraphrase for a plain-English example." />
-      <textarea
-        value={question}
-        onKeyDown={allowNativeTextShortcuts}
-        onChange={(event) => setQuestion(event.target.value)}
-        placeholder="Ask a question supported by your notes..."
-        className="control-soft h-32 w-full resize-none rounded-xl p-3 text-sm leading-6 text-ink-100 outline-none placeholder:text-ink-500"
-      />
+      <div className="relative">
+        <textarea
+          value={question}
+          onKeyDown={(e) => {
+            allowNativeTextShortcuts(e);
+            if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void ask(); }
+          }}
+          onFocus={() => { if (recentQueries.length > 0 && !question.trim()) setShowRecent(true); }}
+          onBlur={() => window.setTimeout(() => setShowRecent(false), 150)}
+          onChange={(event) => { setQuestion(event.target.value); if (event.target.value.trim()) setShowRecent(false); }}
+          placeholder="Ask a question… (Ctrl+Enter to submit)"
+          className="control-soft h-32 w-full resize-none rounded-xl p-3 text-sm leading-6 text-ink-100 outline-none placeholder:text-ink-500"
+        />
+        {showRecent && recentQueries.length > 0 ? (
+          <div className="absolute left-0 right-0 top-full z-30 mt-1 rounded-xl border border-ink-700/80 bg-ink-900 p-1 shadow-panel">
+            <div className="px-2 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-500">Recent</div>
+            {recentQueries.map((q) => (
+              <button
+                key={q}
+                onMouseDown={(e) => { e.preventDefault(); setQuestion(q); setShowRecent(false); }}
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-ink-200 hover:bg-white/[0.05]"
+              >
+                <RotateCw className="h-3 w-3 shrink-0 text-ink-500" />
+                <span className="truncate">{q}</span>
+              </button>
+            ))}
+          </div>
+        ) : null}
+      </div>
       <button onClick={ask} disabled={busy || !question.trim()} className="primary-action w-full">
         {busy ? "Asking..." : "Ask"}
       </button>
@@ -2554,6 +2761,7 @@ function FindTool({ onOpenNote }: { onOpenNote: (source: SourceRef) => void }) {
       <SourceList
         sources={results.map((result) => ({ ...result, chunkId: result.noteId, similarity: 1 }))}
         empty="No exact matches yet."
+        query={query}
         onOpenNote={onOpenNote}
       />
     </div>
@@ -2632,9 +2840,12 @@ function QuizTool({
               <div className="text-sm font-medium leading-6 text-ink-100">{currentItem.question}</div>
               <textarea
                 value={answers[currentIndex] ?? ""}
-                onKeyDown={allowNativeTextShortcuts}
+                onKeyDown={(e) => {
+                  allowNativeTextShortcuts(e);
+                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void grade(currentItem, currentIndex); }
+                }}
                 onChange={(event) => setAnswers((current) => ({ ...current, [currentIndex]: event.target.value }))}
-                placeholder="Type your answer from memory..."
+                placeholder="Type your answer from memory… (Ctrl+Enter to check)"
                 className="control-soft mt-5 min-h-[104px] w-full resize-none rounded-lg px-3 py-2.5 text-sm leading-6 text-ink-100 outline-none placeholder:text-ink-500"
               />
               <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -2775,6 +2986,23 @@ function FlashcardTool({
 
   const currentItem = items[0];
 
+  useEffect(() => {
+    if (mode !== "review") return;
+    const card = dueCards[dueIndex];
+    if (!card) return;
+    function onKey(e: globalThis.KeyboardEvent) {
+      if (e.target instanceof HTMLTextAreaElement || e.target instanceof HTMLInputElement) return;
+      if (e.key === " ") { e.preventDefault(); setDueOpen((v) => !v); }
+      if (e.key === "1") void rateCard(card.id, 0);
+      if (e.key === "2") void rateCard(card.id, 2);
+      if (e.key === "3") void rateCard(card.id, 4);
+      if (e.key === "4") void rateCard(card.id, 5);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, dueCards, dueIndex, dueOpen]);
+
   if (mode === "review") {
     const card = dueCards[dueIndex];
     if (!card) {
@@ -2788,7 +3016,7 @@ function FlashcardTool({
     }
     return (
       <div className="space-y-3">
-        <ToolHeader title="Flashcard review" description={`Card ${dueIndex + 1} of ${dueCards.length}`} />
+        <ToolHeader title="Flashcard review" description={`Card ${dueIndex + 1} of ${dueCards.length} · Space=flip · 1-4=rate`} />
         <div className="study-card">
           <div className="mb-3 flex items-center justify-between text-xs text-ink-500">
             <span>Due card</span>
@@ -3581,6 +3809,9 @@ function NoteRow({
   note,
   active,
   pinned,
+  bulkMode = false,
+  bulkSelected = false,
+  onToggleBulk,
   onClick,
   onTogglePin,
   onRename,
@@ -3593,6 +3824,9 @@ function NoteRow({
   note: Note;
   active: boolean;
   pinned: boolean;
+  bulkMode?: boolean;
+  bulkSelected?: boolean;
+  onToggleBulk?: () => void;
   onClick: () => void;
   onTogglePin: () => void;
   onRename: () => void;
@@ -3604,15 +3838,20 @@ function NoteRow({
 }) {
   return (
     <div
-      draggable
+      draggable={!bulkMode}
       onDragStart={onDragStart}
       onContextMenu={onMenu}
       className={`group relative flex w-full items-start gap-2 rounded-lg border px-2.5 py-2 text-left transition-all duration-200 ease-premium ${
-        active ? "border-accent-500/30 bg-accent-500/10 text-white shadow-glow" : "border-transparent text-ink-300 hover:bg-white/[0.04] hover:text-ink-100"
+        bulkSelected ? "border-accent-500/40 bg-accent-500/12" : active ? "border-accent-500/30 bg-accent-500/10 text-white shadow-glow" : "border-transparent text-ink-300 hover:bg-white/[0.04] hover:text-ink-100"
       }`}
     >
-      <button onClick={onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-start gap-2 text-left">
-        {pinned ? <Pin className="mt-0.5 h-4 w-4 shrink-0 text-accent-300" /> : <FileText className={`mt-0.5 h-4 w-4 shrink-0 ${active ? "text-accent-300" : "text-ink-500 group-hover:text-ink-300"}`} />}
+      {bulkMode ? (
+        <button onClick={onToggleBulk} className="mt-0.5 shrink-0">
+          {bulkSelected ? <SquareCheck className="h-4 w-4 text-accent-300" /> : <Square className="h-4 w-4 text-ink-500" />}
+        </button>
+      ) : null}
+      <button onClick={bulkMode ? onToggleBulk : onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-start gap-2 text-left">
+        {!bulkMode && (pinned ? <Pin className="mt-0.5 h-4 w-4 shrink-0 text-accent-300" /> : <FileText className={`mt-0.5 h-4 w-4 shrink-0 ${active ? "text-accent-300" : "text-ink-500 group-hover:text-ink-300"}`} />)}
         <span className="min-w-0 flex-1">
         <span
           title={note.title}

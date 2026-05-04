@@ -3,10 +3,16 @@
 import { useEffect, useState, useCallback } from "react";
 import type { AdminUserSummary, AuditLog, RuntimeSettings } from "@/lib/types";
 
+type UsageRow = { period: string; feature: string; total: number };
+type PerUserRow = { user_id: string; feature: string; count: number };
+
 type AdminPayload = {
   runtime: RuntimeSettings;
   users: AdminUserSummary[];
   logs: AuditLog[];
+  usageByPeriod: UsageRow[];
+  currentPeriodPerUser: PerUserRow[];
+  periods: string[];
 };
 
 export default function AdminPage() {
@@ -72,7 +78,41 @@ export default function AdminPage() {
     <div className="flex min-h-screen items-center justify-center bg-ink-950 text-ink-400">Loading…</div>
   );
 
-  const { runtime, users, logs } = data;
+  const { runtime, users, logs, usageByPeriod, currentPeriodPerUser, periods } = data;
+
+  const features = ["ask", "quiz", "flashcards", "summary", "ocr", "index"] as const;
+  type Feature = typeof features[number];
+
+  // Build a map: period -> feature -> total
+  const usageMap = new Map<string, Map<string, number>>();
+  for (const row of usageByPeriod) {
+    if (!usageMap.has(row.period)) usageMap.set(row.period, new Map());
+    usageMap.get(row.period)!.set(row.feature, row.total);
+  }
+
+  // Grand totals per feature across all loaded periods
+  const grandTotals = new Map<string, number>();
+  for (const row of usageByPeriod) {
+    grandTotals.set(row.feature, (grandTotals.get(row.feature) ?? 0) + row.total);
+  }
+
+  // Per-user map for current period
+  const perUserMap = new Map<string, Map<string, number>>();
+  for (const row of currentPeriodPerUser) {
+    if (!perUserMap.has(row.user_id)) perUserMap.set(row.user_id, new Map());
+    perUserMap.get(row.user_id)!.set(row.feature, row.count);
+  }
+
+  const featureLabel: Record<Feature, string> = {
+    ask: "Ask",
+    quiz: "Quiz",
+    flashcards: "Flashcards",
+    summary: "Summary",
+    ocr: "OCR",
+    index: "Index"
+  };
+
+  const currentPeriod = periods[0] ?? "";
 
   return (
     <div className="min-h-screen bg-ink-950 text-ink-100">
@@ -116,6 +156,111 @@ export default function AdminPage() {
               </div>
             ))}
           </div>
+        </section>
+
+        {/* Feature Usage Stats */}
+        <section>
+          <div className="mb-4 flex items-baseline justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-widest text-ink-400">Feature usage (hosted AI calls)</h2>
+            <span className="text-xs text-ink-500">Last 6 months — hosted-key users only</span>
+          </div>
+
+          {/* Monthly breakdown table */}
+          <div className="overflow-x-auto rounded-2xl border border-ink-700 bg-ink-900">
+            <table className="w-full text-sm">
+              <thead className="border-b border-ink-700 bg-ink-850/60">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-ink-400">Period</th>
+                  {features.map((f) => (
+                    <th key={f} className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-ink-400">{featureLabel[f]}</th>
+                  ))}
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-ink-400">Total</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-ink-800">
+                {periods.map((period) => {
+                  const row = usageMap.get(period);
+                  const rowTotal = features.reduce((s, f) => s + (row?.get(f) ?? 0), 0);
+                  const isCurrent = period === currentPeriod;
+                  return (
+                    <tr key={period} className={isCurrent ? "bg-accent-500/5" : ""}>
+                      <td className="px-4 py-3 font-mono text-xs text-ink-200">
+                        {period}
+                        {isCurrent ? <span className="ml-2 rounded-full bg-accent-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-accent-300">current</span> : null}
+                      </td>
+                      {features.map((f) => {
+                        const count = row?.get(f) ?? 0;
+                        return (
+                          <td key={f} className={`px-4 py-3 text-right tabular-nums ${count > 0 ? "text-ink-100" : "text-ink-600"}`}>
+                            {count > 0 ? count.toLocaleString() : "—"}
+                          </td>
+                        );
+                      })}
+                      <td className="px-4 py-3 text-right font-semibold tabular-nums text-ink-100">
+                        {rowTotal > 0 ? rowTotal.toLocaleString() : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
+                {/* Grand total row */}
+                <tr className="border-t-2 border-ink-600 bg-ink-850/40">
+                  <td className="px-4 py-3 text-xs font-semibold text-ink-300">6-month total</td>
+                  {features.map((f) => (
+                    <td key={f} className="px-4 py-3 text-right font-semibold tabular-nums text-ink-200">
+                      {(grandTotals.get(f) ?? 0).toLocaleString() || "—"}
+                    </td>
+                  ))}
+                  <td className="px-4 py-3 text-right font-semibold tabular-nums text-accent-300">
+                    {features.reduce((s, f) => s + (grandTotals.get(f) ?? 0), 0).toLocaleString() || "—"}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Per-user breakdown for current month */}
+          {currentPeriodPerUser.length > 0 ? (
+            <div className="mt-4 overflow-x-auto rounded-2xl border border-ink-700 bg-ink-900">
+              <div className="border-b border-ink-700 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-ink-400">
+                Per-user breakdown — {currentPeriod}
+              </div>
+              <table className="w-full text-sm">
+                <thead className="border-b border-ink-700 bg-ink-850/40">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-ink-400">User</th>
+                    {features.map((f) => (
+                      <th key={f} className="px-4 py-3 text-right text-xs font-semibold text-ink-400">{featureLabel[f]}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-ink-800">
+                  {users.filter((u) => perUserMap.has(u.id)).map((u) => {
+                    const uMap = perUserMap.get(u.id)!;
+                    return (
+                      <tr key={u.id}>
+                        <td className="px-4 py-3">
+                          <div className="text-sm font-medium text-ink-100">{u.name}</div>
+                          <div className="text-xs text-ink-500">{u.email}</div>
+                        </td>
+                        {features.map((f) => {
+                          const count = uMap.get(f) ?? 0;
+                          return (
+                            <td key={f} className={`px-4 py-3 text-right tabular-nums ${count > 0 ? "text-ink-100" : "text-ink-600"}`}>
+                              {count > 0 ? count : "—"}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="mt-3 rounded-xl border border-ink-700/60 bg-ink-900/50 px-4 py-3 text-sm text-ink-500">
+              No hosted-AI usage recorded this month. Usage is only tracked when users consume the server-side key.
+            </div>
+          )}
         </section>
 
         {/* Users Table */}

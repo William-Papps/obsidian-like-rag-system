@@ -24,7 +24,10 @@ Capture the source facts you want to revise here. The assistant will only answer
 `;
 
 export async function listNotes(userId: string): Promise<Note[]> {
-  const rows = await dbAll("select * from notes where user_id = ? order by updated_at desc", [userId]);
+  const rows = await dbAll(
+    "select * from notes where user_id = ? order by coalesce(sort_order, 999999) asc, updated_at desc",
+    [userId]
+  );
   return rows.map((row) => toCamelRecord(row) as Note);
 }
 
@@ -58,7 +61,7 @@ export async function createNote(
 export async function updateNote(
   userId: string,
   noteId: string,
-  input: Partial<Pick<Note, "title" | "folderId" | "markdownContent">>
+  input: Partial<Pick<Note, "title" | "folderId" | "markdownContent" | "sortOrder">>
 ): Promise<Note | null> {
   const existing = await getNote(userId, noteId);
   if (!existing) return null;
@@ -86,11 +89,12 @@ export async function updateNote(
     folderId: input.folderId === undefined ? existing.folderId : input.folderId,
     markdownContent: nextContent,
     contentHash: nextHash,
+    sortOrder: input.sortOrder !== undefined ? input.sortOrder : existing.sortOrder,
     updatedAt: now()
   };
   await dbRun(
-    "update notes set folder_id = ?, title = ?, markdown_content = ?, content_hash = ?, updated_at = ? where id = ? and user_id = ?",
-    [next.folderId, next.title, next.markdownContent, next.contentHash, next.updatedAt, noteId, userId]
+    "update notes set folder_id = ?, title = ?, markdown_content = ?, content_hash = ?, sort_order = ?, updated_at = ? where id = ? and user_id = ?",
+    [next.folderId, next.title, next.markdownContent, next.contentHash, next.sortOrder ?? null, next.updatedAt, noteId, userId]
   );
 
   if (contentChanged) {

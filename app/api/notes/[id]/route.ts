@@ -6,7 +6,8 @@ import { deleteNote, getNote, updateNote } from "@/lib/services/notes";
 const updateSchema = z.object({
   title: z.string().optional(),
   folderId: z.string().nullable().optional(),
-  markdownContent: z.string().optional()
+  markdownContent: z.string().optional(),
+  sortOrder: z.number().int().optional()
 });
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {

@@ -50,9 +50,22 @@ async function pickStudyChunk(userId: string, scope: { noteId?: string; folderId
   // Fall back to the full set if the vault is small or everything was recently studied.
   const candidates = fresh.length >= 3 ? fresh : chunks;
 
-  // Score + noise, take top 30 (was 12) for better vault coverage, then pick randomly.
+  // Boost chunks that were recently answered incorrectly (spaced repetition signal).
+  const weakRows = await dbAll<{ chunk_id: string; incorrect_count: number }>(
+    `select chunk_id, sum(case when result = 'incorrect' then 1 else 0 end) as incorrect_count
+     from study_attempts
+     where user_id = ? and chunk_id is not null and created_at > ?
+     group by chunk_id`,
+    [userId, new Date(Date.now() - 7 * 24 * 3600 * 1000).toISOString()]
+  );
+  const weakBoost = new Map(weakRows.map((r) => [r.chunk_id, Math.min(r.incorrect_count * 0.15, 0.45)]));
+
+  // Score + noise, take top 30 for better vault coverage, then pick randomly.
   const weighted = candidates
-    .map((chunk) => ({ chunk, score: studyChunkScore(chunk) + Math.random() * 0.35 }))
+    .map((chunk) => ({
+      chunk,
+      score: studyChunkScore(chunk) + (weakBoost.get(chunk.chunkId) ?? 0) + Math.random() * 0.35
+    }))
     .sort((a, b) => b.score - a.score)
     .slice(0, Math.min(candidates.length, 30));
 

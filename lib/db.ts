@@ -423,6 +423,7 @@ function migrate(database: Database) {
   `);
 
   ensureColumn(database, "chunks", "chunk_content_hash", "text");
+  ensureColumn(database, "notes", "sort_order", "integer");
 }
 
 

@@ -4,6 +4,7 @@ import { listFolders } from "@/lib/services/folders";
 import { createNote, listNotes } from "@/lib/services/notes";
 import { getProviderSettings } from "@/lib/services/settings";
 import { getIndexStatus } from "@/lib/rag/indexing";
+import { dbAll } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
@@ -29,12 +30,23 @@ Create folders for classes, write source-backed notes, then use Reindex before a
         })
       ];
     }
-    return NextResponse.json({
-      user,
-      folders: await listFolders(user.id),
-      notes,
-      settings: await getProviderSettings(user.id),
-      indexStatus: await getIndexStatus(user.id)
-    });
+    const [folders, settings, indexStatus, tagRows] = await Promise.all([
+      listFolders(user.id),
+      getProviderSettings(user.id),
+      getIndexStatus(user.id),
+      dbAll<{ note_id: string; tag_name: string }>(
+        `select nt.note_id, t.name as tag_name
+         from note_tags nt
+         join tags t on t.id = nt.tag_id
+         where t.user_id = ?`,
+        [user.id]
+      )
+    ]);
+    const noteTags: Record<string, string[]> = {};
+    for (const row of tagRows) {
+      if (!noteTags[row.note_id]) noteTags[row.note_id] = [];
+      noteTags[row.note_id].push(row.tag_name);
+    }
+    return NextResponse.json({ user, folders, notes, settings, indexStatus, noteTags });
   });
 }

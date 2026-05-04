@@ -18,6 +18,7 @@ export type Note = {
   createdAt: string;
   updatedAt: string;
   contentHash: string;
+  sortOrder?: number | null;
 };
 
 export type Chunk = {
