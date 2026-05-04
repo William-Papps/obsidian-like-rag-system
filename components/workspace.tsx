@@ -205,6 +205,10 @@ export function Workspace() {
   const [shareLoading, setShareLoading] = useState(false);
   const [inlineAI, setInlineAI] = useState<{ query: string; loading: boolean; pos: number; x: number; y: number } | null>(null);
   const openInlineAIRef = useRef<(view: EditorView) => void>(() => {});
+  const [cmTheme, setCmTheme] = useState<"dark" | "light">(() => {
+    try { return JSON.parse(localStorage.getItem("studyos:theme") ?? '"purple"') === "light" ? "light" : "dark"; }
+    catch { return "dark"; }
+  });
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const next = { id: Date.now(), tone, message };
@@ -351,6 +355,19 @@ export function Workspace() {
   useEffect(() => {
     window.localStorage.setItem("studyos:railPinned", JSON.stringify(railPinned));
   }, [railPinned]);
+
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== "studyos:theme") return;
+      try {
+        const t = JSON.parse(e.newValue ?? '"purple"') as string;
+        document.documentElement.setAttribute("data-theme", t);
+        setCmTheme(t === "light" ? "light" : "dark");
+      } catch { /* ignore */ }
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
 
   useEffect(() => {
     const close = () => { setVaultMenu(null); setTocOpen(false); };
@@ -1980,7 +1997,7 @@ export function Workspace() {
                     onUpdate={(update) => setEditorCursor(update.state.selection.main.head)}
                     value={draftMarkdown}
                     extensions={editorExtensions}
-                    theme="dark"
+                    theme={cmTheme}
                     basicSetup={{ foldGutter: false, highlightActiveLine: true }}
                     onChange={(value) => replaceActiveMarkdown(value)}
                   />
@@ -1993,7 +2010,7 @@ export function Workspace() {
                       height="100%"
                       value={codeSnippet}
                       extensions={codeEditorExtensions}
-                      theme="dark"
+                      theme={cmTheme}
                       basicSetup={{ foldGutter: false, highlightActiveLine: true }}
                       onChange={(value) => setCodeSnippet(value)}
                     />

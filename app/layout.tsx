@@ -23,6 +23,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en">
       <head>
         <link rel="apple-touch-icon" href="/icon-192.png" />
+        {/* Apply theme before first paint to prevent flash */}
+        <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=JSON.parse(localStorage.getItem('studyos:theme'))||'purple';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();` }} />
       </head>
       <body>{children}</body>
     </html>

@@ -1,8 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, CreditCard, Download, KeyRound, Loader2, LogOut, Save, ShieldCheck, Sparkles, User2 } from "lucide-react";
-import { type KeyboardEvent, type ReactNode, useMemo, useState } from "react";
+import { ArrowLeft, CreditCard, Download, KeyRound, Loader2, LogOut, Palette, Save, ShieldCheck, Sparkles, User2 } from "lucide-react";
+import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import type { AdminUserSummary, AuditLog, BillingState, ProviderSettings, RuntimeSettings, StudyActivity } from "@/lib/types";
 
 type AccountUser = {
@@ -16,7 +16,8 @@ type Notice = {
   message: string;
 } | null;
 
-type Section = "profile" | "ai" | "billing" | "security" | "backup" | "admin";
+type Section = "profile" | "appearance" | "ai" | "billing" | "security" | "backup" | "admin";
+type AppTheme = "purple" | "midnight" | "light";
 
 export function AccountPage({
   user,
@@ -55,6 +56,15 @@ export function AccountPage({
   const [downloadingBackup, setDownloadingBackup] = useState(false);
   const [signingOut, setSigningOut] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
+  const [appTheme, setAppTheme] = useState<AppTheme>(() => {
+    try { return (JSON.parse(localStorage.getItem("studyos:theme") ?? '"purple"') as AppTheme) || "purple"; }
+    catch { return "purple"; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("studyos:theme", JSON.stringify(appTheme));
+    document.documentElement.setAttribute("data-theme", appTheme);
+  }, [appTheme]);
 
   const aiStatus = useMemo(() => {
     if (settings.maskedKey) return "Personal key active. AI runs on your own provider account and does not consume hosted quota.";
@@ -181,6 +191,7 @@ export function AccountPage({
 
   const navItems: Array<{ id: Section; label: string; icon: typeof User2 }> = [
     { id: "profile", label: "Profile", icon: User2 },
+    { id: "appearance", label: "Appearance", icon: Palette },
     { id: "ai", label: "AI Settings", icon: Sparkles },
     { id: "billing", label: "Billing", icon: CreditCard },
     { id: "security", label: "Security", icon: ShieldCheck },
@@ -324,6 +335,52 @@ export function AccountPage({
                     <div className="text-sm text-ink-500">No activity recorded yet.</div>
                   )}
                 </div>
+              </div>
+            </div>
+          ) : null}
+
+          {section === "appearance" ? (
+            <div className="panel-shell rounded-2xl border border-ink-700/80 p-6">
+              <SectionHeading eyebrow="Appearance" title="Theme" description="Choose a colour theme. Your preference is saved locally and applied instantly." />
+              <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                {([
+                  {
+                    id: "purple" as AppTheme,
+                    label: "Purple",
+                    description: "Default — deep purple dark",
+                    swatches: ["#0F0D15", "#2D2547", "#8B5CF6", "#C4B5FD"]
+                  },
+                  {
+                    id: "midnight" as AppTheme,
+                    label: "Midnight",
+                    description: "Neutral dark with blue accent",
+                    swatches: ["#09090B", "#27272A", "#3B82F6", "#93C5FD"]
+                  },
+                  {
+                    id: "light" as AppTheme,
+                    label: "Light",
+                    description: "Clean light with violet accent",
+                    swatches: ["#FFFFFF", "#E0DEEE", "#7C3AED", "#6D28D9"]
+                  }
+                ] as const).map((t) => {
+                  const active = appTheme === t.id;
+                  return (
+                    <button
+                      key={t.id}
+                      onClick={() => setAppTheme(t.id)}
+                      className={`rounded-xl border-2 p-4 text-left transition ${active ? "border-accent-500 bg-accent-500/10" : "border-ink-700/60 hover:border-ink-600"}`}
+                    >
+                      <div className="flex gap-2 mb-3">
+                        {t.swatches.map((color, i) => (
+                          <div key={i} className="h-7 flex-1 rounded-md border border-black/10" style={{ background: color }} />
+                        ))}
+                      </div>
+                      <div className={`text-sm font-semibold ${active ? "text-accent-300" : "text-ink-100"}`}>{t.label}</div>
+                      <div className="mt-0.5 text-xs text-ink-500">{t.description}</div>
+                      {active && <div className="mt-2 text-xs font-semibold text-accent-400">Active</div>}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           ) : null}
