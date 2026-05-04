@@ -18,8 +18,6 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
   const [code, setCode] = useState("");
   const [pendingEmail, setPendingEmail] = useState("");
   const [resetToken, setResetToken] = useState("");
-  const [debugCode, setDebugCode] = useState<string | null>(null);
-  const [debugResetUrl, setDebugResetUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -38,8 +36,6 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
   function reset() {
     setError(null);
     setInfo(null);
-    setDebugCode(null);
-    setDebugResetUrl(null);
   }
 
   async function submit() {
@@ -57,12 +53,10 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
         error?: string;
         verificationRequired?: boolean;
         email?: string;
-        debugCode?: string | null;
       };
       if (!response.ok) {
         if (response.status === 403 && body.verificationRequired && body.email) {
           setPendingEmail(body.email);
-          setDebugCode(body.debugCode ?? null);
           setStage("verify");
           setInfo("Your email is not verified yet. Enter the code we sent to continue.");
           return;
@@ -71,7 +65,6 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
       }
       if (body.verificationRequired) {
         setPendingEmail(body.email || email.trim().toLowerCase());
-        setDebugCode(body.debugCode ?? null);
         setCode("");
         setStage("verify");
         setInfo("Account created. Enter the verification code we sent to your email.");
@@ -118,9 +111,8 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
         cache: "no-store",
         body: JSON.stringify({ email: pendingEmail })
       });
-      const body = (await response.json().catch(() => ({}))) as { error?: string; debugCode?: string | null };
+      const body = (await response.json().catch(() => ({}))) as { error?: string };
       if (!response.ok) throw new Error(body.error || "Unable to resend code");
-      setDebugCode(body.debugCode ?? null);
       setInfo("A new verification code has been sent.");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unable to resend code");
@@ -140,8 +132,6 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
         cache: "no-store",
         body: JSON.stringify({ email })
       });
-      const body = (await response.json().catch(() => ({}))) as { debugUrl?: string | null };
-      setDebugResetUrl(body.debugUrl ?? null);
       setInfo("If an account exists for that email, a reset link has been sent.");
     } catch {
       setInfo("If an account exists for that email, a reset link has been sent.");
@@ -238,7 +228,6 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
                 <input value={code} onChange={(e) => setCode(e.target.value)} className="w-full bg-transparent text-sm text-white outline-none placeholder:text-ink-500" placeholder="6-digit code" inputMode="numeric" autoComplete="one-time-code" onKeyDown={(e) => e.key === "Enter" && void verify()} />
               </Field>
             </div>
-            {debugCode ? <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-sm text-amber-300">Dev mode — your code is <span className="font-semibold">{debugCode}</span></div> : null}
             {info ? <InfoBanner>{info}</InfoBanner> : null}
             {error ? <ErrorBanner>{error}</ErrorBanner> : null}
             <button type="button" onClick={() => void verify()} disabled={busy || code.trim().length < 4} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-accent-400 disabled:opacity-60">
@@ -257,11 +246,6 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
                 <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-transparent text-sm text-white outline-none placeholder:text-ink-500" placeholder="you@example.com" type="email" autoComplete="email" onKeyDown={(e) => e.key === "Enter" && void sendForgotPassword()} />
               </Field>
             </div>
-            {debugResetUrl ? (
-              <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-sm text-amber-300 break-all">
-                Dev mode — <a href={debugResetUrl} className="underline">{debugResetUrl}</a>
-              </div>
-            ) : null}
             {info ? <InfoBanner>{info}</InfoBanner> : null}
             {error ? <ErrorBanner>{error}</ErrorBanner> : null}
             <button type="button" onClick={() => void sendForgotPassword()} disabled={busy || !email.trim()} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-accent-400 disabled:opacity-60">
