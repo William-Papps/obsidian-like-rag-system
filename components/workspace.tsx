@@ -203,6 +203,8 @@ export function Workspace() {
   const [shareEmail, setShareEmail] = useState("");
   const [sharePermission, setSharePermission] = useState<NoteSharePermission>("edit");
   const [shareLoading, setShareLoading] = useState(false);
+  const [inlineAI, setInlineAI] = useState<{ query: string; loading: boolean; pos: number; x: number; y: number } | null>(null);
+  const openInlineAIRef = useRef<(view: EditorView) => void>(() => {});
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const next = { id: Date.now(), tone, message };
@@ -630,6 +632,56 @@ export function Workspace() {
     [activeNote, editorView, replaceActiveMarkdown]
   );
 
+  openInlineAIRef.current = (view: EditorView) => {
+    const pos = view.state.selection.main.head;
+    const coords = view.coordsAtPos(pos);
+    if (!coords) return;
+    setInlineAI({ query: "", loading: false, pos, x: coords.left, y: coords.bottom + 6 });
+  };
+
+  async function submitInlineAI() {
+    if (!inlineAI || !inlineAI.query.trim() || !activeNote) return;
+    const { query, pos } = inlineAI;
+    setInlineAI((s) => s ? { ...s, loading: true } : null);
+    try {
+      const response = await fetch("/api/ask", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ question: query, scope: { noteId: activeNote.id } })
+      });
+      if (!response.ok || !response.body) throw new Error("AI request failed");
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buf = "";
+      let answer = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buf += decoder.decode(value, { stream: true });
+        const parts = buf.split("\n\n");
+        buf = parts.pop() ?? "";
+        for (const part of parts) {
+          const line = part.startsWith("data: ") ? part.slice(6) : part;
+          if (!line.trim()) continue;
+          try {
+            const ev = JSON.parse(line) as { type: string; data?: unknown };
+            if (ev.type === "chunk") answer += ev.data as string;
+          } catch { continue; }
+        }
+      }
+      if (answer.trim() && editorView) {
+        const insert = `\n\n> **AI:** ${answer.trim()}\n\n`;
+        const currentText = editorView.state.doc.toString();
+        const nextText = `${currentText.slice(0, pos)}${insert}${currentText.slice(pos)}`;
+        await applyEditorText(nextText, { anchor: pos + insert.length });
+      }
+      setInlineAI(null);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "AI request failed", "error");
+      setInlineAI((s) => s ? { ...s, loading: false } : null);
+    }
+  }
+
   const pasteClipboardImage = useCallback(
     async (file: File, view: EditorView) => {
       setPastingImage(true);
@@ -693,6 +745,12 @@ export function Workspace() {
           return true;
         },
         keydown: (event, view) => {
+          // Ctrl+/ → inline AI
+          if ((event.ctrlKey || event.metaKey) && event.key === "/") {
+            event.preventDefault();
+            openInlineAIRef.current(view);
+            return true;
+          }
           // If an image token is selected, ignore normal typing so we don't insert characters before `![...]`.
           const sel = view.state.selection.main;
           if (sel.from === sel.to) return false;
@@ -1704,9 +1762,12 @@ export function Workspace() {
                     value={draftTitle}
                     onKeyDown={allowNativeTextShortcuts}
                     onChange={(event) => setDraftTitle(event.target.value)}
+                    onFocus={() => { if (draftTitle === "Untitled note") setDraftTitle(""); }}
                     onBlur={() => {
+                      if (!draftTitle.trim()) { setDraftTitle(activeNote.title); return; }
                       if (draftTitle !== activeNote.title) void updateNote(activeNote.id, { title: draftTitle });
                     }}
+                    placeholder="Note title"
                     className="min-w-0 flex-1 rounded-md bg-transparent px-1 text-xl font-semibold text-white outline-none placeholder:text-ink-500"
                   />
                   <select
@@ -1882,7 +1943,13 @@ export function Workspace() {
               />
               <div className={`h-full min-h-0 min-w-0 overflow-hidden ${noteView === "split" ? "grid grid-cols-2" : "grid grid-cols-1"}`}>
                 {(noteView === "write" || noteView === "split") ? (
-                <div className={`h-full min-h-0 min-w-0 overflow-hidden bg-ink-900/50 ${noteView === "split" ? "border-r border-ink-700/80" : ""}`}>
+                <div
+                  className={`h-full min-h-0 min-w-0 overflow-hidden bg-ink-900/50 ${noteView === "split" ? "border-r border-ink-700/80" : ""}`}
+                  onFocus={() => {
+                    const isStarter = draftMarkdown.trimEnd() === "# Untitled document\n\nAdd your content here. Index this document to make it queryable by the AI tools.";
+                    if (isStarter) void replaceActiveMarkdown("");
+                  }}
+                >
                   <CodeMirror
                     className="h-full"
                     height="100%"
@@ -1931,6 +1998,38 @@ export function Workspace() {
             </div>
           )}
         </section>
+
+        {inlineAI && (
+          <div
+            style={{ position: "fixed", top: inlineAI.y, left: inlineAI.x, zIndex: 60, minWidth: 320, maxWidth: 420 }}
+            className="rounded-xl border border-accent-500/30 bg-ink-925 shadow-panel"
+            onKeyDown={(e) => e.stopPropagation()}
+          >
+            <div className="border-b border-ink-700/60 px-3 py-2 text-xs font-semibold text-accent-300">Ask AI — inserts answer at cursor (Ctrl+/)</div>
+            <textarea
+              autoFocus
+              rows={2}
+              value={inlineAI.query}
+              onChange={(e) => setInlineAI((s) => s ? { ...s, query: e.target.value } : null)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitInlineAI(); }
+                if (e.key === "Escape") setInlineAI(null);
+              }}
+              placeholder="Ask a question… (Enter to insert, Esc to close)"
+              disabled={inlineAI.loading}
+              className="w-full resize-none bg-transparent p-3 text-sm text-ink-100 outline-none placeholder:text-ink-500"
+            />
+            <div className="flex items-center justify-end gap-3 border-t border-ink-700/60 px-3 py-2">
+              {inlineAI.loading && <span className="text-xs text-ink-500">Thinking…</span>}
+              <button onClick={() => setInlineAI(null)} className="text-xs text-ink-500 hover:text-ink-300">Cancel</button>
+              <button
+                onClick={() => void submitInlineAI()}
+                disabled={inlineAI.loading || !inlineAI.query.trim()}
+                className="rounded-lg bg-accent-600 px-3 py-1 text-xs font-semibold text-white disabled:opacity-40 hover:bg-accent-500"
+              >Insert</button>
+            </div>
+          </div>
+        )}
 
         <div className={`relative min-w-0 overflow-hidden transition-opacity duration-200 ${rightOpen && !zenMode ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "study" ? "hidden" : ""}`}>
           <ResizeHandle side="right" onPointerDown={(event) => resizePanel("right", event)} />
