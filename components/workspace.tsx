@@ -728,6 +728,27 @@ export function Workspace() {
       EditorView.lineWrapping,
       imagePreviewExtension,
       EditorView.domEventHandlers({
+        click: (_event, view) => {
+          const pos = view.state.selection.main.head;
+          const doc = view.state.doc.toString();
+          const placeholders: RegExp[] = [
+            /\[!(?:info|warning|note|tip|danger)\] (Title)/g,
+            /> (Write your key idea here\.)/g,
+            /> (Quoted source)/g,
+          ];
+          for (const pattern of placeholders) {
+            let m: RegExpExecArray | null;
+            while ((m = pattern.exec(doc)) !== null) {
+              const start = m.index + m[0].indexOf(m[1]);
+              const end = start + m[1].length;
+              if (pos >= start && pos <= end) {
+                view.dispatch({ selection: { anchor: start, head: end } });
+                return true;
+              }
+            }
+          }
+          return false;
+        },
         mousedown: (event, view) => {
           const target = event.target as HTMLElement | null;
           const preview = target?.closest?.("[data-md-img-preview='1']") as HTMLElement | null;
@@ -838,15 +859,16 @@ export function Workspace() {
     const selection = editorView.state.selection.main;
     const currentText = editorView.state.doc.toString();
     const selected = currentText.slice(selection.from, selection.to).trim();
-    const title = "Title";
+    const titlePlaceholder = "Title";
     const body = selected || "Write your key idea here.";
     const block =
-      `> [!info] ${title}\n` +
-      body
-        .split("\n")
-        .map((line) => `> ${line}`)
-        .join("\n");
-    await replaceSelectionWith(block);
+      `> [!info] ${titlePlaceholder}\n` +
+      body.split("\n").map((line) => `> ${line}`).join("\n");
+    const nextText = `${currentText.slice(0, selection.from)}${block}${currentText.slice(selection.to)}`;
+    // Auto-select "Title" so user can type straight over it
+    const titleStart = selection.from + 10; // "> [!info] " = 10 chars
+    const titleEnd = titleStart + titlePlaceholder.length;
+    await applyEditorText(nextText, { anchor: titleStart, head: titleEnd });
   }
 
   async function insertCodeBlock() {
