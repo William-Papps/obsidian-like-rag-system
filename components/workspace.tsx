@@ -527,7 +527,13 @@ export function Workspace() {
     return () => window.cancelAnimationFrame(frame);
   }, [activeNote, editorHighlight, editorView]);
 
-  async function createNoteWithTitle(title: string, folderId: string | null = scope.type === "folder" ? scope.folderId : null) {
+  function contextFolderId() {
+    if (scope.type === "folder") return scope.folderId;
+    if (vaultRootId !== "__all__") return vaultRootId;
+    return null;
+  }
+
+  async function createNoteWithTitle(title: string, folderId: string | null = contextFolderId()) {
     const response = await fetch("/api/notes", {
       method: "POST",
       headers: { "content-type": "application/json" },
@@ -539,7 +545,7 @@ export function Workspace() {
     notify("Note created", "success");
   }
 
-  function createNote(folderId: string | null = scope.type === "folder" ? scope.folderId : null) {
+  function createNote(folderId: string | null = contextFolderId()) {
     setInputDialog({
       title: "Create note",
       label: "Note name",
@@ -932,7 +938,7 @@ export function Workspace() {
     notify(importedNotes.length > 1 ? `Imported ${importedNotes.length} notes` : `Document imported as "${title}"`, "success");
   }
 
-  function createFolder(parentId: string | null = null) {
+  function createFolder(parentId: string | null = contextFolderId()) {
     setInputDialog({
       title: parentId ? "Create nested folder" : "Create folder",
       label: parentId ? "Folder name" : "Folder or class name",
