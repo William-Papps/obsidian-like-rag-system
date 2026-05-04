@@ -3,6 +3,7 @@ import { unstable_noStore as noStore } from "next/cache";
 import { getCurrentUserOptional } from "@/lib/auth";
 import { Workspace } from "@/components/workspace";
 import Link from "next/link";
+import { HelpWidget } from "@/components/help-widget";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -220,6 +221,8 @@ function LandingPage() {
           </Link>
         </div>
       </section>
+
+      <HelpWidget />
 
       {/* Footer */}
       <footer className="border-t border-white/[0.06] py-10">
