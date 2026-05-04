@@ -105,9 +105,9 @@ export default function AdminPage() {
 
   const featureLabel: Record<Feature, string> = {
     ask: "Ask",
-    quiz: "Quiz",
-    flashcards: "Flashcards",
-    summary: "Summary",
+    quiz: "Knowledge Check",
+    flashcards: "Training Cards",
+    summary: "Briefing",
     ocr: "OCR",
     index: "Index"
   };

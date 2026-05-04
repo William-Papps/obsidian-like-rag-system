@@ -17,7 +17,7 @@ export async function GET() {
           title: "Welcome to EternalNotes",
           markdownContent: `# Welcome to EternalNotes
 
-This workspace stores Markdown notes locally and indexes them for grounded revision.
+This workspace stores documents locally and indexes them for grounded Q&A and knowledge retrieval.
 
 ## Grounding rule
 

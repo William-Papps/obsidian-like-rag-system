@@ -309,7 +309,7 @@ export function AccountPage({
                 The note system stays free. AI usage can run on a personal API key or on a hosted plan backed by the server key if the server owner has configured one.
               </div>
               <div className="mt-6 rounded-xl border border-ink-700/80 bg-ink-950/35 p-4">
-                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">Recent study activity</div>
+                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">Recent activity</div>
                 <div className="mt-3 space-y-2">
                   {activity.length ? (
                     activity.slice(0, 6).map((item) => (
@@ -321,7 +321,7 @@ export function AccountPage({
                       </div>
                     ))
                   ) : (
-                    <div className="text-sm text-ink-500">No study activity recorded yet.</div>
+                    <div className="text-sm text-ink-500">No activity recorded yet.</div>
                   )}
                 </div>
               </div>
@@ -504,13 +504,13 @@ export function AccountPage({
                       title="AI Starter"
                       active={hostedPlan === "starter"}
                       description="Hosted AI with a conservative monthly cap."
-                      bullets={["Ask 200", "Quiz 100", "Flashcards 100", "Summary 100", "OCR 50", "Index 75"]}
+                      bullets={["Ask 200", "Knowledge Check 100", "Training Cards 100", "Briefing 100", "OCR 50", "Index 75"]}
                     />
                     <PlanCard
                       title="AI Pro"
                       active={hostedPlan === "pro"}
-                      description="Larger hosted allocation for regular study usage."
-                      bullets={["Ask 600", "Quiz 300", "Flashcards 300", "Summary 300", "OCR 150", "Index 200"]}
+                      description="Larger hosted allocation for regular usage."
+                      bullets={["Ask 600", "Knowledge Check 300", "Training Cards 300", "Briefing 300", "OCR 150", "Index 200"]}
                     />
                   </div>
                 </div>
@@ -546,7 +546,7 @@ export function AccountPage({
 
           {section === "security" ? (
             <div className="panel-shell rounded-2xl border border-ink-700/80 p-6">
-              <SectionHeading eyebrow="Security" title="Password and session access" description="Keep the account surface separate from the study workspace." />
+              <SectionHeading eyebrow="Security" title="Password and session access" description="Keep account settings separate from your workspace." />
               <div className="mt-6 grid gap-4 sm:grid-cols-2">
                 <Field label="Current password">
                   <input
@@ -853,17 +853,17 @@ function formatBillingStatus(status: BillingState["subscription"]["status"]) {
 function formatActivity(kind: StudyActivity["kind"]) {
   switch (kind) {
     case "ask":
-      return "Asked notes";
+      return "Queried knowledge base";
     case "quiz_generated":
-      return "Generated quiz";
+      return "Generated knowledge check";
     case "quiz_checked":
-      return "Checked quiz answer";
+      return "Checked answer";
     case "flashcard_generated":
-      return "Generated flashcard";
+      return "Generated training card";
     case "summary_generated":
-      return "Generated summary";
+      return "Generated briefing";
     case "import":
-      return "Imported source";
+      return "Imported document";
     default:
       return kind;
   }

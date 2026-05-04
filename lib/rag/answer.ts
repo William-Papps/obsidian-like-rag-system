@@ -34,7 +34,7 @@ export async function streamAnswerFromNotes(
     void recordRetrievalEvents(userId, citations, meta);
 
     if (meta.resultCount === 0 || meta.topScore < 0.08) {
-      send({ type: "chunk", data: "Not found in the indexed notes. Add or index notes that directly support this question, then try again." });
+      send({ type: "chunk", data: "Not found in the knowledge base. Add or index documents that directly support this question, then try again." });
       send({ type: "done" });
       return;
     }
@@ -139,7 +139,7 @@ export async function answerFromNotes(
 
   if (citations.length === 0 || citations[0].similarity < 0.08) {
     return {
-      answer: "Not found in the indexed notes. Add or index notes that directly support this question, then try again.",
+      answer: "Not found in the knowledge base. Add or index documents that directly support this question, then try again.",
       citations,
       unsupported: true
     };
@@ -178,14 +178,14 @@ export async function answerFromNotes(
   try {
     judged = answerSchema.parse(JSON.parse(raw));
   } catch {
-    return { answer: "Not found in the indexed notes.", citations, unsupported: true };
+    return { answer: "Not found in the knowledge base.", citations, unsupported: true };
   }
 
   const points = judged.supported && judged.points?.length ? judged.points : [];
   const valid = points.length > 0 && evidenceLooksValid(citations, judged.evidence);
 
   if (!valid) {
-    return { answer: "Not found in the indexed notes.", citations, unsupported: true };
+    return { answer: "Not found in the knowledge base.", citations, unsupported: true };
   }
 
   return {

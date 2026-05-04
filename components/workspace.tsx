@@ -20,6 +20,7 @@ import {
   Clock3,
   Code2,
   Command,
+  Copy,
   Download,
   FilePlus,
   FileStack,
@@ -34,6 +35,7 @@ import {
   LayoutPanelLeft,
   Layers3,
   Link,
+  List,
   Loader2,
   LogOut,
   Maximize2,
@@ -186,6 +188,8 @@ export function Workspace() {
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
+  const [recentlyVisitedIds, setRecentlyVisitedIds] = useState<string[]>(() => readStoredJson("studyos:recentVisited", []));
+  const [tocOpen, setTocOpen] = useState(false);
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const next = { id: Date.now(), tone, message };
@@ -258,7 +262,7 @@ export function Workspace() {
   }, [railPinned]);
 
   useEffect(() => {
-    const close = () => setVaultMenu(null);
+    const close = () => { setVaultMenu(null); setTocOpen(false); };
     const closeOnEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") close();
     };
@@ -314,8 +318,11 @@ export function Workspace() {
     return data.folders.find((folder) => folder.id === vaultRootId) ?? null;
   }, [data, vaultRootId]);
   const recentNotes = useMemo(
-    () => (data?.notes ?? []).filter((note) => !pinnedNoteIds.includes(note.id)).slice(0, 5),
-    [data?.notes, pinnedNoteIds]
+    () => recentlyVisitedIds
+      .map((id) => data?.notes.find((note) => note.id === id))
+      .filter((note): note is Note => Boolean(note) && !pinnedNoteIds.includes(note!.id))
+      .slice(0, 5),
+    [recentlyVisitedIds, data?.notes, pinnedNoteIds]
   );
   const selectNote = useCallback((noteId: string, options?: { updateScope?: boolean }) => {
     setActiveNoteId(noteId);
@@ -323,6 +330,11 @@ export function Workspace() {
       setScope({ type: "note", noteId });
     }
     setOpenNoteIds((current) => [noteId, ...current.filter((id) => id !== noteId)].slice(0, 8));
+    setRecentlyVisitedIds((current) => {
+      const next = [noteId, ...current.filter((id) => id !== noteId)].slice(0, 15);
+      window.localStorage.setItem("studyos:recentVisited", JSON.stringify(next));
+      return next;
+    });
   }, []);
 
   useEffect(() => {
@@ -391,6 +403,28 @@ export function Workspace() {
   }, [activeNote, sourceHighlight]);
   const currentTableContext = editorView ? getTableContext(editorView.state.doc.toString(), editorCursor) : null;
 
+  const tocHeadings = useMemo(() => {
+    const headings: { level: number; text: string; pos: number }[] = [];
+    let pos = 0;
+    for (const line of draftMarkdown.split("\n")) {
+      const match = /^(#{1,6})\s+(.+)$/.exec(line);
+      if (match) headings.push({ level: match[1].length, text: match[2].trim(), pos });
+      pos += line.length + 1;
+    }
+    return headings;
+  }, [draftMarkdown]);
+
+  function jumpToHeading(pos: number) {
+    if (!editorView) return;
+    if (noteView !== "write" && noteView !== "split") setNoteView("write");
+    editorView.dispatch({
+      selection: { anchor: pos },
+      effects: EditorView.scrollIntoView(pos, { y: "start" })
+    });
+    editorView.focus();
+    setTocOpen(false);
+  }
+
   useEffect(() => {
     if (!editorView || !activeNote || !editorHighlight) return;
     const frame = window.requestAnimationFrame(() => {
@@ -419,7 +453,7 @@ export function Workspace() {
     setInputDialog({
       title: "Create note",
       label: "Note name",
-      placeholder: "e.g. Lecture 03 - Networks",
+      placeholder: "e.g. Q3 Market Analysis",
       value: "",
       submitLabel: "Create note",
       onSubmit: async (value) => {
@@ -833,11 +867,11 @@ export function Workspace() {
 
   function createLectureWorkflow(folder: FolderType) {
     setInputDialog({
-      title: "Create lecture workspace",
-      label: "Lecture folder name",
-      placeholder: `Lecture ${new Date().toLocaleDateString()}`,
-      value: `Lecture ${new Date().toLocaleDateString()}`,
-      submitLabel: "Create lecture",
+      title: "Create project workspace",
+      label: "Project folder name",
+      placeholder: `Project ${new Date().toLocaleDateString()}`,
+      value: `Project ${new Date().toLocaleDateString()}`,
+      submitLabel: "Create project",
       onSubmit: async (lectureName) => {
         const trimmedName = lectureName.trim();
         if (!trimmedName) return;
@@ -855,16 +889,16 @@ export function Workspace() {
     const lectureFolder = (await folderResponse.json()) as FolderType;
     const templates = [
       {
-        title: `${lectureName.trim()} - Slides`,
-        markdownContent: `# ${lectureName.trim()} - Slides\n\nAdd slide facts here. Keep each slide as source text the assistant can cite.\n\n## Slide 1\n\n- `
+        title: `${lectureName.trim()} - Research`,
+        markdownContent: `# ${lectureName.trim()} - Research\n\nAdd research, documents, or source material here. Keep each item as source text the assistant can cite.\n\n## Source 1\n\n- `
       },
       {
         title: `${lectureName.trim()} - Notes`,
         markdownContent: `# ${lectureName.trim()} - Notes\n\n## Key ideas\n\n- \n\n## Questions\n\n- `
       },
       {
-        title: `${lectureName.trim()} - Revision`,
-        markdownContent: `# ${lectureName.trim()} - Revision\n\n## Things to remember\n\n- \n\n## Practice questions\n\n- `
+        title: `${lectureName.trim()} - Summary`,
+        markdownContent: `# ${lectureName.trim()} - Summary\n\n## Key points\n\n- \n\n## Open questions\n\n- `
       }
     ];
     let firstNote: Note | null = null;
@@ -879,7 +913,7 @@ export function Workspace() {
     await refresh();
     setCollapsedFolders((current) => ({ ...current, [folder.id]: false, [lectureFolder.id]: false }));
     if (firstNote) selectNote(firstNote.id);
-    notify("Lecture workspace created", "success");
+    notify("Project workspace created", "success");
   }
 
   function renameFolderById(folder: FolderType) {
@@ -979,7 +1013,7 @@ export function Workspace() {
       description: "Choose a destination folder.",
       submitLabel: "Move notes",
       currentFolderId: undefined,
-      allowRootLabel: "Vault root / Unfiled notes",
+      allowRootLabel: "Workspace root / Unfiled documents",
       options: data?.folders ?? [],
       onSubmit: async (folderId) => {
         for (const id of ids) {
@@ -997,13 +1031,25 @@ export function Workspace() {
     });
   }
 
+  async function duplicateNoteById(note: Note) {
+    const response = await fetch("/api/notes", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ title: `${note.title} (copy)`, folderId: note.folderId, markdownContent: note.markdownContent })
+    });
+    const newNote = (await response.json()) as Note;
+    await refresh();
+    selectNote(newNote.id);
+    notify(`"${note.title}" duplicated`, "success");
+  }
+
   function chooseFolderForNote(note: Note) {
     setMoveDialog({
       title: `Move "${note.title}"`,
       description: "Choose a destination folder for this note.",
       submitLabel: "Move note",
       currentFolderId: note.folderId,
-      allowRootLabel: "Vault root / Unfiled notes",
+      allowRootLabel: "Workspace root / Unfiled documents",
       options: data?.folders ?? [],
       onSubmit: async (folderId) => {
         await moveNoteToFolder(note, folderId);
@@ -1017,7 +1063,7 @@ export function Workspace() {
       description: "Choose a destination folder for this folder.",
       submitLabel: "Move folder",
       currentFolderId: folder.parentId,
-      allowRootLabel: "Vault root",
+      allowRootLabel: "Workspace root",
       options: (data?.folders ?? []).filter((item) => item.id !== folder.id),
       onSubmit: async (folderId) => {
         await moveFolderById(folder, folderId);
@@ -1190,7 +1236,7 @@ export function Workspace() {
       <main className="grid min-h-screen place-items-center bg-ink-950 text-ink-100">
         <div className="surface-soft shimmer flex w-72 items-center gap-3 rounded-lg px-4 py-3 text-sm text-ink-300 shadow-panel">
           <Loader2 className="h-4 w-4 animate-spin text-accent-400" />
-          Opening study workspace
+          Opening workspace
         </div>
       </main>
     );
@@ -1304,11 +1350,11 @@ export function Workspace() {
         <aside className={`panel-shell relative min-h-0 overflow-hidden border-r transition-opacity duration-200 ${leftOpen && !zenMode ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "vault" ? "hidden" : ""}`}>
           <div className="flex h-16 items-center justify-between border-b border-ink-700/80 px-4">
             <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-300/75">Vault</div>
+              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-300/75">Workspace</div>
               <div className="mt-1 flex min-w-0 items-center gap-2">
                 <BookOpen className="h-4 w-4 text-accent-400" />
                 <select
-                  aria-label="Vault root"
+                  aria-label="Workspace root"
                   value={vaultRootId}
                   onChange={(event) => {
                     const next = event.target.value;
@@ -1468,13 +1514,13 @@ export function Workspace() {
                     void handleDropOnRoot();
                   }}
                 >
-                  <SectionLabel label="Classes" />
+                  <SectionLabel label="Projects" />
                 </div>
                 <div className="space-y-1.5">
                   {rootFolders.map((folder) => renderFolderNode(folder))}
                   {rootFolders.length === 0 ? (
                     <EmptyState action="Create folder" onAction={() => createFolder()}>
-                      Group notes by class, exam, or topic.
+                      Group documents by project, team, or topic.
                     </EmptyState>
                   ) : null}
                 </div>
@@ -1552,6 +1598,35 @@ export function Workspace() {
                   <IconButton label="Export as Markdown" onClick={exportActiveNote}>
                     <Download className="h-4 w-4" />
                   </IconButton>
+                  <div className="relative">
+                    <IconButton label={tocOpen ? "Close table of contents" : "Table of contents"} onClick={() => setTocOpen((o) => !o)}>
+                      <List className={`h-4 w-4 ${tocOpen ? "text-accent-300" : ""}`} />
+                    </IconButton>
+                    {tocOpen && tocHeadings.length > 0 ? (
+                      <div className="absolute right-0 top-[calc(100%+6px)] z-40 w-64 overflow-hidden rounded-xl border border-ink-700/90 bg-ink-925 shadow-panel">
+                        <div className="border-b border-ink-700/80 px-3 py-2 text-[11px] font-semibold uppercase tracking-widest text-ink-400">
+                          Table of contents
+                        </div>
+                        <div className="max-h-72 overflow-auto p-2">
+                          {tocHeadings.map((h, i) => (
+                            <button
+                              key={i}
+                              onClick={() => jumpToHeading(h.pos)}
+                              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-ink-300 hover:bg-white/[0.05] hover:text-ink-100"
+                              style={{ paddingLeft: `${(h.level - 1) * 12 + 8}px` }}
+                            >
+                              <span className="shrink-0 font-mono text-[10px] text-ink-600">{"#".repeat(h.level)}</span>
+                              <span className="truncate">{h.text}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    ) : tocOpen && tocHeadings.length === 0 ? (
+                      <div className="absolute right-0 top-[calc(100%+6px)] z-40 w-56 rounded-xl border border-ink-700/90 bg-ink-925 p-3 shadow-panel">
+                        <div className="text-xs text-ink-500">No headings found. Add <code className="text-ink-400">## Heading</code> to your note.</div>
+                      </div>
+                    ) : null}
+                  </div>
                   <IconButton label={zenMode ? "Exit zen mode (Ctrl+Shift+Z)" : "Zen mode (Ctrl+Shift+Z)"} onClick={() => setZenMode((z) => !z)}>
                     {zenMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
                   </IconButton>
@@ -1613,7 +1688,7 @@ export function Workspace() {
                 <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 overflow-hidden text-xs text-ink-500">
                   <Pill icon={<Folder className="h-3.5 w-3.5" />} label={noteFolder} />
                   <Pill icon={<Clock3 className="h-3.5 w-3.5" />} label={`Updated ${new Date(activeNote.updatedAt).toLocaleString()}`} />
-                  <Pill icon={<ShieldCheck className="h-3.5 w-3.5" />} label="Source of truth" accent />
+                  <Pill icon={<ShieldCheck className="h-3.5 w-3.5" />} label="Verified source" accent />
                   {backlinks.length > 0 ? (
                     <span className="group relative inline-flex max-w-full items-center gap-1.5 rounded-full border border-ink-700/80 bg-ink-850/70 px-2.5 py-1 text-ink-400 hover:border-accent-500/25 hover:text-accent-300 cursor-pointer">
                       <Link className="h-3.5 w-3.5 shrink-0" />
@@ -1709,7 +1784,7 @@ export function Workspace() {
           ) : (
             <div className="row-span-4 grid h-full place-items-center p-8">
               <EmptyState action="Create note" onAction={() => createNote()}>
-                Create a Markdown note, then reindex it for source-grounded study tools.
+                Create a document, then index it to start asking questions from your knowledge base.
               </EmptyState>
             </div>
           )}
@@ -1819,6 +1894,7 @@ export function Workspace() {
         onReindexFolder={(folder) => reindexScope({ folderId: folder.id }, folder.name)}
         onMoveNote={chooseFolderForNote}
         onRenameNote={renameNoteById}
+        onDuplicateNote={(note) => void duplicateNoteById(note)}
         onDeleteNote={requestDeleteNote}
         onReindexNote={(note) => reindexScope({ noteId: note.id }, note.title)}
         onTogglePinNote={togglePinNote}
@@ -1832,7 +1908,7 @@ export function Workspace() {
             className={`flex flex-1 flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${mobileTab === "vault" ? "text-accent-300" : "text-ink-500"}`}
           >
             <BookOpen className="h-5 w-5" />
-            Vault
+            Docs
           </button>
           <button
             onClick={() => setMobileTab("editor")}
@@ -1846,7 +1922,7 @@ export function Workspace() {
             className={`flex flex-1 flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${mobileTab === "study" ? "text-accent-300" : "text-ink-500"}`}
           >
             <Brain className="h-5 w-5" />
-            Study
+            Tools
           </button>
         </nav>
       ) : null}
@@ -1879,11 +1955,11 @@ function SideRail(props: {
   const tabs: Array<[Tab, string, React.ReactNode]> = [
     ["ask", "Ask", <MessageSquareText className="h-4 w-4" key="ask" />],
     ["find", "Find", <Search className="h-4 w-4" key="find" />],
-    ["quiz", "Quiz", <Check className="h-4 w-4" key="quiz" />],
-    ["flashcards", "Cards", <Brain className="h-4 w-4" key="cards" />],
-    ["summary", "Summary", <PanelRight className="h-4 w-4" key="summary" />],
-    ["today", "Today", <BookOpen className="h-4 w-4" key="today" />],
-    ["exam", "Exam", <Trophy className="h-4 w-4" key="exam" />]
+    ["quiz", "Knowledge Check", <Check className="h-4 w-4" key="quiz" />],
+    ["flashcards", "Training", <Brain className="h-4 w-4" key="cards" />],
+    ["summary", "Briefing", <PanelRight className="h-4 w-4" key="summary" />],
+    ["today", "Planner", <BookOpen className="h-4 w-4" key="today" />],
+    ["exam", "Assessment", <Trophy className="h-4 w-4" key="exam" />]
   ];
 
   function RailIconButton({
@@ -1969,7 +2045,7 @@ function SideRail(props: {
 
       <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${expanded ? "px-3" : "px-2"}`}>
         <div className={`flex flex-col gap-2 pt-3 ${expanded ? "" : "items-center"}`}>
-          <RailIconButton label={props.leftOpen ? "Hide vault" : "Show vault"} onClick={props.onToggleLeft} active={props.leftOpen}>
+          <RailIconButton label={props.leftOpen ? "Hide workspace" : "Show workspace"} onClick={props.onToggleLeft} active={props.leftOpen}>
             <LayoutPanelLeft className="h-4 w-4" />
           </RailIconButton>
           <RailIconButton label="New note" onClick={props.onNewNote}>
@@ -1984,7 +2060,7 @@ function SideRail(props: {
         </div>
 
         <div className={`flex flex-col gap-2 pt-4 ${expanded ? "" : "items-center"}`}>
-          {expanded ? <SectionLabel label="Study tools" /> : null}
+          {expanded ? <SectionLabel label="Knowledge tools" /> : null}
           {tabs.map(([id, label, icon]) => (
             <RailIconButton
               key={id}
@@ -1995,7 +2071,7 @@ function SideRail(props: {
               {icon}
             </RailIconButton>
           ))}
-          <RailIconButton label={props.rightOpen ? "Hide study panel" : "Show study panel"} onClick={props.onToggleRight} active={props.rightOpen}>
+          <RailIconButton label={props.rightOpen ? "Hide tools panel" : "Show tools panel"} onClick={props.onToggleRight} active={props.rightOpen}>
             {props.rightOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
           </RailIconButton>
         </div>
@@ -2258,26 +2334,26 @@ function AssistantPanel(props: {
   const tabs: Array<[Tab, string, React.ReactNode]> = [
     ["ask", "Ask", <MessageSquareText className="h-4 w-4" key="ask" />],
     ["find", "Find", <Search className="h-4 w-4" key="find" />],
-    ["quiz", "Quiz", <Check className="h-4 w-4" key="quiz" />],
-    ["flashcards", "Cards", <Brain className="h-4 w-4" key="cards" />],
-    ["summary", "Summary", <PanelRight className="h-4 w-4" key="summary" />],
-    ["today", "Today", <BookOpen className="h-4 w-4" key="today" />],
-    ["exam", "Exam", <Trophy className="h-4 w-4" key="exam" />]
+    ["quiz", "Knowledge Check", <Check className="h-4 w-4" key="quiz" />],
+    ["flashcards", "Training", <Brain className="h-4 w-4" key="cards" />],
+    ["summary", "Briefing", <PanelRight className="h-4 w-4" key="summary" />],
+    ["today", "Planner", <BookOpen className="h-4 w-4" key="today" />],
+    ["exam", "Assessment", <Trophy className="h-4 w-4" key="exam" />]
   ];
 
   return (
     <aside className="panel-shell grid h-full min-h-0 grid-rows-[72px_54px_minmax(0,1fr)] overflow-hidden border-l">
       <div className="flex min-w-0 items-center justify-between gap-2 border-b border-ink-700/80 px-4">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-ink-100">Study Tools</div>
+          <div className="text-sm font-semibold text-ink-100">Knowledge Tools</div>
           <div className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-500">
             <ShieldCheck className="h-3.5 w-3.5 text-accent-400" />
-            Source-grounded answers
+            Cited from your documents
           </div>
         </div>
         <div className="flex min-w-0 shrink-0 items-center gap-2">
           <ScopeSelect {...props} />
-          <IconButton label="Hide study panel" onClick={props.onHide}>
+          <IconButton label="Hide tools panel" onClick={props.onHide}>
             <PanelRightClose className="h-4 w-4" />
           </IconButton>
         </div>
@@ -2513,7 +2589,7 @@ function SearchableScopePicker({
                         >
                           <div className="min-w-0">
                             <div className="truncate">{option.label}</div>
-                            <div className="mt-0.5 text-xs text-ink-500">{option.kind === "folder" ? "Folder scope" : option.kind === "note" ? "Single note" : "Full vault"}</div>
+                            <div className="mt-0.5 text-xs text-ink-500">{option.kind === "folder" ? "Folder scope" : option.kind === "note" ? "Single note" : "Full workspace"}</div>
                           </div>
                           {active ? <Check className="h-4 w-4 shrink-0" /> : null}
                         </button>
@@ -2556,7 +2632,7 @@ function AskTool({
 
   const answerText = streamedText.trim();
   const unsupported = done && (answerText === "NOT_FOUND" || answerText.startsWith("NOT_FOUND") || answerText === "" || (citations.length === 0 && !answerText.startsWith("-")));
-  const displayAnswer = unsupported ? (answerText === "NOT_FOUND" || answerText === "" ? "Not found in the indexed notes. Add or index notes that directly support this question, then try again." : answerText) : answerText;
+  const displayAnswer = unsupported ? (answerText === "NOT_FOUND" || answerText === "" ? "Not found in the knowledge base. Add or index documents that directly support this question, then try again." : answerText) : answerText;
 
   async function ask() {
     if (!question.trim()) return;
@@ -2819,7 +2895,7 @@ function QuizTool({
   const currentItem = items[0];
   return (
     <StudyList
-      title="Quiz mode"
+      title="Knowledge Check"
       description="Type your answer, then compare it against the source-backed answer."
       label="Generate question"
       mode="quiz"
@@ -2830,7 +2906,7 @@ function QuizTool({
       render={(busy, rerun) => (
         <div className="space-y-3">
           {busy ? <SkeletonStack /> : null}
-          {!busy && !currentItem ? <EmptyToolState message="Generate one quiz question at a time from your indexed notes." /> : null}
+          {!busy && !currentItem ? <EmptyToolState message="Generate one knowledge check question at a time from your indexed documents." /> : null}
           {currentItem ? (
             <div className="study-card">
               <div className="mb-3 flex items-center justify-between text-xs text-ink-500">
@@ -3008,7 +3084,7 @@ function FlashcardTool({
     if (!card) {
       return (
         <div className="space-y-3">
-          <ToolHeader title="Flashcard review" description="All due cards have been reviewed." />
+          <ToolHeader title="Training Card Review" description="All due cards have been reviewed." />
           <EmptyToolState message="No cards due — check back tomorrow." />
           <button onClick={() => setMode("generate")} className="secondary-action">Back to generate</button>
         </div>
@@ -3016,7 +3092,7 @@ function FlashcardTool({
     }
     return (
       <div className="space-y-3">
-        <ToolHeader title="Flashcard review" description={`Card ${dueIndex + 1} of ${dueCards.length} · Space=flip · 1-4=rate`} />
+        <ToolHeader title="Training Card Review" description={`Card ${dueIndex + 1} of ${dueCards.length} · Space=flip · 1-4=rate`} />
         <div className="study-card">
           <div className="mb-3 flex items-center justify-between text-xs text-ink-500">
             <span>Due card</span>
@@ -3055,9 +3131,9 @@ function FlashcardTool({
 
   return (
     <StudyList
-      title="Flashcards"
+      title="Training Cards"
       description="Recall the answer mentally, then reveal the source-backed version."
-      label="Generate flashcard"
+      label="Generate card"
       mode="flashcards"
       scope={localScope}
       controls={
@@ -3075,11 +3151,11 @@ function FlashcardTool({
       render={(busy, rerun) => (
         <div className="space-y-3">
           {busy ? <SkeletonStack /> : null}
-          {!busy && !currentItem ? <EmptyToolState message="Generate one flashcard at a time from your indexed notes." /> : null}
+          {!busy && !currentItem ? <EmptyToolState message="Generate one training card at a time from your indexed documents." /> : null}
           {currentItem ? (
             <div className="study-card">
               <div className="mb-3 flex items-center justify-between text-xs text-ink-500">
-                <span>Flashcard</span>
+                <span>Training Card</span>
                 <span className="rounded-full bg-amber-400/10 px-2 py-0.5 text-amber-400">Review</span>
               </div>
               <div className="text-sm font-medium leading-6 text-ink-100">{currentItem.prompt}</div>
@@ -3093,7 +3169,7 @@ function FlashcardTool({
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button type="button" onClick={() => void rerun()} disabled={busy} className="rounded-xl border border-ink-700 bg-ink-950/40 px-4 py-2 text-sm font-semibold text-ink-200 hover:border-accent-500/30 hover:bg-accent-500/10 hover:text-white disabled:opacity-60">
-                  New flashcard
+                  New card
                 </button>
                 <button type="button" onClick={() => void saveToDecк(currentItem)} disabled={saving} className="rounded-xl border border-accent-500/30 bg-accent-500/10 px-4 py-2 text-sm font-semibold text-accent-300 hover:bg-accent-500/20 disabled:opacity-60">
                   {saving ? "Saving..." : "Save to deck"}
@@ -3120,9 +3196,9 @@ function SummaryTool({
   const [items, setItems] = useState<Array<{ id: string; label: string; text: string; source: AnswerResult["citations"][number] }>>([]);
   return (
     <StudyList
-      title="Extractive summary"
-      description="Summary items are direct excerpts from selected notes."
-      label="Extract source summary"
+      title="Key Briefing"
+      description="Briefing items are direct excerpts from your knowledge base."
+      label="Extract briefing"
       mode="summary"
       scope={scope}
       notify={notify}
@@ -3201,7 +3277,7 @@ function StudyPlanTool({ notify }: { notify: (m: string, tone?: Toast["tone"]) =
     return `${item.type}:${item.cardId ?? item.noteId ?? ""}:${item.chunkId ?? ""}`;
   }
 
-  const typeLabel: Record<PlanItem["type"], string> = { flashcard: "Flashcard", quiz: "Quiz", review: "Review" };
+  const typeLabel: Record<PlanItem["type"], string> = { flashcard: "Training Card", quiz: "Knowledge Check", review: "Review" };
   const typeColor: Record<PlanItem["type"], string> = {
     flashcard: "text-accent-300",
     quiz: "text-emerald-400",
@@ -3210,7 +3286,7 @@ function StudyPlanTool({ notify }: { notify: (m: string, tone?: Toast["tone"]) =
 
   return (
     <div className="space-y-4">
-      <ToolHeader title="Today's Study Plan" description="Personalized items based on due cards, weak areas, and fresh content." />
+      <ToolHeader title="Work Planner" description="Recommended items based on due cards, weak areas, and fresh content." />
       {perf && perf.totalAttempts > 0 ? (
         <div className="flex gap-3 rounded-xl border border-ink-700/80 bg-ink-900/50 p-3 text-xs">
           <div className="flex flex-col items-center gap-0.5">
@@ -3421,7 +3497,7 @@ function ExamTool({
   if (phase === "setup") {
     return (
       <div className="space-y-4">
-        <ToolHeader title="Exam Mode" description="Answer questions from memory. Expected answers are only revealed after the exam ends." />
+        <ToolHeader title="Assessment" description="Answer questions from memory. Expected answers are only revealed at the end." />
         <div className="space-y-3">
           <div>
             <label className="mb-1 block text-xs text-ink-400">Scope</label>
@@ -3453,7 +3529,7 @@ function ExamTool({
           disabled={starting}
           className="w-full rounded-xl bg-accent-500 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
         >
-          {starting ? "Generating questions…" : "Start Exam"}
+          {starting ? "Generating questions…" : "Start Assessment"}
         </button>
       </div>
     );
@@ -3617,7 +3693,7 @@ function StudyList<T>({
       <ToolHeader title={title} description={description} />
       {controls}
       <button onClick={run} disabled={busy} className="primary-action w-full">
-        {busy ? "Reading indexed notes..." : label}
+        {busy ? "Searching knowledge base..." : label}
       </button>
       {render(busy, run)}
     </div>
@@ -3771,7 +3847,7 @@ function FolderRow({
       </button>
       <button onClick={onMove} aria-label={`Move ${folder.name}`} className="hidden" />
       <button onClick={onReindex} aria-label={`Reindex ${folder.name}`} className="hidden" />
-      <button onClick={onCreateLecture} aria-label={`New lecture in ${folder.name}`} className="hidden" />
+      <button onClick={onCreateLecture} aria-label={`New project in ${folder.name}`} className="hidden" />
       <div className="absolute right-1 top-1/2 flex -translate-y-1/2 items-center gap-1.5 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto">
         <span className="rounded-full border border-ink-700/70 bg-white/[0.03] px-2 py-0.5 text-xs text-ink-400">{count}</span>
         {!compactActions ? (
@@ -3903,6 +3979,7 @@ function VaultContextMenu({
   onReindexFolder,
   onMoveNote,
   onRenameNote,
+  onDuplicateNote,
   onDeleteNote,
   onReindexNote,
   onTogglePinNote,
@@ -3921,6 +3998,7 @@ function VaultContextMenu({
   onReindexFolder: (folder: FolderType) => void;
   onMoveNote: (note: Note) => void;
   onRenameNote: (note: Note) => void;
+  onDuplicateNote: (note: Note) => void;
   onDeleteNote: (note: Note) => void;
   onReindexNote: (note: Note) => void;
   onTogglePinNote: (note: Note) => void;
@@ -3978,7 +4056,7 @@ function VaultContextMenu({
             }}
           >
             <FileStack className="h-4 w-4 text-accent-300" />
-            New lecture workspace
+            New project workspace
           </button>
           <button
             className={itemClass}
@@ -4048,6 +4126,16 @@ function VaultContextMenu({
             className={itemClass}
             onClick={() => {
               onClose();
+              onDuplicateNote(note);
+            }}
+          >
+            <Copy className="h-4 w-4 text-accent-300" />
+            Duplicate note
+          </button>
+          <button
+            className={itemClass}
+            onClick={() => {
+              onClose();
               onMoveNote(note);
             }}
           >
@@ -4107,7 +4195,9 @@ function CommandPalette({
   onOpenImport: () => void;
   onReindex: () => Promise<void>;
 }) {
-  if (!open) return null;
+  const [selectedIndex, setSelectedIndex] = useState(0);
+  const listRef = useRef<HTMLDivElement>(null);
+
   const normalized = query.trim().toLowerCase();
   const filteredNotes = notes.filter((note) => !normalized || note.title.toLowerCase().includes(normalized)).slice(0, 8);
   const filteredFolders = folders.filter((folder) => !normalized || folder.name.toLowerCase().includes(normalized)).slice(0, 4);
@@ -4116,52 +4206,135 @@ function CommandPalette({
     { label: "Create folder", run: onCreateFolder },
     { label: "Import document", run: onOpenImport },
     { label: "Open account", run: onOpenAccount },
-    { label: "Reindex vault", run: () => void onReindex() }
+    { label: "Reindex workspace", run: () => void onReindex() }
   ].filter((item) => !normalized || item.label.toLowerCase().includes(normalized));
 
+  type CmdItem =
+    | { kind: "action"; label: string; run: () => void }
+    | { kind: "note"; id: string; label: string }
+    | { kind: "folder"; id: string; label: string };
+
+  const allItems: CmdItem[] = [
+    ...actions.map((a) => ({ kind: "action" as const, label: a.label, run: a.run })),
+    ...filteredNotes.map((n) => ({ kind: "note" as const, id: n.id, label: n.title })),
+    ...filteredFolders.map((f) => ({ kind: "folder" as const, id: f.id, label: folderPath(f.id, folders) }))
+  ];
+
+  // Reset selection when query changes or palette opens
+  useEffect(() => { setSelectedIndex(0); }, [query, open]);
+
+  useEffect(() => {
+    if (!listRef.current) return;
+    const el = listRef.current.querySelector<HTMLElement>(`[data-cmd-idx="${selectedIndex}"]`);
+    el?.scrollIntoView({ block: "nearest" });
+  }, [selectedIndex]);
+
+  function runSelected() {
+    const item = allItems[selectedIndex];
+    if (!item) return;
+    if (item.kind === "action") item.run();
+    else if (item.kind === "note") onOpenNote(item.id);
+  }
+
+  if (!open) return null;
+
+  const activeItemClass = "bg-accent-500/14 border-accent-500/30 text-white";
+  const baseItemClass = "border-ink-700/80 text-ink-200 hover:bg-white/[0.04]";
+
+  let globalIdx = 0;
+
+  function renderItem(item: CmdItem, idx: number, badge: string) {
+    const isActive = idx === selectedIndex;
+    const key = item.kind === "note" || item.kind === "folder" ? item.id : item.label;
+    const run = item.kind === "action" ? item.run : item.kind === "note" ? () => onOpenNote(item.id) : undefined;
+    return (
+      <button
+        key={key}
+        data-cmd-idx={idx}
+        onClick={run}
+        disabled={item.kind === "folder"}
+        className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-sm transition-colors ${isActive ? activeItemClass : baseItemClass} ${item.kind === "folder" ? "cursor-default opacity-60" : ""}`}
+      >
+        <span className="truncate">{item.label}</span>
+        <span className={`shrink-0 text-xs ${isActive ? "text-accent-400" : "text-ink-500"}`}>{badge}</span>
+      </button>
+    );
+  }
+
   return (
-    <div className="fixed inset-0 z-[75] bg-black/60 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="mx-auto mt-[10vh] w-full max-w-2xl rounded-2xl border border-ink-700 bg-ink-900 shadow-panel" onClick={(event) => event.stopPropagation()}>
+    <div
+      className="fixed inset-0 z-[75] bg-black/60 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="mx-auto mt-[10vh] w-full max-w-2xl rounded-2xl border border-ink-700 bg-ink-900 shadow-panel"
+        onClick={(event) => event.stopPropagation()}
+      >
         <div className="border-b border-ink-700/80 p-4">
           <input
             autoFocus
             value={query}
-            onChange={(event) => onQueryChange(event.target.value)}
+            onChange={(event) => { onQueryChange(event.target.value); setSelectedIndex(0); }}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown") {
+                event.preventDefault();
+                setSelectedIndex((i) => Math.min(i + 1, allItems.length - 1));
+              } else if (event.key === "ArrowUp") {
+                event.preventDefault();
+                setSelectedIndex((i) => Math.max(i - 1, 0));
+              } else if (event.key === "Enter") {
+                event.preventDefault();
+                runSelected();
+              } else if (event.key === "Escape") {
+                onClose();
+              }
+            }}
             placeholder="Jump to a note or run a command..."
             className="w-full bg-transparent text-base text-ink-100 outline-none placeholder:text-ink-500"
           />
         </div>
-        <div className="max-h-[65vh] overflow-auto p-4">
-          <div className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">Actions</div>
-          <div className="space-y-2">
-            {actions.map((action) => (
-              <button key={action.label} onClick={action.run} className="flex w-full items-center justify-between rounded-xl border border-ink-700/80 px-3 py-3 text-left text-sm text-ink-200 hover:bg-white/[0.04]">
-                <span>{action.label}</span>
-                <span className="text-xs text-ink-500">Command</span>
-              </button>
-            ))}
-          </div>
-          <div className="mb-2 mt-5 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">Notes</div>
-          <div className="space-y-2">
-            {filteredNotes.map((note) => (
-              <button key={note.id} onClick={() => onOpenNote(note.id)} className="flex w-full items-center justify-between rounded-xl border border-ink-700/80 px-3 py-3 text-left text-sm text-ink-200 hover:bg-white/[0.04]">
-                <span className="truncate">{note.title}</span>
-                <span className="text-xs text-ink-500">Note</span>
-              </button>
-            ))}
-          </div>
-          {filteredFolders.length ? (
+        <div ref={listRef} className="max-h-[65vh] overflow-auto p-3">
+          {actions.length > 0 ? (
             <>
-              <div className="mb-2 mt-5 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">Folders</div>
-              <div className="space-y-2">
-                {filteredFolders.map((folder) => (
-                  <div key={folder.id} className="rounded-xl border border-ink-700/80 px-3 py-3 text-sm text-ink-400">
-                    {folderPath(folder.id, folders)}
-                  </div>
-                ))}
+              <div className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">Actions</div>
+              <div className="space-y-1">
+                {actions.map((action) => {
+                  const idx = globalIdx++;
+                  return renderItem({ kind: "action", label: action.label, run: action.run }, idx, "Command");
+                })}
               </div>
             </>
           ) : null}
+          {filteredNotes.length > 0 ? (
+            <>
+              <div className="mb-1.5 mt-4 px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">Notes</div>
+              <div className="space-y-1">
+                {filteredNotes.map((note) => {
+                  const idx = globalIdx++;
+                  return renderItem({ kind: "note", id: note.id, label: note.title }, idx, "Note");
+                })}
+              </div>
+            </>
+          ) : null}
+          {filteredFolders.length ? (
+            <>
+              <div className="mb-1.5 mt-4 px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">Folders</div>
+              <div className="space-y-1">
+                {filteredFolders.map((folder) => {
+                  const idx = globalIdx++;
+                  return renderItem({ kind: "folder", id: folder.id, label: folderPath(folder.id, folders) }, idx, "Folder");
+                })}
+              </div>
+            </>
+          ) : null}
+          {allItems.length === 0 ? (
+            <div className="px-3 py-6 text-center text-sm text-ink-500">No results for "{query}"</div>
+          ) : null}
+        </div>
+        <div className="border-t border-ink-700/60 px-4 py-2 text-[11px] text-ink-600">
+          <span className="mr-3">↑↓ navigate</span>
+          <span className="mr-3">↵ open</span>
+          <span>Esc close</span>
         </div>
       </div>
     </div>

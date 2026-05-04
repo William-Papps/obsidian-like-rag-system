@@ -141,8 +141,8 @@ async function buildStudyPrompt(ai: AiContext, source: RetrievedChunk, answer: s
           role: "system",
           content:
             mode === "quiz"
-              ? "You create one concise revision quiz question from the provided note excerpt. Use only the excerpt, note title, and optional section label. Do not quote metadata like 'Note:' or 'Section:'. Do not paste long source text into the question. Ask about the concept in natural wording. Return JSON with key 'prompt'."
-              : "You create one concise flashcard prompt from the provided note excerpt. Use only the excerpt, note title, and optional section label. Do not quote metadata like 'Note:' or 'Section:'. Do not paste long source text into the prompt. Make it a natural study cue. Return JSON with key 'prompt'."
+              ? "You create one concise knowledge check question from the provided document excerpt. Use only the excerpt, document title, and optional section label. Do not quote metadata like 'Note:' or 'Section:'. Do not paste long source text into the question. Ask about the concept in natural wording. Return JSON with key 'prompt'."
+              : "You create one concise training card prompt from the provided document excerpt. Use only the excerpt, document title, and optional section label. Do not quote metadata like 'Note:' or 'Section:'. Do not paste long source text into the prompt. Make it a natural recall cue. Return JSON with key 'prompt'."
         },
         {
           role: "user",

@@ -192,7 +192,7 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
             <textarea
               value={text}
               onChange={(e) => setText(e.target.value)}
-              placeholder="Paste lecture notes, document text, or slide text here..."
+              placeholder="Paste document text, meeting notes, research, or reports here..."
               disabled={isLoading}
               className="min-h-[120px] w-full rounded-lg border border-ink-700/50 bg-ink-850 px-3 py-2 text-sm text-ink-100 placeholder-ink-500 focus:border-accent-500/50 focus:outline-none"
             />
