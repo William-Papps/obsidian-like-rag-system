@@ -1,10 +1,11 @@
-import { dbGet, dbRun } from "@/lib/db";
+import { dbAll, dbGet, dbRun } from "@/lib/db";
 import { listDescendantFolderIds } from "@/lib/services/folders";
 import { listNotes } from "@/lib/services/notes";
 import { resolveAiContext } from "@/lib/services/ai-access";
 import { chunkNote } from "@/lib/rag/chunking";
 import { embedBatch } from "@/lib/rag/embeddings";
 import { id, now, sha256 } from "@/lib/utils";
+import type { Note } from "@/lib/types";
 
 export async function reindexNotes(userId: string, scope?: { noteId?: string; folderId?: string | null }) {
   const ai = await resolveAiContext(userId, "index");
@@ -18,31 +19,14 @@ export async function reindexNotes(userId: string, scope?: { noteId?: string; fo
 
   let indexed = 0;
   for (const note of notes) {
-    const existing = await dbGet<{ count: number }>(
+    // Skip notes whose content hash hasn't changed and already have chunks.
+    const upToDate = await dbGet<{ count: number }>(
       "select count(*) as count from chunks where user_id = ? and note_id = ? and content_hash = ?",
       [userId, note.id, note.contentHash]
     );
-    if ((existing?.count ?? 0) > 0) continue;
+    if ((upToDate?.count ?? 0) > 0) continue;
 
-    await dbRun("delete from chunks where user_id = ? and note_id = ?", [userId, note.id]);
-    const chunks = chunkNote(note);
-
-    // Batch all chunks for this note into one embedding API call instead of N sequential calls.
-    const embeddings = await embedBatch(userId, chunks, ai.settings.embeddingModel, ai);
-
-    for (let index = 0; index < chunks.length; index++) {
-      const text = chunks[index];
-      const embedding = embeddings[index];
-      const chunkId = id();
-      const vectorId = `${embedding.provider}:${sha256(`${note.id}:${index}:${note.contentHash}`).slice(0, 24)}`;
-      // Store as compact Float32Array BLOB. vector_json left null for new chunks.
-      const vectorBlob = new Uint8Array(new Float32Array(embedding.vector).buffer);
-      await dbRun(
-        "insert into chunks (id, user_id, note_id, chunk_text, chunk_index, content_hash, embedded, vector_id, vector_blob, vector_json, created_at, updated_at) values (?, ?, ?, ?, ?, ?, 1, ?, ?, null, ?, ?)",
-        [chunkId, userId, note.id, text, index, note.contentHash, vectorId, vectorBlob, now(), now()]
-      );
-      indexed++;
-    }
+    indexed += await indexNoteIncremental(userId, note, ai);
   }
 
   const total = await dbGet<{ count: number }>("select count(*) as count from chunks where user_id = ?", [userId]);
@@ -57,6 +41,82 @@ export async function getIndexStatus(userId: string) {
     [userId]
   );
   return { notes: notes?.count ?? 0, chunks: chunks?.count ?? 0, staleNotes: stale?.count ?? 0 };
+}
+
+// Per-chunk incremental: reuse embeddings for chunks whose content is unchanged.
+// Only new/changed chunks incur an embedding call.
+async function indexNoteIncremental(
+  userId: string,
+  note: Note,
+  ai: Awaited<ReturnType<typeof resolveAiContext>>
+): Promise<number> {
+  const newTexts = chunkNote(note);
+  const newHashes = newTexts.map((text) => sha256(text));
+
+  // Load existing chunks for this note (with per-chunk hashes where available).
+  const existing = await dbAll<{
+    id: string;
+    chunk_content_hash: string | null;
+    chunk_index: number;
+  }>("select id, chunk_content_hash, chunk_index from chunks where user_id = ? and note_id = ? order by chunk_index", [userId, note.id]);
+
+  // Build lookup: chunk_content_hash → existing chunk row (first match wins).
+  const existingByHash = new Map<string, (typeof existing)[0]>();
+  for (const row of existing) {
+    if (row.chunk_content_hash && !existingByHash.has(row.chunk_content_hash)) {
+      existingByHash.set(row.chunk_content_hash, row);
+    }
+  }
+
+  // Determine which indices need embedding (no existing chunk with the same hash).
+  const needEmbed: number[] = [];
+  for (let i = 0; i < newTexts.length; i++) {
+    if (!existingByHash.has(newHashes[i])) needEmbed.push(i);
+  }
+
+  // Embed only changed/new chunks.
+  const embeddings = needEmbed.length > 0
+    ? await embedBatch(userId, needEmbed.map((i) => newTexts[i]), ai.settings.embeddingModel, ai)
+    : [];
+
+  let embedIdx = 0;
+  const usedExistingIds = new Set<string>();
+
+  for (let i = 0; i < newTexts.length; i++) {
+    const chunkHash = newHashes[i];
+    const text = newTexts[i];
+    const reused = existingByHash.get(chunkHash);
+
+    if (reused) {
+      usedExistingIds.add(reused.id);
+      // Update position and note-level hash to keep skip-check working on next run.
+      await dbRun(
+        "update chunks set chunk_index = ?, content_hash = ?, updated_at = ? where id = ?",
+        [i, note.contentHash, now(), reused.id]
+      );
+    } else {
+      const embedding = embeddings[embedIdx++];
+      const chunkId = id();
+      const vectorId = `${embedding.provider}:${sha256(`${note.id}:${i}:${note.contentHash}`).slice(0, 24)}`;
+      const vectorBlob = new Uint8Array(new Float32Array(embedding.vector).buffer);
+      await dbRun(
+        `insert into chunks
+           (id, user_id, note_id, chunk_text, chunk_index, content_hash, chunk_content_hash,
+            embedded, vector_id, vector_blob, vector_json, created_at, updated_at)
+         values (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, null, ?, ?)`,
+        [chunkId, userId, note.id, text, i, note.contentHash, chunkHash, vectorId, vectorBlob, now(), now()]
+      );
+    }
+  }
+
+  // Delete chunks that are no longer part of the note.
+  for (const row of existing) {
+    if (!usedExistingIds.has(row.id)) {
+      await dbRun("delete from chunks where id = ?", [row.id]);
+    }
+  }
+
+  return needEmbed.length;
 }
 
 async function purgeOrphanedChunks(userId: string) {

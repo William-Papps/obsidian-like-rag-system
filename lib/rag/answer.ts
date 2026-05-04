@@ -3,9 +3,11 @@ import { z } from "zod";
 import type { AnswerResult, RetrievedChunk } from "@/lib/types";
 import { resolveAiContext } from "@/lib/services/ai-access";
 import { retrieveChunks } from "@/lib/rag/retrieval";
+import { retrieveMultiPass, type RetrievalMeta } from "@/lib/rag/retrieval";
+import { recordChunkEvents } from "@/lib/services/chunk-feedback";
 
 export type AskStreamEvent =
-  | { type: "citations"; data: RetrievedChunk[] }
+  | { type: "citations"; data: RetrievedChunk[]; meta?: RetrievalMeta }
   | { type: "chunk"; data: string }
   | { type: "done" }
   | { type: "error"; data: string };
@@ -25,10 +27,13 @@ export async function streamAnswerFromNotes(
 
   try {
     const ai = await resolveAiContext(userId, "ask");
-    const citations = await retrieveChunks(userId, question, { ...scope, limit: 6 }, ai);
-    send({ type: "citations", data: citations });
+    const { chunks: citations, meta } = await retrieveMultiPass(userId, question, { ...scope, limit: 6 }, ai);
+    send({ type: "citations", data: citations, meta });
 
-    if (citations.length === 0 || citations[0].similarity < 0.08) {
+    // Fire-and-forget: record chunk retrieval events (never blocks the answer stream).
+    void recordRetrievalEvents(userId, citations, meta);
+
+    if (meta.resultCount === 0 || meta.topScore < 0.08) {
       send({ type: "chunk", data: "Not found in the indexed notes. Add or index notes that directly support this question, then try again." });
       send({ type: "done" });
       return;
@@ -41,6 +46,13 @@ export async function streamAnswerFromNotes(
     }
 
     const client = new OpenAI({ apiKey: ai.apiKey });
+
+    // Prepend a low-confidence caveat in the system prompt when retrieval is weak.
+    const confidenceCaveat = meta.lowConfidence
+      ? "NOTE: The retrieved excerpts have low similarity to the question — they may not directly address it. " +
+        "If the excerpts do not contain enough evidence, write only: NOT_FOUND\n\n"
+      : "";
+
     const stream = await client.chat.completions.create({
       model: ai.settings.answerModel,
       temperature: 0.1,
@@ -49,6 +61,7 @@ export async function streamAnswerFromNotes(
         {
           role: "system",
           content:
+            confidenceCaveat +
             "You answer ONLY from the provided note excerpts. Do not use outside knowledge. Do not guess. " +
             "Write 2-4 bullet points as short, clear, complete sentences (start each with '- '). " +
             "Focus on what directly answers the question. " +
@@ -68,6 +81,23 @@ export async function streamAnswerFromNotes(
     send({ type: "error", data: err instanceof Error ? err.message : "Stream failed" });
     controller.close();
     throw err;
+  }
+}
+
+async function recordRetrievalEvents(userId: string, chunks: RetrievedChunk[], meta: RetrievalMeta) {
+  try {
+    const events = chunks.flatMap((c) => {
+      const evs: Array<{ chunkId: string; noteId: string | null; eventType: "retrieved" | "weak_retrieval" }> = [
+        { chunkId: c.chunkId, noteId: c.noteId, eventType: "retrieved" }
+      ];
+      if (meta.lowConfidence) {
+        evs.push({ chunkId: c.chunkId, noteId: c.noteId, eventType: "weak_retrieval" });
+      }
+      return evs;
+    });
+    if (events.length) await recordChunkEvents(userId, events);
+  } catch {
+    // Never block the answer stream on feedback logging.
   }
 }
 

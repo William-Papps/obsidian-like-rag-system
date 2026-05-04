@@ -408,7 +408,21 @@ function migrate(database: Database) {
       answered_at text
     );
     create index if not exists idx_exam_questions_session on exam_questions(session_id);
+
+    create table if not exists chunk_feedback (
+      id text primary key,
+      user_id text not null references users(id) on delete cascade,
+      chunk_id text not null,
+      note_id text,
+      event_type text not null,
+      score real,
+      created_at text not null
+    );
+    create index if not exists idx_chunk_feedback_user on chunk_feedback(user_id, created_at desc);
+    create index if not exists idx_chunk_feedback_chunk on chunk_feedback(user_id, chunk_id);
   `);
+
+  ensureColumn(database, "chunks", "chunk_content_hash", "text");
 }
 
 

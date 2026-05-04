@@ -2371,6 +2371,7 @@ function AskTool({
   const [citations, setCitations] = useState<AnswerResult["citations"]>([]);
   const [streamedText, setStreamedText] = useState("");
   const [done, setDone] = useState(false);
+  const [lowConfidence, setLowConfidence] = useState(false);
   const [explanation, setExplanation] = useState<AnswerResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [explaining, setExplaining] = useState(false);
@@ -2385,6 +2386,7 @@ function AskTool({
     setStreamedText("");
     setCitations([]);
     setDone(false);
+    setLowConfidence(false);
     setExplanation(null);
     try {
       const response = await fetch("/api/ask", {
@@ -2410,7 +2412,10 @@ function AskTool({
           if (!line.trim()) continue;
           try {
             const ev = JSON.parse(line) as { type: string; data?: unknown };
-            if (ev.type === "citations") setCitations(ev.data as AnswerResult["citations"]);
+            if (ev.type === "citations") {
+              setCitations(ev.data as AnswerResult["citations"]);
+              if ((ev as { meta?: { lowConfidence?: boolean } }).meta?.lowConfidence) setLowConfidence(true);
+            }
             else if (ev.type === "chunk") setStreamedText((t) => t + (ev.data as string));
             else if (ev.type === "done") setDone(true);
             else if (ev.type === "error") throw new Error(ev.data as string);
@@ -2485,6 +2490,13 @@ function AskTool({
                 </div>
               </div>
             )
+          ) : null}
+
+          {done && lowConfidence && !unsupported ? (
+            <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-300">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              Weak match — these excerpts may not directly address the question.
+            </div>
           ) : null}
 
           {done && !unsupported ? (

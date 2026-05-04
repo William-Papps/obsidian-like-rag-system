@@ -1,5 +1,6 @@
 import { dbAll, dbGet, dbRun } from "@/lib/db";
 import { id, now } from "@/lib/utils";
+import { recordChunkEvent } from "@/lib/services/chunk-feedback";
 
 export type AttemptResult = "correct" | "partial" | "incorrect" | "skipped";
 export type StudyMode = "quiz" | "flashcard" | "exam";
@@ -66,6 +67,18 @@ export async function recordStudyAttempt(
       now()
     ]
   );
+
+  // Feed chunk-level feedback for retrieval boosting (fire-and-forget).
+  if (attempt.chunkId && (attempt.result === "correct" || attempt.result === "incorrect")) {
+    void recordChunkEvent(
+      userId,
+      attempt.chunkId,
+      attempt.noteId ?? null,
+      attempt.result === "correct" ? "correct_attempt" : "incorrect_attempt",
+      attempt.score ?? undefined
+    ).catch(() => undefined);
+  }
+
   return attemptId;
 }
 
