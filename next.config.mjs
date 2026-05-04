@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  allowedDevOrigins: ["notes.eternalbot.net"],
   async headers() {
     return [
       {
