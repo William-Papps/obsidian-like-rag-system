@@ -1387,69 +1387,59 @@ export function Workspace() {
           style={{ ...workspaceGridStyle, height: isMobile ? "calc(100vh - 56px)" : "100vh" }}
         >
         <aside className={`panel-shell relative min-h-0 overflow-hidden border-r transition-opacity duration-200 ${leftOpen && !zenMode ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "vault" ? "hidden" : ""}`}>
-          <div className="border-b border-ink-700/80 px-4 py-2">
-            <div className="flex items-center justify-between gap-1">
-              <div className="flex min-w-0 flex-1 items-center gap-1.5">
-                {activeWorkspace ? <Users className="h-3.5 w-3.5 shrink-0 text-accent-400" /> : <BookOpen className="h-3.5 w-3.5 shrink-0 text-accent-400" />}
-                <select
-                  aria-label="Active workspace"
-                  value={activeWorkspaceId ?? "__personal__"}
-                  onChange={(event) => void switchWorkspace(event.target.value === "__personal__" ? null : event.target.value)}
-                  className="control-soft h-7 min-w-0 flex-1 rounded-lg px-2 text-xs font-semibold text-ink-100 outline-none"
-                >
-                  <option value="__personal__">Personal</option>
-                  {(data?.workspaces ?? []).map((ws) => (
-                    <option key={ws.id} value={ws.id}>{ws.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="flex shrink-0 gap-0.5">
-                {activeWorkspace && (
-                  <IconButton label="Manage team workspace" onClick={() => { setWorkspaceModal("manage"); setInviteToken(null); setInviteEmail(""); }}>
-                    <Settings className="h-3.5 w-3.5" />
-                  </IconButton>
-                )}
-                <IconButton label="New team workspace" onClick={() => setWorkspaceModal("create")}>
-                  <UserPlus className="h-3.5 w-3.5" />
-                </IconButton>
-              </div>
-            </div>
-            <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
-              <BookOpen className="h-3.5 w-3.5 shrink-0 text-ink-500" />
+          <div className="border-b border-ink-700/80 px-3 py-2">
+            {/* Breadcrumb: Workspace › Folder */}
+            <div className="flex min-w-0 items-center gap-1">
+              {activeWorkspace ? <Users className="h-3 w-3 shrink-0 text-accent-400" /> : <BookOpen className="h-3 w-3 shrink-0 text-accent-400" />}
+              <select
+                aria-label="Active workspace"
+                value={activeWorkspaceId ?? "__personal__"}
+                onChange={(event) => void switchWorkspace(event.target.value === "__personal__" ? null : event.target.value)}
+                className="control-soft min-w-0 bg-transparent text-xs font-semibold text-ink-100 outline-none"
+              >
+                <option value="__personal__">Personal</option>
+                {(data?.workspaces ?? []).map((ws) => (
+                  <option key={ws.id} value={ws.id}>{ws.name}</option>
+                ))}
+              </select>
+              <ChevronRight className="h-3 w-3 shrink-0 text-ink-600" />
               <select
                 aria-label="Workspace root"
                 value={vaultRootId}
-                onChange={(event) => {
-                  const next = event.target.value;
-                  setVaultRootId(next);
-                  setCollapsedFolders({});
-                  setLeftOpen(true);
-                }}
-                className="control-soft h-7 min-w-0 flex-1 rounded-lg px-2 text-xs text-ink-300 outline-none"
+                onChange={(event) => { setVaultRootId(event.target.value); setCollapsedFolders({}); setLeftOpen(true); }}
+                className="control-soft min-w-0 flex-1 bg-transparent text-xs text-ink-400 outline-none"
               >
                 <option value="__all__">All documents</option>
                 {topLevelFolders.map((folder) => (
-                  <option key={folder.id} value={folder.id}>
-                    {folder.name}
-                  </option>
+                  <option key={folder.id} value={folder.id}>{folder.name}</option>
                 ))}
               </select>
-              <IconButton
-                label={bulkMode ? "Exit bulk select" : "Bulk select"}
-                onClick={() => { setBulkMode((m) => !m); setBulkSelectedIds(new Set()); }}
-              >
-                {bulkMode ? <SquareCheck className="h-3.5 w-3.5 text-accent-300" /> : <Square className="h-3.5 w-3.5" />}
-              </IconButton>
-              <IconButton label="New folder" onClick={() => createFolder()}>
-                <FolderPlus className="h-3.5 w-3.5" />
-              </IconButton>
-              <IconButton label="New note" onClick={() => createNote()}>
-                <FilePlus className="h-3.5 w-3.5" />
-              </IconButton>
+              <div className="ml-auto flex shrink-0 items-center gap-0.5">
+                {activeWorkspace && (
+                  <IconButton label="Manage workspace" onClick={() => { setWorkspaceModal("manage"); setInviteToken(null); setInviteEmail(""); }}>
+                    <Settings className="h-3.5 w-3.5" />
+                  </IconButton>
+                )}
+                <IconButton label="New workspace" onClick={() => setWorkspaceModal("create")}>
+                  <UserPlus className="h-3.5 w-3.5" />
+                </IconButton>
+                <IconButton label="New folder" onClick={() => createFolder()}>
+                  <FolderPlus className="h-3.5 w-3.5" />
+                </IconButton>
+                <IconButton label="New note" onClick={() => createNote()}>
+                  <FilePlus className="h-3.5 w-3.5" />
+                </IconButton>
+                <IconButton
+                  label={bulkMode ? "Exit bulk select" : "Bulk select"}
+                  onClick={() => { setBulkMode((m) => !m); setBulkSelectedIds(new Set()); }}
+                >
+                  {bulkMode ? <SquareCheck className="h-3.5 w-3.5 text-accent-300" /> : <Square className="h-3.5 w-3.5" />}
+                </IconButton>
+              </div>
             </div>
           </div>
 
-          <div className="h-[calc(100%-84px)] overflow-auto px-3 py-4">
+          <div className="h-[calc(100%-45px)] overflow-auto px-3 py-4">
             {bulkMode && bulkSelectedIds.size > 0 ? (
               <div className="mb-3 flex items-center gap-2 rounded-lg border border-accent-500/25 bg-accent-500/10 px-3 py-2">
                 <span className="flex-1 text-xs font-semibold text-accent-300">{bulkSelectedIds.size} selected</span>
@@ -2063,15 +2053,6 @@ function SideRail(props: {
 }) {
   const [hovering, setHovering] = useState(false);
   const expanded = props.railPinned || hovering;
-  const tabs: Array<[Tab, string, React.ReactNode]> = [
-    ["ask", "Ask", <MessageSquareText className="h-4 w-4" key="ask" />],
-    ["find", "Find", <Search className="h-4 w-4" key="find" />],
-    ["quiz", "Knowledge Check", <Check className="h-4 w-4" key="quiz" />],
-    ["flashcards", "Training", <Brain className="h-4 w-4" key="cards" />],
-    ["summary", "Briefing", <PanelRight className="h-4 w-4" key="summary" />],
-    ["today", "Planner", <BookOpen className="h-4 w-4" key="today" />],
-    ["exam", "Assessment", <Trophy className="h-4 w-4" key="exam" />]
-  ];
 
   function RailIconButton({
     label,
@@ -2165,23 +2146,6 @@ function SideRail(props: {
           <RailIconButton label="New folder" onClick={props.onNewFolder}>
             <FolderPlus className="h-4 w-4" />
           </RailIconButton>
-          <RailIconButton label="Find / search" onClick={props.onFind}>
-            <Search className="h-4 w-4" />
-          </RailIconButton>
-        </div>
-
-        <div className={`flex flex-col gap-2 pt-4 ${expanded ? "" : "items-center"}`}>
-          {expanded ? <SectionLabel label="Knowledge tools" /> : null}
-          {tabs.map(([id, label, icon]) => (
-            <RailIconButton
-              key={id}
-              label={label}
-              onClick={() => props.onSetTab(id)}
-              active={props.rightOpen && props.tab === id}
-            >
-              {icon}
-            </RailIconButton>
-          ))}
           <RailIconButton label={props.rightOpen ? "Hide tools panel" : "Show tools panel"} onClick={props.onToggleRight} active={props.rightOpen}>
             {props.rightOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
           </RailIconButton>
@@ -2189,22 +2153,21 @@ function SideRail(props: {
       </div>
 
       <div className={`w-full shrink-0 border-t border-ink-700/70 pt-3 ${expanded ? "px-3" : "px-2"}`}>
-        <div className={`${expanded ? "grid grid-cols-4 place-items-center gap-2" : "flex flex-col items-center gap-2"}`}>
+        <div className={`flex flex-col gap-1 ${expanded ? "" : "items-center"}`}>
           <RailIconButton
             label={props.reindexing ? "Reindexing..." : "Reindex"}
             onClick={() => void props.onReindex()}
             active={props.reindexing}
-            compact
           >
             {props.reindexing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           </RailIconButton>
-          <RailIconButton label="Import document" onClick={props.onImport} compact>
+          <RailIconButton label="Import document" onClick={props.onImport}>
             <Upload className="h-4 w-4" />
           </RailIconButton>
-          <RailIconButton label="Account" onClick={props.onAccount} compact>
+          <RailIconButton label="Account" onClick={props.onAccount}>
             <Settings className="h-4 w-4" />
           </RailIconButton>
-          <RailIconButton label="Sign out" onClick={() => void props.onLogout()} tone="danger" compact>
+          <RailIconButton label="Sign out" onClick={() => void props.onLogout()} tone="danger">
             <LogOut className="h-4 w-4" />
           </RailIconButton>
         </div>
@@ -4031,7 +3994,7 @@ function NoteRow({
       draggable={!bulkMode}
       onDragStart={onDragStart}
       onContextMenu={onMenu}
-      className={`group relative flex w-full items-start gap-2 rounded-lg border px-2.5 py-2 text-left transition-all duration-200 ease-premium ${
+      className={`group relative flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-all duration-200 ease-premium ${
         bulkSelected ? "border-accent-500/40 bg-accent-500/12" : active ? "border-accent-500/30 bg-accent-500/10 text-white shadow-glow" : "border-transparent text-ink-300 hover:bg-white/[0.04] hover:text-ink-100"
       }`}
     >
@@ -4040,17 +4003,10 @@ function NoteRow({
           {bulkSelected ? <SquareCheck className="h-4 w-4 text-accent-300" /> : <Square className="h-4 w-4 text-ink-500" />}
         </button>
       ) : null}
-      <button onClick={bulkMode ? onToggleBulk : onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-start gap-2 text-left">
-        {!bulkMode && (pinned ? <Pin className="mt-0.5 h-4 w-4 shrink-0 text-accent-300" /> : <FileText className={`mt-0.5 h-4 w-4 shrink-0 ${active ? "text-accent-300" : "text-ink-500 group-hover:text-ink-300"}`} />)}
-        <span className="min-w-0 flex-1">
-        <span
-          title={note.title}
-          className="block pr-2 text-sm font-medium leading-5 text-ink-100 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden group-hover:pr-32"
-        >
-          {note.title}
-        </span>
-        <span className="mt-1 block truncate text-xs text-ink-500">{new Date(note.updatedAt).toLocaleDateString()}</span>
-        </span>
+      <button onClick={bulkMode ? onToggleBulk : onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+        {!bulkMode && (pinned ? <Pin className="h-3.5 w-3.5 shrink-0 text-accent-300" /> : <FileText className={`h-3.5 w-3.5 shrink-0 ${active ? "text-accent-300" : "text-ink-500 group-hover:text-ink-300"}`} />)}
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink-100 group-hover:pr-24">{note.title}</span>
+        <span className="shrink-0 text-[10px] tabular-nums text-ink-600">{new Date(note.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
       </button>
       <button onClick={onMove} aria-label={`Move ${note.title}`} className="hidden" />
       <button onClick={onReindex} aria-label={`Reindex ${note.title}`} className="hidden" />
