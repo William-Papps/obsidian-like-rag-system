@@ -1584,7 +1584,7 @@ export function Workspace() {
             {bulkMode && bulkSelectedIds.size > 0 ? (
               <div className="mb-3 flex items-center gap-2 rounded-lg border border-accent-500/25 bg-accent-500/10 px-3 py-2">
                 <span className="flex-1 text-xs font-semibold text-accent-300">{bulkSelectedIds.size} selected</span>
-                <button onClick={() => void bulkMoveSelected()} className="rounded px-2 py-1 text-xs font-medium text-ink-300 hover:text-white">Move</button>
+                <button onClick={() => void bulkMoveSelected()} className="rounded px-2 py-1 text-xs font-medium text-ink-300 hover:text-ink-100">Move</button>
                 <button onClick={() => void bulkDeleteSelected()} className="rounded px-2 py-1 text-xs font-medium text-danger-400 hover:text-danger-300">Delete</button>
               </div>
             ) : null}
@@ -1711,7 +1711,7 @@ export function Workspace() {
                               onClick={() => selectNote(note.id)}
                               className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-all ${
                                 activeNoteId === note.id
-                                  ? "border-accent-500/30 bg-accent-500/10 text-white"
+                                  ? "border-accent-500/30 bg-accent-500/10 text-ink-100"
                                   : "border-transparent text-ink-300 hover:bg-white/[0.04] hover:text-ink-100"
                               }`}
                             >
@@ -1808,7 +1808,7 @@ export function Workspace() {
                       if (draftTitle !== activeNote.title) void updateNote(activeNote.id, { title: draftTitle });
                     }}
                     placeholder="Note title"
-                    className="min-w-0 flex-1 rounded-md bg-transparent px-1 text-xl font-semibold text-white outline-none placeholder:text-ink-500"
+                    className="min-w-0 flex-1 rounded-md bg-transparent px-1 text-xl font-semibold text-ink-100 outline-none placeholder:text-ink-500"
                   />
                   <select
                     value={activeNote.folderId ?? ""}
@@ -2065,7 +2065,7 @@ export function Workspace() {
               <button
                 onClick={() => void submitInlineAI()}
                 disabled={inlineAI.loading || !inlineAI.query.trim()}
-                className="rounded-lg bg-accent-600 px-3 py-1 text-xs font-semibold text-white disabled:opacity-40 hover:bg-accent-500"
+                className="rounded-lg bg-accent-600 px-3 py-1 text-xs font-semibold text-ink-100 disabled:opacity-40 hover:bg-accent-500"
               >Insert</button>
             </div>
           </div>
@@ -2325,7 +2325,7 @@ function SideRail(props: {
               ? "border-accent-500/35 bg-accent-500/15 text-accent-200 shadow-glow"
               : tone === "danger"
                 ? "border-ink-800/70 bg-white/[0.02] text-ink-400 hover:border-danger-400/30 hover:bg-danger-400/10 hover:text-danger-300"
-                : "border-ink-800/70 bg-white/[0.02] text-ink-200 hover:border-accent-500/25 hover:bg-white/[0.05] hover:text-white"
+                : "border-ink-800/70 bg-white/[0.02] text-ink-200 hover:border-accent-500/25 hover:bg-white/[0.05] hover:text-ink-100"
           }`}
         >
           {children}
@@ -2452,7 +2452,7 @@ function EditorNoteTabs({
           <div
             key={note.id}
             className={`group flex h-9 min-w-[140px] max-w-[220px] items-center gap-2 rounded-t-lg border border-b-0 px-2.5 ${
-              active ? "border-accent-500/35 bg-ink-925 text-white shadow-glow" : "border-ink-700/60 bg-ink-900/50 text-ink-400 hover:bg-ink-850/80 hover:text-ink-100"
+              active ? "border-accent-500/35 bg-ink-925 text-ink-100 shadow-glow" : "border-ink-700/60 bg-ink-900/50 text-ink-400 hover:bg-ink-850/80 hover:text-ink-100"
             }`}
           >
             <button onClick={() => onTogglePin(note)} aria-label={pinned ? `Unpin ${note.title}` : `Pin ${note.title}`} className="shrink-0 text-ink-500 hover:text-accent-300">
@@ -2461,7 +2461,7 @@ function EditorNoteTabs({
             <button onClick={() => onSelect(note.id)} className="min-w-0 flex-1 truncate text-left text-xs font-medium">
               {note.title}
             </button>
-            <button onClick={() => onClose(note.id)} aria-label={`Close ${note.title}`} className="grid h-5 w-5 shrink-0 place-items-center rounded text-ink-500 opacity-0 hover:bg-white/8 hover:text-white group-hover:opacity-100">
+            <button onClick={() => onClose(note.id)} aria-label={`Close ${note.title}`} className="grid h-5 w-5 shrink-0 place-items-center rounded text-ink-500 opacity-0 hover:bg-white/8 hover:text-ink-100 group-hover:opacity-100">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -2568,46 +2568,46 @@ function NoteViewTabs({
             ) : null}
           </>
         ) : null}
-        <button onClick={onInsertHeading} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+        <button onClick={onInsertHeading} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
           H2
         </button>
-        <button onClick={onInsertList} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+        <button onClick={onInsertList} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
           List
         </button>
-        <button onClick={onInsertQuote} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+        <button onClick={onInsertQuote} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
           Quote
         </button>
         {onInsertCallout ? (
-          <button onClick={onInsertCallout} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+          <button onClick={onInsertCallout} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
             <Info className="h-3.5 w-3.5" />
             Box
           </button>
         ) : null}
-        <button onClick={onInsertCode} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+        <button onClick={onInsertCode} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
           Code
         </button>
-        <button onClick={onInsertTable} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+        <button onClick={onInsertTable} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
           <Table2 className="h-3.5 w-3.5" />
           Table
         </button>
         {onAddTableRow ? (
-          <button onClick={onAddTableRow} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+          <button onClick={onAddTableRow} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
             <Rows3 className="h-3.5 w-3.5" />
             Row +
           </button>
         ) : null}
         {onDeleteTableRow ? (
-          <button onClick={onDeleteTableRow} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+          <button onClick={onDeleteTableRow} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
             Row -
           </button>
         ) : null}
         {onAddTableColumn ? (
-          <button onClick={onAddTableColumn} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+          <button onClick={onAddTableColumn} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
             Col +
           </button>
         ) : null}
         {onDeleteTableColumn ? (
-          <button onClick={onDeleteTableColumn} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+          <button onClick={onDeleteTableColumn} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
             Col -
           </button>
         ) : null}
@@ -2616,7 +2616,7 @@ function NoteViewTabs({
             <button
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingImage}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100 disabled:opacity-50"
             >
               {uploadingImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
               Image
@@ -2635,7 +2635,7 @@ function NoteViewTabs({
           </>
         ) : null}
         {onFormat ? (
-          <button onClick={onFormat} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-white">
+          <button onClick={onFormat} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
             {formatting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
             Format
           </button>
@@ -3265,7 +3265,7 @@ function QuizTool({
                   type="button"
                   onClick={() => void rerun()}
                   disabled={busy}
-                  className="rounded-xl border border-ink-700 bg-ink-950/40 px-4 py-2 text-sm font-semibold text-ink-200 hover:border-accent-500/30 hover:bg-accent-500/10 hover:text-white disabled:opacity-60"
+                  className="rounded-xl border border-ink-700 bg-ink-950/40 px-4 py-2 text-sm font-semibold text-ink-200 hover:border-accent-500/30 hover:bg-accent-500/10 hover:text-ink-100 disabled:opacity-60"
                 >
                   New question
                 </button>
@@ -3497,7 +3497,7 @@ function FlashcardTool({
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                <button type="button" onClick={() => void rerun()} disabled={busy} className="rounded-xl border border-ink-700 bg-ink-950/40 px-4 py-2 text-sm font-semibold text-ink-200 hover:border-accent-500/30 hover:bg-accent-500/10 hover:text-white disabled:opacity-60">
+                <button type="button" onClick={() => void rerun()} disabled={busy} className="rounded-xl border border-ink-700 bg-ink-950/40 px-4 py-2 text-sm font-semibold text-ink-200 hover:border-accent-500/30 hover:bg-accent-500/10 hover:text-ink-100 disabled:opacity-60">
                   New card
                 </button>
                 <button type="button" onClick={() => void saveToDecк(currentItem)} disabled={saving} className="rounded-xl border border-accent-500/30 bg-accent-500/10 px-4 py-2 text-sm font-semibold text-accent-300 hover:bg-accent-500/20 disabled:opacity-60">
@@ -3856,7 +3856,7 @@ function ExamTool({
         <button
           onClick={() => void startExam()}
           disabled={starting}
-          className="w-full rounded-xl bg-accent-500 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="w-full rounded-xl bg-accent-500 py-2.5 text-sm font-semibold text-ink-100 transition-opacity hover:opacity-90 disabled:opacity-50"
         >
           {starting ? "Generating questions…" : "Start Assessment"}
         </button>
@@ -3909,7 +3909,7 @@ function ExamTool({
           <button
             onClick={() => void submitAnswer()}
             disabled={submitting || !answer.trim()}
-            className="flex-1 rounded-xl bg-accent-500 py-2.5 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="flex-1 rounded-xl bg-accent-500 py-2.5 text-sm font-semibold text-ink-100 transition-opacity hover:opacity-90 disabled:opacity-50"
           >
             {submitting ? "Submitting…" : question.index === question.total ? "Submit & Finish" : "Next →"}
           </button>
@@ -4247,7 +4247,7 @@ function NoteRow({
       onDragStart={onDragStart}
       onContextMenu={onMenu}
       className={`group relative flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-all duration-200 ease-premium ${
-        bulkSelected ? "border-accent-500/40 bg-accent-500/12" : active ? "border-accent-500/30 bg-accent-500/10 text-white shadow-glow" : "border-transparent text-ink-300 hover:bg-white/[0.04] hover:text-ink-100"
+        bulkSelected ? "border-accent-500/40 bg-accent-500/12" : active ? "border-accent-500/30 bg-accent-500/10 text-ink-100 shadow-glow" : "border-transparent text-ink-300 hover:bg-white/[0.04] hover:text-ink-100"
       }`}
     >
       {bulkMode ? (
@@ -4335,7 +4335,7 @@ function VaultContextMenu({
   const viewportHeight = typeof window === "undefined" ? 800 : window.innerHeight;
   const left = Math.max(8, Math.min(menu.x, viewportWidth - 230));
   const top = Math.max(8, Math.min(menu.y, viewportHeight - 330));
-  const itemClass = "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-ink-200 hover:bg-accent-500/12 hover:text-white";
+  const itemClass = "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-ink-200 hover:bg-accent-500/12 hover:text-ink-100";
   const dangerClass = "flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-danger-400 hover:bg-danger-400/10";
 
   return (
@@ -4560,7 +4560,7 @@ function CommandPalette({
 
   if (!open) return null;
 
-  const activeItemClass = "bg-accent-500/14 border-accent-500/30 text-white";
+  const activeItemClass = "bg-accent-500/14 border-accent-500/30 text-ink-100";
   const baseItemClass = "border-ink-700/80 text-ink-200 hover:bg-white/[0.04]";
 
   let globalIdx = 0;
@@ -4726,7 +4726,7 @@ function TextInputModal({
           <button
             onClick={() => void handleSubmit()}
             disabled={busy || !draft.value.trim()}
-            className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-400 disabled:opacity-60"
+            className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-ink-100 hover:bg-accent-400 disabled:opacity-60"
           >
             {busy ? "Saving..." : draft.submitLabel}
           </button>
@@ -4801,7 +4801,7 @@ function MoveTargetModal({
           <button
             onClick={() => void handleSubmit()}
             disabled={busy}
-            className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-400 disabled:opacity-60"
+            className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-ink-100 hover:bg-accent-400 disabled:opacity-60"
           >
             {busy ? "Moving..." : dialog.submitLabel}
           </button>
@@ -4853,7 +4853,7 @@ function ConfirmModal({
           <button
             onClick={handleConfirm}
             disabled={busy}
-            className={`rounded-lg px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 ${
+            className={`rounded-lg px-4 py-2 text-sm font-semibold text-ink-100 disabled:opacity-60 ${
               dialog.tone === "danger" ? "bg-danger-400 hover:bg-red-400" : "bg-accent-500 hover:bg-accent-400"
             }`}
           >
@@ -4925,7 +4925,7 @@ function TableInsertModal({
           <button onClick={onClose} disabled={busy} className="rounded-lg border border-ink-700/80 px-4 py-2 text-sm font-medium text-ink-300 hover:bg-ink-800 disabled:opacity-60">
             Cancel
           </button>
-          <button onClick={() => void handleSubmit()} disabled={busy} className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-400 disabled:opacity-60">
+          <button onClick={() => void handleSubmit()} disabled={busy} className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-ink-100 hover:bg-accent-400 disabled:opacity-60">
             {busy ? "Inserting..." : "Insert table"}
           </button>
         </div>
@@ -4985,7 +4985,7 @@ function ShareModal({
           <button
             onClick={onShare}
             disabled={loading || !email.trim()}
-            className="flex items-center gap-1.5 rounded-xl bg-accent-500 px-3 py-2 text-sm font-semibold text-white hover:bg-accent-400 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-xl bg-accent-500 px-3 py-2 text-sm font-semibold text-ink-100 hover:bg-accent-400 disabled:opacity-50"
           >
             {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
             Share
@@ -5084,7 +5084,7 @@ function WorkspaceCreateModal({
         </div>
         <div className="flex items-center justify-end gap-3 border-t border-ink-700/80 px-5 py-4">
           <button onClick={onClose} disabled={busy} className="rounded-lg border border-ink-700/80 px-4 py-2 text-sm font-medium text-ink-300 hover:bg-ink-800 disabled:opacity-60">Cancel</button>
-          <button onClick={() => void handleSubmit()} disabled={busy || !name.trim()} className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-400 disabled:opacity-60">
+          <button onClick={() => void handleSubmit()} disabled={busy || !name.trim()} className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-ink-100 hover:bg-accent-400 disabled:opacity-60">
             {busy ? "Creating..." : "Create workspace"}
           </button>
         </div>
@@ -5161,7 +5161,7 @@ function WorkspaceManageModal({
                   <button
                     onClick={onSendInvite}
                     disabled={inviteLoading || !inviteEmail.trim()}
-                    className="rounded-lg bg-accent-500 px-3 py-2 text-sm font-semibold text-white hover:bg-accent-400 disabled:opacity-60"
+                    className="rounded-lg bg-accent-500 px-3 py-2 text-sm font-semibold text-ink-100 hover:bg-accent-400 disabled:opacity-60"
                   >
                     {inviteLoading ? "Sending..." : "Invite"}
                   </button>
@@ -5265,7 +5265,7 @@ function IconButton({
       className={`grid h-9 w-9 place-items-center rounded-lg border bg-white/[0.03] ${
         tone === "danger"
           ? "border-danger-400/20 text-ink-400 hover:bg-danger-400/10 hover:text-danger-400"
-          : "border-ink-700/80 text-ink-300 hover:border-accent-500/30 hover:bg-white/[0.06] hover:text-white"
+          : "border-ink-700/80 text-ink-300 hover:border-accent-500/30 hover:bg-white/[0.06] hover:text-ink-100"
       }`}
     >
       {children}

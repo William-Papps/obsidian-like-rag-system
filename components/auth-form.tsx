@@ -193,7 +193,7 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
       <div className="w-full max-w-md rounded-2xl border border-ink-700/80 bg-ink-900/95 p-6 shadow-[0_32px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">
         <div className="mb-6">
           <div className="text-xs font-semibold uppercase tracking-[0.18em] text-accent-300">EternalNotes</div>
-          <h1 className="mt-2 text-2xl font-semibold text-white">{stageTitle}</h1>
+          <h1 className="mt-2 text-2xl font-semibold text-ink-100">{stageTitle}</h1>
           <p className="mt-2 text-sm leading-6 text-ink-400">{stageSubtitle}</p>
         </div>
 
@@ -209,14 +209,14 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
             <div className="space-y-3">
               {mode === "signup" ? (
                 <Field icon={<User2 className="h-4 w-4" />} label="Name">
-                  <input value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-transparent text-sm text-white outline-none placeholder:text-ink-500" placeholder="Your name" />
+                  <input value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500" placeholder="Your name" />
                 </Field>
               ) : null}
               <Field icon={<Mail className="h-4 w-4" />} label="Email">
-                <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-transparent text-sm text-white outline-none placeholder:text-ink-500" placeholder="you@example.com" autoComplete="email" type="email" />
+                <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500" placeholder="you@example.com" autoComplete="email" type="email" />
               </Field>
               <Field icon={<LockKeyhole className="h-4 w-4" />} label="Password">
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-transparent text-sm text-white outline-none placeholder:text-ink-500" placeholder="At least 8 characters" autoComplete={mode === "login" ? "current-password" : "new-password"} onKeyDown={(e) => e.key === "Enter" && void submit()} />
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500" placeholder="At least 8 characters" autoComplete={mode === "login" ? "current-password" : "new-password"} onKeyDown={(e) => e.key === "Enter" && void submit()} />
               </Field>
             </div>
             {info ? <InfoBanner>{info}</InfoBanner> : null}
@@ -239,7 +239,7 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
                 <input value={pendingEmail} readOnly className="w-full bg-transparent text-sm text-ink-300 outline-none" />
               </Field>
               <Field icon={<KeyRound className="h-4 w-4" />} label="Verification code">
-                <input value={code} onChange={(e) => setCode(e.target.value)} className="w-full bg-transparent text-sm text-white outline-none placeholder:text-ink-500" placeholder="6-digit code" inputMode="numeric" autoComplete="one-time-code" onKeyDown={(e) => e.key === "Enter" && void verify()} />
+                <input value={code} onChange={(e) => setCode(e.target.value)} className="w-full bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500" placeholder="6-digit code" inputMode="numeric" autoComplete="one-time-code" onKeyDown={(e) => e.key === "Enter" && void verify()} />
               </Field>
             </div>
             {info ? <InfoBanner>{info}</InfoBanner> : null}
@@ -257,7 +257,7 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
           <>
             <div className="space-y-3">
               <Field icon={<Mail className="h-4 w-4" />} label="Email">
-                <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-transparent text-sm text-white outline-none placeholder:text-ink-500" placeholder="you@example.com" type="email" autoComplete="email" onKeyDown={(e) => e.key === "Enter" && void sendForgotPassword()} />
+                <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500" placeholder="you@example.com" type="email" autoComplete="email" onKeyDown={(e) => e.key === "Enter" && void sendForgotPassword()} />
               </Field>
             </div>
             {info ? <InfoBanner>{info}</InfoBanner> : null}
@@ -272,7 +272,7 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
           <>
             <div className="space-y-3">
               <Field icon={<LockKeyhole className="h-4 w-4" />} label="New password">
-                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full bg-transparent text-sm text-white outline-none placeholder:text-ink-500" placeholder="At least 8 characters" autoComplete="new-password" onKeyDown={(e) => e.key === "Enter" && void submitReset()} />
+                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500" placeholder="At least 8 characters" autoComplete="new-password" onKeyDown={(e) => e.key === "Enter" && void submitReset()} />
               </Field>
             </div>
             {info ? <InfoBanner>{info}</InfoBanner> : null}
@@ -290,7 +290,7 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
 
 function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
-    <button type="button" onClick={onClick} className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold ${active ? "bg-accent-500 text-ink-950" : "text-ink-400 hover:text-white"}`}>
+    <button type="button" onClick={onClick} className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold ${active ? "bg-accent-500 text-ink-950" : "text-ink-400 hover:text-ink-100"}`}>
       {children}
     </button>
   );
