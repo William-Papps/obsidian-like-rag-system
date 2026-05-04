@@ -531,6 +531,7 @@ export function Workspace() {
 
   function contextFolderId() {
     if (scope.type === "folder") return scope.folderId;
+    if (activeNote?.folderId) return activeNote.folderId;
     if (vaultRootId !== "__all__") return vaultRootId;
     return null;
   }
