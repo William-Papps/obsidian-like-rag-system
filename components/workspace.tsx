@@ -68,7 +68,7 @@ import {
 import { Component, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MarkdownPreview } from "@/components/markdown";
 import { DocumentImportModal } from "@/components/document-import-modal";
-import type { AnswerResult, Flashcard, Folder as FolderType, Note, ProviderSettings, QuizEvaluation, QuizQuestion, WorkspaceWithMembers } from "@/lib/types";
+import type { AnswerResult, Flashcard, Folder as FolderType, Note, NoteShare, NoteSharePermission, ProviderSettings, QuizEvaluation, QuizQuestion, WorkspaceWithMembers } from "@/lib/types";
 
 class PanelErrorBoundary extends Component<{ children: ReactNode; label: string }, { error: Error | null }> {
   constructor(props: { children: ReactNode; label: string }) {
@@ -198,6 +198,11 @@ export function Workspace() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [inviteLoading, setInviteLoading] = useState(false);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [noteShares, setNoteShares] = useState<NoteShare[]>([]);
+  const [shareEmail, setShareEmail] = useState("");
+  const [sharePermission, setSharePermission] = useState<NoteSharePermission>("edit");
+  const [shareLoading, setShareLoading] = useState(false);
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const next = { id: Date.now(), tone, message };
@@ -253,6 +258,52 @@ export function Workspace() {
       setInviteLoading(false);
     }
   }, [notify, refresh]);
+
+  const openShareModal = useCallback(async (noteId: string) => {
+    setShareEmail("");
+    setShareLoading(false);
+    const res = await fetch(`/api/notes/${noteId}/shares`);
+    if (res.ok) setNoteShares(await res.json() as NoteShare[]);
+    setShareModalOpen(true);
+  }, []);
+
+  const doShareNote = useCallback(async (noteId: string) => {
+    if (!shareEmail.trim()) return;
+    setShareLoading(true);
+    try {
+      const res = await fetch(`/api/notes/${noteId}/shares`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email: shareEmail.trim(), permission: sharePermission })
+      });
+      const body = await res.json();
+      if (!res.ok) throw new Error(body.error || "Failed to share");
+      setNoteShares((prev) => {
+        const filtered = prev.filter((s) => s.sharedWithUserId !== body.sharedWithUserId);
+        return [...filtered, body as NoteShare];
+      });
+      setShareEmail("");
+      notify(`Shared with ${body.sharedWithEmail}`, "success");
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Failed to share", "error");
+    } finally {
+      setShareLoading(false);
+    }
+  }, [shareEmail, sharePermission, notify]);
+
+  const revokeShare = useCallback(async (noteId: string, userId: string) => {
+    const res = await fetch(`/api/notes/${noteId}/shares/${userId}`, { method: "DELETE" });
+    if (res.ok) setNoteShares((prev) => prev.filter((s) => s.sharedWithUserId !== userId));
+  }, []);
+
+  const updateSharePermission = useCallback(async (noteId: string, userId: string, permission: NoteSharePermission) => {
+    const res = await fetch(`/api/notes/${noteId}/shares/${userId}`, {
+      method: "PATCH",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ permission })
+    });
+    if (res.ok) setNoteShares((prev) => prev.map((s) => s.sharedWithUserId === userId ? { ...s, permission } : s));
+  }, []);
 
   const reindexAll = useCallback(async () => {
     if (!data) return;
@@ -1543,6 +1594,40 @@ export function Workspace() {
                   </div>
                 ) : null}
 
+                {(() => {
+                  const sharedNotes = vaultNotes.filter((n) => n.userId !== data.user.id);
+                  if (!sharedNotes.length) return null;
+                  return (
+                    <div className="mb-5">
+                      <SectionLabel label="Shared with me" />
+                      <div className="space-y-1">
+                        {sharedNotes.map((note) => (
+                          <div key={note.id} className="group relative flex items-center gap-1">
+                            <button
+                              onClick={() => selectNote(note.id)}
+                              className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-all ${
+                                activeNoteId === note.id
+                                  ? "border-accent-500/30 bg-accent-500/10 text-white"
+                                  : "border-transparent text-ink-300 hover:bg-white/[0.04] hover:text-ink-100"
+                              }`}
+                            >
+                              <FileText className="h-3.5 w-3.5 shrink-0 text-ink-500" />
+                              <span className="min-w-0 flex-1 truncate text-sm font-medium">{note.title}</span>
+                              <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                                note.sharePermission === "edit"
+                                  ? "bg-accent-500/15 text-accent-300"
+                                  : "bg-ink-700/60 text-ink-400"
+                              }`}>
+                                {note.sharePermission === "edit" ? "Edit" : "View"}
+                              </span>
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })()}
+
                 <div
                   onDragOver={(event) => event.preventDefault()}
                   onDrop={(event) => {
@@ -1677,9 +1762,24 @@ export function Workspace() {
                   >
                     <RotateCw className="h-4 w-4" />
                   </IconButton>
-                  <IconButton label="Delete note" onClick={deleteActiveNote} tone="danger">
-                    <Trash2 className="h-4 w-4" />
-                  </IconButton>
+                  {activeNote.userId === data.user.id ? (
+                    <IconButton label="Share note" onClick={() => void openShareModal(activeNote.id)}>
+                      <UserPlus className="h-4 w-4" />
+                    </IconButton>
+                  ) : (
+                    <span className={`rounded-lg border px-2 py-1 text-xs font-semibold ${
+                      activeNote.sharePermission === "edit"
+                        ? "border-accent-500/30 bg-accent-500/10 text-accent-300"
+                        : "border-ink-700/60 bg-ink-800/50 text-ink-400"
+                    }`}>
+                      {activeNote.sharePermission === "edit" ? "Can edit" : "View only"}
+                    </span>
+                  )}
+                  {activeNote.userId === data.user.id ? (
+                    <IconButton label="Delete note" onClick={deleteActiveNote} tone="danger">
+                      <Trash2 className="h-4 w-4" />
+                    </IconButton>
+                  ) : null}
                 </div>
                 {historyOpen && activeNote ? (
                   <div className="mx-4 mb-2 rounded-xl border border-ink-700/80 bg-ink-900 p-3 text-sm">
@@ -1985,6 +2085,21 @@ export function Workspace() {
             });
           }}
           onClose={() => setWorkspaceModal(null)}
+        />
+      ) : null}
+      {shareModalOpen && activeNote && activeNote.userId === data.user.id ? (
+        <ShareModal
+          note={activeNote}
+          shares={noteShares}
+          email={shareEmail}
+          permission={sharePermission}
+          loading={shareLoading}
+          onEmailChange={setShareEmail}
+          onPermissionChange={setSharePermission}
+          onShare={() => void doShareNote(activeNote.id)}
+          onRevoke={(userId) => void revokeShare(activeNote.id, userId)}
+          onUpdatePermission={(userId, perm) => void updateSharePermission(activeNote.id, userId, perm)}
+          onClose={() => setShareModalOpen(false)}
         />
       ) : null}
       {toast ? <ToastView toast={toast} /> : null}
@@ -4684,6 +4799,105 @@ function TableInsertModal({
             {busy ? "Inserting..." : "Insert table"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ShareModal({
+  note, shares, email, permission, loading,
+  onEmailChange, onPermissionChange, onShare, onRevoke, onUpdatePermission, onClose
+}: {
+  note: Note;
+  shares: NoteShare[];
+  email: string;
+  permission: NoteSharePermission;
+  loading: boolean;
+  onEmailChange: (v: string) => void;
+  onPermissionChange: (v: NoteSharePermission) => void;
+  onShare: () => void;
+  onRevoke: (userId: string) => void;
+  onUpdatePermission: (userId: string, perm: NoteSharePermission) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="relative w-full max-w-md rounded-2xl border border-ink-700/80 bg-ink-900 p-6 shadow-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-5 flex items-start justify-between">
+          <div>
+            <h2 className="text-base font-semibold text-ink-100">Share note</h2>
+            <p className="mt-0.5 truncate text-sm text-ink-500">{note.title}</p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-500 hover:bg-white/5 hover:text-ink-200">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Add person */}
+        <div className="flex gap-2">
+          <input
+            value={email}
+            onChange={(e) => onEmailChange(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && onShare()}
+            placeholder="Email address"
+            type="email"
+            className="flex-1 rounded-xl border border-ink-700/80 bg-ink-950/60 px-3 py-2 text-sm text-ink-100 placeholder-ink-600 outline-none focus:border-accent-500/50"
+          />
+          <select
+            value={permission}
+            onChange={(e) => onPermissionChange(e.target.value as NoteSharePermission)}
+            className="rounded-xl border border-ink-700/80 bg-ink-950/60 px-2 py-2 text-sm text-ink-200 outline-none"
+          >
+            <option value="edit">Can edit</option>
+            <option value="view">Can view</option>
+          </select>
+          <button
+            onClick={onShare}
+            disabled={loading || !email.trim()}
+            className="flex items-center gap-1.5 rounded-xl bg-accent-500 px-3 py-2 text-sm font-semibold text-white hover:bg-accent-400 disabled:opacity-50"
+          >
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
+            Share
+          </button>
+        </div>
+
+        {/* Current shares */}
+        {shares.length > 0 ? (
+          <div className="mt-5">
+            <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink-500">People with access</div>
+            <div className="space-y-2">
+              {shares.map((share) => (
+                <div key={share.sharedWithUserId} className="flex items-center gap-3 rounded-xl border border-ink-700/60 bg-ink-800/40 px-3 py-2.5">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-500/20 text-sm font-semibold text-accent-300">
+                    {share.sharedWithName.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-ink-100">{share.sharedWithName}</div>
+                    <div className="truncate text-xs text-ink-500">{share.sharedWithEmail}</div>
+                  </div>
+                  <select
+                    value={share.permission}
+                    onChange={(e) => onUpdatePermission(share.sharedWithUserId, e.target.value as NoteSharePermission)}
+                    className="rounded-lg border border-ink-700/60 bg-ink-900 px-2 py-1 text-xs text-ink-200 outline-none"
+                  >
+                    <option value="edit">Can edit</option>
+                    <option value="view">Can view</option>
+                  </select>
+                  <button
+                    onClick={() => onRevoke(share.sharedWithUserId)}
+                    className="rounded-lg p-1.5 text-ink-500 hover:bg-danger-400/10 hover:text-danger-400"
+                    aria-label="Remove access"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <p className="mt-4 text-center text-sm text-ink-600">Only you have access to this note.</p>
+        )}
       </div>
     </div>
   );

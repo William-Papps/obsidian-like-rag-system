@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { dbAll, dbGet, dbRun } from "@/lib/db";
-import type { Note } from "@/lib/types";
+import type { Note, NoteSharePermission } from "@/lib/types";
 import { id, now, sha256, toCamelRecord } from "@/lib/utils";
 
 function imagesDir() {
@@ -24,29 +24,52 @@ Add your content here. Index this document to make it queryable by the AI tools.
 `;
 
 export async function listNotes(userId: string, workspaceId?: string | null): Promise<Note[]> {
-  let rows;
   if (workspaceId) {
-    rows = await dbAll(
+    const rows = await dbAll(
       "select * from notes where workspace_id = ? order by coalesce(sort_order, 999999) asc, updated_at desc",
       [workspaceId]
     );
-  } else {
-    rows = await dbAll(
+    return rows.map((row) => toCamelRecord(row) as Note);
+  }
+
+  const [ownedRows, sharedRows] = await Promise.all([
+    dbAll(
       "select * from notes where user_id = ? and workspace_id is null order by coalesce(sort_order, 999999) asc, updated_at desc",
       [userId]
-    );
-  }
-  return rows.map((row) => toCamelRecord(row) as Note);
+    ),
+    dbAll(
+      `select n.*, ns.permission as share_permission from notes n
+       join note_shares ns on ns.note_id = n.id and ns.shared_with_user_id = ?
+       where n.workspace_id is null order by n.updated_at desc`,
+      [userId]
+    )
+  ]);
+
+  return [
+    ...ownedRows.map((row) => toCamelRecord(row) as Note),
+    ...sharedRows.map((row) => ({
+      ...(toCamelRecord(row) as Note),
+      sharePermission: row.share_permission as NoteSharePermission
+    }))
+  ];
 }
 
 export async function getNote(userId: string, noteId: string, workspaceId?: string | null): Promise<Note | null> {
-  let row;
   if (workspaceId) {
-    row = await dbGet("select * from notes where id = ? and workspace_id = ?", [noteId, workspaceId]);
-  } else {
-    row = await dbGet("select * from notes where id = ? and user_id = ? and workspace_id is null", [noteId, userId]);
+    const row = await dbGet("select * from notes where id = ? and workspace_id = ?", [noteId, workspaceId]);
+    return row ? (toCamelRecord(row) as Note) : null;
   }
-  return row ? (toCamelRecord(row) as Note) : null;
+  // Check ownership first
+  const owned = await dbGet("select * from notes where id = ? and user_id = ? and workspace_id is null", [noteId, userId]);
+  if (owned) return toCamelRecord(owned) as Note;
+  // Fall back to share check
+  const shareRow = await dbGet<{ permission: string }>(
+    "select permission from note_shares where note_id = ? and shared_with_user_id = ?",
+    [noteId, userId]
+  );
+  if (!shareRow) return null;
+  const row = await dbGet("select * from notes where id = ?", [noteId]);
+  return row ? { ...(toCamelRecord(row) as Note), sharePermission: shareRow.permission as NoteSharePermission } : null;
 }
 
 export async function createNote(
@@ -77,7 +100,18 @@ export async function updateNote(
   noteId: string,
   input: Partial<Pick<Note, "title" | "folderId" | "markdownContent" | "sortOrder">>
 ): Promise<Note | null> {
-  const existing = await getNote(userId, noteId);
+  // Owner check first, then share-edit check
+  let existing = await dbGet("select * from notes where id = ? and user_id = ?", [noteId, userId])
+    .then((r) => r ? toCamelRecord(r) as Note : null);
+  if (!existing) {
+    const shareRow = await dbGet<{ permission: string }>(
+      "select permission from note_shares where note_id = ? and shared_with_user_id = ?",
+      [noteId, userId]
+    );
+    if (shareRow?.permission !== "edit") return null;
+    const row = await dbGet("select * from notes where id = ?", [noteId]);
+    existing = row ? toCamelRecord(row) as Note : null;
+  }
   if (!existing) return null;
   const nextContent = input.markdownContent ?? existing.markdownContent;
   const nextHash = sha256(nextContent);

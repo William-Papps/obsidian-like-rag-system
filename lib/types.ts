@@ -10,6 +10,20 @@ export type Folder = {
 
 export type UserRole = "user" | "admin" | "owner";
 
+export type NoteSharePermission = "view" | "edit";
+
+export type NoteShare = {
+  id: string;
+  noteId: string;
+  ownerUserId: string;
+  sharedWithUserId: string;
+  sharedWithEmail: string;
+  sharedWithName: string;
+  permission: NoteSharePermission;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type Note = {
   id: string;
   userId: string;
@@ -21,6 +35,7 @@ export type Note = {
   contentHash: string;
   sortOrder?: number | null;
   workspaceId?: string | null;
+  sharePermission?: NoteSharePermission | null;
 };
 
 export type Chunk = {

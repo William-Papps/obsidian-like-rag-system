@@ -464,6 +464,21 @@ function migrate(database: Database) {
 
   ensureColumn(database, "notes", "workspace_id", "text");
   ensureColumn(database, "folders", "workspace_id", "text");
+
+  database.exec(`
+    create table if not exists note_shares (
+      id text primary key,
+      note_id text not null references notes(id) on delete cascade,
+      owner_user_id text not null references users(id) on delete cascade,
+      shared_with_user_id text not null references users(id) on delete cascade,
+      permission text not null default 'view',
+      created_at text not null,
+      updated_at text not null,
+      unique(note_id, shared_with_user_id)
+    );
+    create index if not exists idx_note_shares_note on note_shares(note_id);
+    create index if not exists idx_note_shares_recipient on note_shares(shared_with_user_id);
+  `);
 }
 
 
