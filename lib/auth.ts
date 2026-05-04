@@ -396,7 +396,12 @@ async function issueEmailVerification(input: { userId: string; email: string; na
     "insert into email_verifications (id, user_id, email, code_hash, expires_at, consumed_at, created_at, updated_at) values (?, ?, ?, ?, ?, null, ?, ?)",
     [id(), input.userId, input.email, sha256(code), verificationExpiresAt(), now(), now()]
   );
-  return sendVerificationEmail({ email: input.email, name: input.name, code });
+  try {
+    return await sendVerificationEmail({ email: input.email, name: input.name, code });
+  } catch (error) {
+    console.error("Verification email failed:", error instanceof Error ? error.message : error);
+    return { debugCode: code };
+  }
 }
 
 function createVerificationCode() {
