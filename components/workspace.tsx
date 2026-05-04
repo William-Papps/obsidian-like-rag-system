@@ -2251,26 +2251,11 @@ function SideRail(props: {
         </div>
         {/* Divider */}
         <div className={`my-3 border-t border-ink-700/50 ${expanded ? "" : "mx-2"}`} />
-        {/* AI tools — clicking opens right panel to that tab */}
+        {/* AI tools panel toggle */}
         <div className={`flex flex-col gap-1 ${expanded ? "" : "items-center"}`}>
-          {([
-            ["ask",       "Ask",            <MessageSquareText className="h-4 w-4" key="ask" />],
-            ["find",      "Find",           <Search className="h-4 w-4" key="find" />],
-            ["quiz",      "Knowledge Check",<Check className="h-4 w-4" key="quiz" />],
-            ["flashcards","Training Cards", <Brain className="h-4 w-4" key="cards" />],
-            ["summary",   "Briefing",       <PanelRight className="h-4 w-4" key="summary" />],
-            ["today",     "Planner",        <BookOpen className="h-4 w-4" key="today" />],
-            ["exam",      "Assessment",     <Trophy className="h-4 w-4" key="exam" />],
-          ] as [Tab, string, React.ReactNode][]).map(([id, label, icon]) => (
-            <RailIconButton
-              key={id}
-              label={label}
-              onClick={() => { props.onSetTab(id); if (!props.rightOpen) props.onToggleRight(); }}
-              active={props.rightOpen && props.tab === id}
-            >
-              {icon}
-            </RailIconButton>
-          ))}
+          <RailIconButton label={props.rightOpen ? "Hide AI tools" : "AI tools"} onClick={props.onToggleRight} active={props.rightOpen}>
+            {props.rightOpen ? <PanelRightClose className="h-4 w-4" /> : <PanelRightOpen className="h-4 w-4" />}
+          </RailIconButton>
         </div>
       </div>
 
