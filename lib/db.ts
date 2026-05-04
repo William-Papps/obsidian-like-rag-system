@@ -424,6 +424,46 @@ function migrate(database: Database) {
 
   ensureColumn(database, "chunks", "chunk_content_hash", "text");
   ensureColumn(database, "notes", "sort_order", "integer");
+
+  database.exec(`
+    create table if not exists workspaces (
+      id text primary key,
+      name text not null,
+      owner_user_id text not null references users(id) on delete cascade,
+      description text,
+      created_at text not null,
+      updated_at text not null
+    );
+    create index if not exists idx_workspaces_owner on workspaces(owner_user_id);
+
+    create table if not exists workspace_members (
+      id text primary key,
+      workspace_id text not null references workspaces(id) on delete cascade,
+      user_id text not null references users(id) on delete cascade,
+      role text not null default 'editor',
+      joined_at text,
+      created_at text not null,
+      unique(workspace_id, user_id)
+    );
+    create index if not exists idx_workspace_members_workspace on workspace_members(workspace_id);
+    create index if not exists idx_workspace_members_user on workspace_members(user_id);
+
+    create table if not exists workspace_invites (
+      id text primary key,
+      workspace_id text not null references workspaces(id) on delete cascade,
+      invited_by_user_id text not null references users(id) on delete cascade,
+      email text not null,
+      token_hash text not null unique,
+      expires_at text not null,
+      consumed_at text,
+      created_at text not null
+    );
+    create index if not exists idx_workspace_invites_workspace on workspace_invites(workspace_id);
+    create index if not exists idx_workspace_invites_token on workspace_invites(token_hash);
+  `);
+
+  ensureColumn(database, "notes", "workspace_id", "text");
+  ensureColumn(database, "folders", "workspace_id", "text");
 }
 
 

@@ -18,33 +18,47 @@ async function reindexNoteIfChanged(userId: string, noteId: string) {
   }
 }
 
-const starter = `# New study note
+const starter = `# Untitled document
 
-Capture the source facts you want to revise here. The assistant will only answer from notes you have written and indexed.
+Add your content here. Index this document to make it queryable by the AI tools.
 `;
 
-export async function listNotes(userId: string): Promise<Note[]> {
-  const rows = await dbAll(
-    "select * from notes where user_id = ? order by coalesce(sort_order, 999999) asc, updated_at desc",
-    [userId]
-  );
+export async function listNotes(userId: string, workspaceId?: string | null): Promise<Note[]> {
+  let rows;
+  if (workspaceId) {
+    rows = await dbAll(
+      "select * from notes where workspace_id = ? order by coalesce(sort_order, 999999) asc, updated_at desc",
+      [workspaceId]
+    );
+  } else {
+    rows = await dbAll(
+      "select * from notes where user_id = ? and workspace_id is null order by coalesce(sort_order, 999999) asc, updated_at desc",
+      [userId]
+    );
+  }
   return rows.map((row) => toCamelRecord(row) as Note);
 }
 
-export async function getNote(userId: string, noteId: string): Promise<Note | null> {
-  const row = await dbGet("select * from notes where id = ? and user_id = ?", [noteId, userId]);
+export async function getNote(userId: string, noteId: string, workspaceId?: string | null): Promise<Note | null> {
+  let row;
+  if (workspaceId) {
+    row = await dbGet("select * from notes where id = ? and workspace_id = ?", [noteId, workspaceId]);
+  } else {
+    row = await dbGet("select * from notes where id = ? and user_id = ? and workspace_id is null", [noteId, userId]);
+  }
   return row ? (toCamelRecord(row) as Note) : null;
 }
 
 export async function createNote(
   userId: string,
-  input: { title?: string; folderId?: string | null; markdownContent?: string }
+  input: { title?: string; folderId?: string | null; markdownContent?: string; workspaceId?: string | null }
 ): Promise<Note> {
   const content = input.markdownContent ?? starter;
   const note: Note = {
     id: id(),
     userId,
     folderId: input.folderId ?? null,
+    workspaceId: input.workspaceId ?? null,
     title: input.title?.trim() || "Untitled note",
     markdownContent: content,
     contentHash: sha256(content),
@@ -52,8 +66,8 @@ export async function createNote(
     updatedAt: now()
   };
   await dbRun(
-    "insert into notes (id, user_id, folder_id, title, markdown_content, content_hash, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?)",
-    [note.id, userId, note.folderId, note.title, note.markdownContent, note.contentHash, note.createdAt, note.updatedAt]
+    "insert into notes (id, user_id, folder_id, workspace_id, title, markdown_content, content_hash, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    [note.id, userId, note.folderId, note.workspaceId ?? null, note.title, note.markdownContent, note.contentHash, note.createdAt, note.updatedAt]
   );
   return note;
 }

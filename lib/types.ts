@@ -3,6 +3,7 @@ export type Folder = {
   userId: string;
   parentId: string | null;
   name: string;
+  workspaceId?: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -19,6 +20,7 @@ export type Note = {
   updatedAt: string;
   contentHash: string;
   sortOrder?: number | null;
+  workspaceId?: string | null;
 };
 
 export type Chunk = {
@@ -169,6 +171,32 @@ export type QuizEvaluation = {
   correct: boolean;
   verdict: "correct" | "partial" | "incorrect";
   feedback: string;
+};
+
+export type Workspace = {
+  id: string;
+  name: string;
+  ownerUserId: string;
+  description: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type WorkspaceMemberRole = "owner" | "editor";
+
+export type WorkspaceMember = {
+  workspaceId: string;
+  userId: string;
+  email: string;
+  name: string;
+  role: WorkspaceMemberRole;
+  joinedAt: string | null;
+  createdAt: string;
+};
+
+export type WorkspaceWithMembers = Workspace & {
+  members: WorkspaceMember[];
+  currentUserRole: WorkspaceMemberRole;
 };
 
 export type Flashcard = {

@@ -16,7 +16,7 @@ export type RetrievalMeta = {
   lowConfidence: boolean;
 };
 
-type ScopeFilter = { noteId?: string; folderId?: string | null; limit?: number };
+type ScopeFilter = { noteId?: string; folderId?: string | null; workspaceId?: string | null; limit?: number };
 
 type ChunkRow = {
   id: string;
@@ -122,8 +122,16 @@ export async function resolveScopeTitle(userId: string, scope: { noteId?: string
 // ── Private helpers ───────────────────────────────────────────────────────────
 
 async function loadScopeChunkRows(userId: string, scope: ScopeFilter): Promise<ChunkRow[]> {
-  const params: (string | null)[] = [userId];
-  let where = "c.user_id = ?";
+  const params: (string | null)[] = [];
+  let where: string;
+
+  if (scope.workspaceId) {
+    where = "n.workspace_id = ?";
+    params.push(scope.workspaceId);
+  } else {
+    where = "c.user_id = ? and n.workspace_id is null";
+    params.push(userId);
+  }
 
   if (scope.noteId) {
     where += " and c.note_id = ?";
@@ -142,7 +150,7 @@ async function loadScopeChunkRows(userId: string, scope: ScopeFilter): Promise<C
   return dbAll<ChunkRow>(
     `select c.id, c.note_id, c.chunk_text, c.vector_json, c.vector_blob, n.title
      from chunks c
-     join notes n on n.id = c.note_id and n.user_id = c.user_id
+     join notes n on n.id = c.note_id
      where ${where}`,
     params
   );

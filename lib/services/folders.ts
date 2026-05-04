@@ -2,24 +2,31 @@ import { dbAll, dbGet, dbRun } from "@/lib/db";
 import type { Folder } from "@/lib/types";
 import { id, now, toCamelRecord } from "@/lib/utils";
 
-export async function listFolders(userId: string): Promise<Folder[]> {
-  const rows = await dbAll("select * from folders where user_id = ? order by name collate nocase", [userId]);
+export async function listFolders(userId: string, workspaceId?: string | null): Promise<Folder[]> {
+  let rows;
+  if (workspaceId) {
+    rows = await dbAll("select * from folders where workspace_id = ? order by name collate nocase", [workspaceId]);
+  } else {
+    rows = await dbAll("select * from folders where user_id = ? and workspace_id is null order by name collate nocase", [userId]);
+  }
   return rows.map((row) => toCamelRecord(row) as Folder);
 }
 
-export async function createFolder(userId: string, name: string, parentId: string | null = null): Promise<Folder> {
+export async function createFolder(userId: string, name: string, parentId: string | null = null, workspaceId?: string | null): Promise<Folder> {
   const folder: Folder = {
     id: id(),
     userId,
     parentId,
+    workspaceId: workspaceId ?? null,
     name: name.trim() || "Untitled folder",
     createdAt: now(),
     updatedAt: now()
   };
-  await dbRun("insert into folders (id, user_id, parent_id, name, created_at, updated_at) values (?, ?, ?, ?, ?, ?)", [
+  await dbRun("insert into folders (id, user_id, parent_id, workspace_id, name, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?)", [
     folder.id,
     userId,
     parentId,
+    folder.workspaceId ?? null,
     folder.name,
     folder.createdAt,
     folder.updatedAt

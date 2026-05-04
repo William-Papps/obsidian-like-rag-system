@@ -4,6 +4,7 @@ import { listFolders } from "@/lib/services/folders";
 import { createNote, listNotes } from "@/lib/services/notes";
 import { getProviderSettings } from "@/lib/services/settings";
 import { getIndexStatus } from "@/lib/rag/indexing";
+import { listUserWorkspaces } from "@/lib/services/workspaces";
 import { dbAll } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -17,20 +18,23 @@ export async function GET() {
           title: "Welcome to EternalNotes",
           markdownContent: `# Welcome to EternalNotes
 
-This workspace stores documents locally and indexes them for grounded Q&A and knowledge retrieval.
+This is your AI-powered knowledge base. Add documents, index them, and query them with natural language.
 
-## Grounding rule
+## How grounding works
 
-The assistant should answer only from notes you have written and indexed. If the evidence is not present, it should say the answer is not found in the notes.
+The AI answers only from documents you have added and indexed. If the answer isn't in your knowledge base, it will say so.
 
-## Start here
+## Getting started
 
-Create folders for classes, write source-backed notes, then use Reindex before asking questions or generating study tools.
+1. Create a project folder for your team or topic
+2. Add documents — paste text, import files, or write directly
+3. Click Reindex to make documents queryable
+4. Use the Ask, Briefing, and Knowledge Check tools on the right
 `
         })
       ];
     }
-    const [folders, settings, indexStatus, tagRows] = await Promise.all([
+    const [folders, settings, indexStatus, tagRows, workspaces] = await Promise.all([
       listFolders(user.id),
       getProviderSettings(user.id),
       getIndexStatus(user.id),
@@ -40,13 +44,14 @@ Create folders for classes, write source-backed notes, then use Reindex before a
          join tags t on t.id = nt.tag_id
          where t.user_id = ?`,
         [user.id]
-      )
+      ),
+      listUserWorkspaces(user.id)
     ]);
     const noteTags: Record<string, string[]> = {};
     for (const row of tagRows) {
       if (!noteTags[row.note_id]) noteTags[row.note_id] = [];
       noteTags[row.note_id].push(row.tag_name);
     }
-    return NextResponse.json({ user, folders, notes, settings, indexStatus, noteTags });
+    return NextResponse.json({ user, folders, notes, settings, indexStatus, noteTags, workspaces });
   });
 }

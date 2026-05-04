@@ -61,12 +61,14 @@ import {
   Trash2,
   Trophy,
   Upload,
+  UserPlus,
+  Users,
   X
 } from "lucide-react";
 import { Component, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MarkdownPreview } from "@/components/markdown";
 import { DocumentImportModal } from "@/components/document-import-modal";
-import type { AnswerResult, Flashcard, Folder as FolderType, Note, ProviderSettings, QuizEvaluation, QuizQuestion } from "@/lib/types";
+import type { AnswerResult, Flashcard, Folder as FolderType, Note, ProviderSettings, QuizEvaluation, QuizQuestion, WorkspaceWithMembers } from "@/lib/types";
 
 class PanelErrorBoundary extends Component<{ children: ReactNode; label: string }, { error: Error | null }> {
   constructor(props: { children: ReactNode; label: string }) {
@@ -102,6 +104,7 @@ type Bootstrap = {
   settings: ProviderSettings;
   indexStatus: { notes: number; chunks: number; staleNotes: number };
   noteTags: Record<string, string[]>;
+  workspaces: WorkspaceWithMembers[];
 };
 
 type Scope = { type: "all" } | { type: "note"; noteId: string } | { type: "folder"; folderId: string | null };
@@ -190,6 +193,11 @@ export function Workspace() {
   const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
   const [recentlyVisitedIds, setRecentlyVisitedIds] = useState<string[]>(() => readStoredJson("studyos:recentVisited", []));
   const [tocOpen, setTocOpen] = useState(false);
+  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
+  const [workspaceModal, setWorkspaceModal] = useState<"manage" | "invite" | "create" | null>(null);
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteToken, setInviteToken] = useState<string | null>(null);
+  const [inviteLoading, setInviteLoading] = useState(false);
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const next = { id: Date.now(), tone, message };
@@ -199,22 +207,52 @@ export function Workspace() {
     }, 2600);
   }, []);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (wsId?: string | null) => {
+    const currentWsId = wsId !== undefined ? wsId : activeWorkspaceId;
     const response = await fetch("/api/bootstrap", { cache: "no-store" });
     if (response.status === 401) {
       window.location.href = "/auth";
       return;
     }
     const payload = (await response.json()) as Bootstrap;
+    const wsParam = currentWsId ? `?workspaceId=${currentWsId}` : "";
     const [folders, notes, indexStatus] = await Promise.all([
-      fetch("/api/folders", { cache: "no-store" }).then((result) => result.json() as Promise<FolderType[]>),
-      fetch("/api/notes", { cache: "no-store" }).then((result) => result.json() as Promise<Note[]>),
+      fetch(`/api/folders${wsParam}`, { cache: "no-store" }).then((result) => result.json() as Promise<FolderType[]>),
+      fetch(`/api/notes${wsParam}`, { cache: "no-store" }).then((result) => result.json() as Promise<Note[]>),
       fetch("/api/index", { cache: "no-store" }).then((result) => result.json() as Promise<Bootstrap["indexStatus"]>)
     ]);
     const next = { ...payload, folders, notes, indexStatus };
     setData(next);
     setActiveNoteId((current) => current || next.notes[0]?.id || null);
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeWorkspaceId]);
+
+  const switchWorkspace = useCallback(async (wsId: string | null) => {
+    setActiveWorkspaceId(wsId);
+    setActiveNoteId(null);
+    setOpenNoteIds([]);
+    setVaultRootId("__all__");
+    await refresh(wsId);
+  }, [refresh]);
+
+  const sendInvite = useCallback(async (workspaceId: string, email: string) => {
+    setInviteLoading(true);
+    try {
+      const response = await fetch(`/api/workspaces/${workspaceId}/members`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email })
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "Failed to send invite");
+      setInviteToken(body.token);
+      await refresh();
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Failed to send invite", "error");
+    } finally {
+      setInviteLoading(false);
+    }
+  }, [notify, refresh]);
 
   const reindexAll = useCallback(async () => {
     if (!data) return;
@@ -299,6 +337,7 @@ export function Workspace() {
   }, []);
 
   const activeNote = useMemo(() => data?.notes.find((note) => note.id === activeNoteId) ?? null, [data, activeNoteId]);
+  const activeWorkspace = useMemo(() => data?.workspaces.find((w) => w.id === activeWorkspaceId) ?? null, [data, activeWorkspaceId]);
   const openNotes = useMemo(
     () =>
       [
@@ -441,7 +480,7 @@ export function Workspace() {
     const response = await fetch("/api/notes", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title, folderId })
+      body: JSON.stringify({ title, folderId, workspaceId: activeWorkspaceId })
     });
     const note = (await response.json()) as Note;
     await refresh();
@@ -859,7 +898,7 @@ export function Workspace() {
     await fetch("/api/folders", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name, parentId })
+      body: JSON.stringify({ name, parentId, workspaceId: activeWorkspaceId })
     });
     await refresh();
     notify("Folder created", "success");
@@ -868,37 +907,37 @@ export function Workspace() {
   function createLectureWorkflow(folder: FolderType) {
     setInputDialog({
       title: "Create project workspace",
-      label: "Project folder name",
+      label: "Project name",
       placeholder: `Project ${new Date().toLocaleDateString()}`,
       value: `Project ${new Date().toLocaleDateString()}`,
       submitLabel: "Create project",
-      onSubmit: async (lectureName) => {
-        const trimmedName = lectureName.trim();
+      onSubmit: async (projectName) => {
+        const trimmedName = projectName.trim();
         if (!trimmedName) return;
-        await createLectureWorkspace(folder, trimmedName);
+        await createProjectWorkspace(folder, trimmedName);
       }
     });
   }
 
-  async function createLectureWorkspace(folder: FolderType, lectureName: string) {
+  async function createProjectWorkspace(folder: FolderType, projectName: string) {
     const folderResponse = await fetch("/api/folders", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: lectureName.trim(), parentId: folder.id })
+      body: JSON.stringify({ name: projectName.trim(), parentId: folder.id, workspaceId: activeWorkspaceId })
     });
-    const lectureFolder = (await folderResponse.json()) as FolderType;
+    const projectFolder = (await folderResponse.json()) as FolderType;
     const templates = [
       {
-        title: `${lectureName.trim()} - Research`,
-        markdownContent: `# ${lectureName.trim()} - Research\n\nAdd research, documents, or source material here. Keep each item as source text the assistant can cite.\n\n## Source 1\n\n- `
+        title: `${projectName.trim()} - Source Material`,
+        markdownContent: `# ${projectName.trim()} - Source Material\n\nAdd research, reports, or reference documents here. The AI will cite from this content.\n\n## Document 1\n\n- `
       },
       {
-        title: `${lectureName.trim()} - Notes`,
-        markdownContent: `# ${lectureName.trim()} - Notes\n\n## Key ideas\n\n- \n\n## Questions\n\n- `
+        title: `${projectName.trim()} - Notes`,
+        markdownContent: `# ${projectName.trim()} - Notes\n\n## Key points\n\n- \n\n## Action items\n\n- `
       },
       {
-        title: `${lectureName.trim()} - Summary`,
-        markdownContent: `# ${lectureName.trim()} - Summary\n\n## Key points\n\n- \n\n## Open questions\n\n- `
+        title: `${projectName.trim()} - Briefing`,
+        markdownContent: `# ${projectName.trim()} - Briefing\n\n## Summary\n\n- \n\n## Open questions\n\n- `
       }
     ];
     let firstNote: Note | null = null;
@@ -906,12 +945,12 @@ export function Workspace() {
       const response = await fetch("/api/notes", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...template, folderId: lectureFolder.id })
+        body: JSON.stringify({ ...template, folderId: projectFolder.id, workspaceId: activeWorkspaceId })
       });
       firstNote ??= (await response.json()) as Note;
     }
     await refresh();
-    setCollapsedFolders((current) => ({ ...current, [folder.id]: false, [lectureFolder.id]: false }));
+    setCollapsedFolders((current) => ({ ...current, [folder.id]: false, [projectFolder.id]: false }));
     if (firstNote) selectNote(firstNote.id);
     notify("Project workspace created", "success");
   }
@@ -1348,48 +1387,69 @@ export function Workspace() {
           style={{ ...workspaceGridStyle, height: isMobile ? "calc(100vh - 56px)" : "100vh" }}
         >
         <aside className={`panel-shell relative min-h-0 overflow-hidden border-r transition-opacity duration-200 ${leftOpen && !zenMode ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "vault" ? "hidden" : ""}`}>
-          <div className="flex h-16 items-center justify-between border-b border-ink-700/80 px-4">
-            <div>
-              <div className="text-[11px] font-semibold uppercase tracking-[0.18em] text-violet-300/75">Workspace</div>
-              <div className="mt-1 flex min-w-0 items-center gap-2">
-                <BookOpen className="h-4 w-4 text-accent-400" />
+          <div className="border-b border-ink-700/80 px-4 py-2">
+            <div className="flex items-center justify-between gap-1">
+              <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                {activeWorkspace ? <Users className="h-3.5 w-3.5 shrink-0 text-accent-400" /> : <BookOpen className="h-3.5 w-3.5 shrink-0 text-accent-400" />}
                 <select
-                  aria-label="Workspace root"
-                  value={vaultRootId}
-                  onChange={(event) => {
-                    const next = event.target.value;
-                    setVaultRootId(next);
-                    setCollapsedFolders({});
-                    setLeftOpen(true);
-                  }}
-                  className="control-soft h-9 min-w-0 flex-1 rounded-lg px-2 text-sm font-semibold text-ink-100 outline-none"
+                  aria-label="Active workspace"
+                  value={activeWorkspaceId ?? "__personal__"}
+                  onChange={(event) => void switchWorkspace(event.target.value === "__personal__" ? null : event.target.value)}
+                  className="control-soft h-7 min-w-0 flex-1 rounded-lg px-2 text-xs font-semibold text-ink-100 outline-none"
                 >
-                  <option value="__all__">All notes</option>
-                  {topLevelFolders.map((folder) => (
-                    <option key={folder.id} value={folder.id}>
-                      {folder.name}
-                    </option>
+                  <option value="__personal__">Personal</option>
+                  {(data?.workspaces ?? []).map((ws) => (
+                    <option key={ws.id} value={ws.id}>{ws.name}</option>
                   ))}
                 </select>
               </div>
+              <div className="flex shrink-0 gap-0.5">
+                {activeWorkspace && (
+                  <IconButton label="Manage team workspace" onClick={() => { setWorkspaceModal("manage"); setInviteToken(null); setInviteEmail(""); }}>
+                    <Settings className="h-3.5 w-3.5" />
+                  </IconButton>
+                )}
+                <IconButton label="New team workspace" onClick={() => setWorkspaceModal("create")}>
+                  <UserPlus className="h-3.5 w-3.5" />
+                </IconButton>
+              </div>
             </div>
-            <div className="flex gap-1.5">
+            <div className="mt-1.5 flex min-w-0 items-center gap-1.5">
+              <BookOpen className="h-3.5 w-3.5 shrink-0 text-ink-500" />
+              <select
+                aria-label="Workspace root"
+                value={vaultRootId}
+                onChange={(event) => {
+                  const next = event.target.value;
+                  setVaultRootId(next);
+                  setCollapsedFolders({});
+                  setLeftOpen(true);
+                }}
+                className="control-soft h-7 min-w-0 flex-1 rounded-lg px-2 text-xs text-ink-300 outline-none"
+              >
+                <option value="__all__">All documents</option>
+                {topLevelFolders.map((folder) => (
+                  <option key={folder.id} value={folder.id}>
+                    {folder.name}
+                  </option>
+                ))}
+              </select>
               <IconButton
                 label={bulkMode ? "Exit bulk select" : "Bulk select"}
                 onClick={() => { setBulkMode((m) => !m); setBulkSelectedIds(new Set()); }}
               >
-                {bulkMode ? <SquareCheck className="h-4 w-4 text-accent-300" /> : <Square className="h-4 w-4" />}
+                {bulkMode ? <SquareCheck className="h-3.5 w-3.5 text-accent-300" /> : <Square className="h-3.5 w-3.5" />}
               </IconButton>
               <IconButton label="New folder" onClick={() => createFolder()}>
-                <FolderPlus className="h-4 w-4" />
+                <FolderPlus className="h-3.5 w-3.5" />
               </IconButton>
               <IconButton label="New note" onClick={() => createNote()}>
-                <FilePlus className="h-4 w-4" />
+                <FilePlus className="h-3.5 w-3.5" />
               </IconButton>
             </div>
           </div>
 
-          <div className="h-[calc(100%-64px)] overflow-auto px-3 py-4">
+          <div className="h-[calc(100%-84px)] overflow-auto px-3 py-4">
             {bulkMode && bulkSelectedIds.size > 0 ? (
               <div className="mb-3 flex items-center gap-2 rounded-lg border border-accent-500/25 bg-accent-500/10 px-3 py-2">
                 <span className="flex-1 text-xs font-semibold text-accent-300">{bulkSelectedIds.size} selected</span>
@@ -1900,6 +1960,57 @@ export function Workspace() {
         onTogglePinNote={togglePinNote}
         pinnedNoteIds={pinnedNoteIds}
       />
+      {workspaceModal === "create" ? (
+        <WorkspaceCreateModal
+          onClose={() => setWorkspaceModal(null)}
+          onCreate={async (name, description) => {
+            const response = await fetch("/api/workspaces", {
+              method: "POST",
+              headers: { "content-type": "application/json" },
+              body: JSON.stringify({ name, description })
+            });
+            const ws = await response.json();
+            if (!response.ok) { notify(ws.error || "Failed to create workspace", "error"); return; }
+            await refresh();
+            await switchWorkspace(ws.id);
+            setWorkspaceModal(null);
+            notify(`Workspace "${name}" created`, "success");
+          }}
+        />
+      ) : null}
+      {workspaceModal === "manage" && activeWorkspace ? (
+        <WorkspaceManageModal
+          workspace={activeWorkspace}
+          userId={data.user.id}
+          inviteEmail={inviteEmail}
+          inviteToken={inviteToken}
+          inviteLoading={inviteLoading}
+          onInviteEmailChange={setInviteEmail}
+          onSendInvite={() => void sendInvite(activeWorkspace.id, inviteEmail)}
+          onCopyToken={(token) => { void navigator.clipboard.writeText(`${window.location.origin}/workspace/join?token=${token}`); notify("Invite link copied", "success"); }}
+          onRemoveMember={async (userId) => {
+            await fetch(`/api/workspaces/${activeWorkspace.id}/members/${userId}`, { method: "DELETE" });
+            await refresh();
+            notify("Member removed", "success");
+          }}
+          onDeleteWorkspace={async () => {
+            setWorkspaceModal(null);
+            setConfirmState({
+              title: "Delete workspace",
+              description: `Delete "${activeWorkspace.name}"? Notes will remain as personal notes.`,
+              confirmLabel: "Delete workspace",
+              tone: "danger",
+              onConfirm: async () => {
+                await fetch(`/api/workspaces/${activeWorkspace.id}`, { method: "DELETE" });
+                await switchWorkspace(null);
+                await refresh();
+                notify("Workspace deleted", "success");
+              }
+            });
+          }}
+          onClose={() => setWorkspaceModal(null)}
+        />
+      ) : null}
       {toast ? <ToastView toast={toast} /> : null}
       {isMobile ? (
         <nav className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-ink-700/80 bg-ink-950/95 backdrop-blur-lg">
@@ -2420,7 +2531,7 @@ function ScopeSelect({
 }) {
   return (
     <div className="shrink-0">
-      <SearchableScopePicker scope={scope} setScope={setScope} data={data} activeNote={activeNote} ariaLabel="Study scope" compact />
+      <SearchableScopePicker scope={scope} setScope={setScope} data={data} activeNote={activeNote} ariaLabel="Document scope" compact />
     </div>
   );
 }
@@ -2717,7 +2828,7 @@ function AskTool({
 
   return (
     <div className="space-y-4">
-      <ToolHeader title="Ask your notes" description="Your notes answer the question. Use Paraphrase for a plain-English example." />
+      <ToolHeader title="Ask your knowledge base" description="Your indexed documents answer the question. Use Paraphrase for a plain-English restatement." />
       <div className="relative">
         <textarea
           value={question}
@@ -3196,9 +3307,9 @@ function SummaryTool({
   const [items, setItems] = useState<Array<{ id: string; label: string; text: string; source: AnswerResult["citations"][number] }>>([]);
   return (
     <StudyList
-      title="Key Briefing"
-      description="Briefing items are direct excerpts from your knowledge base."
-      label="Extract briefing"
+      title="Briefing"
+      description="Key excerpts pulled directly from your indexed documents."
+      label="Generate briefing"
       mode="summary"
       scope={scope}
       notify={notify}
@@ -3306,7 +3417,7 @@ function StudyPlanTool({ notify }: { notify: (m: string, tone?: Toast["tone"]) =
       {loading ? <SkeletonStack /> : null}
       {!loading && visible.length === 0 ? (
         <div className="rounded-xl border border-ink-700/60 bg-ink-900/30 p-4 text-center text-sm text-ink-500">
-          {items === null ? "Loading…" : "Nothing scheduled — great work! Study some notes to build your plan."}
+          {items === null ? "Loading…" : "Nothing due — index documents and use Training Cards to build your review queue."}
         </div>
       ) : null}
       <div className="space-y-3">
@@ -4372,7 +4483,7 @@ function TextInputModal({
       <div className="w-full max-w-md rounded-2xl border border-ink-700 bg-ink-900 shadow-panel">
         <div className="border-b border-ink-700/80 px-5 py-4">
           <div className="text-lg font-semibold text-ink-100">{draft.title}</div>
-          <div className="mt-1 text-sm text-ink-500">Folders help group notes by class, lecture, or topic.</div>
+          <div className="mt-1 text-sm text-ink-500">Folders help organize documents by project, team, or topic.</div>
         </div>
         <div className="px-5 py-4">
           <label className="block">
@@ -4607,6 +4718,192 @@ function TableInsertModal({
             {busy ? "Inserting..." : "Insert table"}
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function WorkspaceCreateModal({
+  onClose,
+  onCreate
+}: {
+  onClose: () => void;
+  onCreate: (name: string, description: string) => Promise<void>;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  async function handleSubmit() {
+    if (!name.trim()) return;
+    setBusy(true);
+    try { await onCreate(name.trim(), description.trim()); } finally { setBusy(false); }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl border border-ink-700 bg-ink-900 shadow-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="border-b border-ink-700/80 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <Users className="h-5 w-5 text-accent-400" />
+            <div className="text-lg font-semibold text-ink-100">Create team workspace</div>
+          </div>
+          <div className="mt-1 text-sm text-ink-500">A shared space where team members can collaborate on notes and documents.</div>
+        </div>
+        <div className="space-y-4 px-5 py-4">
+          <label className="block">
+            <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-ink-500">Workspace name</span>
+            <input
+              autoFocus
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") void handleSubmit(); }}
+              placeholder="e.g. Product Team"
+              className="control-soft w-full rounded-lg px-3 py-2.5 text-sm text-ink-100 outline-none"
+            />
+          </label>
+          <label className="block">
+            <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-ink-500">Description (optional)</span>
+            <input
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="What is this workspace for?"
+              className="control-soft w-full rounded-lg px-3 py-2.5 text-sm text-ink-100 outline-none"
+            />
+          </label>
+        </div>
+        <div className="flex items-center justify-end gap-3 border-t border-ink-700/80 px-5 py-4">
+          <button onClick={onClose} disabled={busy} className="rounded-lg border border-ink-700/80 px-4 py-2 text-sm font-medium text-ink-300 hover:bg-ink-800 disabled:opacity-60">Cancel</button>
+          <button onClick={() => void handleSubmit()} disabled={busy || !name.trim()} className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-white hover:bg-accent-400 disabled:opacity-60">
+            {busy ? "Creating..." : "Create workspace"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function WorkspaceManageModal({
+  workspace,
+  userId,
+  inviteEmail,
+  inviteToken,
+  inviteLoading,
+  onInviteEmailChange,
+  onSendInvite,
+  onCopyToken,
+  onRemoveMember,
+  onDeleteWorkspace,
+  onClose
+}: {
+  workspace: WorkspaceWithMembers;
+  userId: string;
+  inviteEmail: string;
+  inviteToken: string | null;
+  inviteLoading: boolean;
+  onInviteEmailChange: (v: string) => void;
+  onSendInvite: () => void;
+  onCopyToken: (token: string) => void;
+  onRemoveMember: (userId: string) => Promise<void>;
+  onDeleteWorkspace: () => void;
+  onClose: () => void;
+}) {
+  const isOwner = workspace.currentUserRole === "owner";
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  return (
+    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-2xl border border-ink-700 bg-ink-900 shadow-panel" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-ink-700/80 px-5 py-4">
+          <div>
+            <div className="flex items-center gap-2">
+              <Users className="h-5 w-5 text-accent-400" />
+              <div className="text-lg font-semibold text-ink-100">{workspace.name}</div>
+            </div>
+            {workspace.description ? <div className="mt-0.5 text-sm text-ink-500">{workspace.description}</div> : null}
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-500 hover:bg-ink-800 hover:text-ink-200"><X className="h-4 w-4" /></button>
+        </div>
+
+        <div className="max-h-[60vh] overflow-y-auto">
+          {isOwner ? (
+            <div className="border-b border-ink-700/40 px-5 py-4">
+              <div className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">Invite member</div>
+              {inviteToken ? (
+                <div className="rounded-lg border border-accent-500/20 bg-accent-500/10 p-3">
+                  <div className="mb-2 text-xs text-ink-400">Invite link generated — share with your colleague:</div>
+                  <div className="mb-2 break-all rounded bg-ink-800 px-2 py-1.5 font-mono text-xs text-accent-300">{`${typeof window !== "undefined" ? window.location.origin : ""}/workspace/join?token=${inviteToken}`}</div>
+                  <button onClick={() => onCopyToken(inviteToken)} className="flex items-center gap-1.5 text-xs font-medium text-accent-300 hover:text-accent-200">
+                    <Copy className="h-3 w-3" />
+                    Copy invite link
+                  </button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => onInviteEmailChange(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") onSendInvite(); }}
+                    placeholder="colleague@company.com"
+                    className="control-soft flex-1 rounded-lg px-3 py-2 text-sm text-ink-100 outline-none"
+                  />
+                  <button
+                    onClick={onSendInvite}
+                    disabled={inviteLoading || !inviteEmail.trim()}
+                    className="rounded-lg bg-accent-500 px-3 py-2 text-sm font-semibold text-white hover:bg-accent-400 disabled:opacity-60"
+                  >
+                    {inviteLoading ? "Sending..." : "Invite"}
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : null}
+
+          <div className="px-5 py-4">
+            <div className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">Members ({workspace.members.length})</div>
+            <div className="space-y-2">
+              {workspace.members.map((member) => (
+                <div key={member.userId} className="flex items-center gap-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-700 text-xs font-semibold text-ink-200">
+                    {member.name.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium text-ink-200">{member.name}</div>
+                    <div className="truncate text-xs text-ink-500">{member.email}</div>
+                  </div>
+                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${member.role === "owner" ? "bg-accent-500/15 text-accent-300" : "bg-ink-700/60 text-ink-400"}`}>
+                    {member.role}
+                  </span>
+                  {(isOwner && member.userId !== userId) || (member.userId === userId && !isOwner) ? (
+                    <button
+                      onClick={async () => {
+                        setRemovingId(member.userId);
+                        try { await onRemoveMember(member.userId); } finally { setRemovingId(null); }
+                      }}
+                      disabled={removingId === member.userId}
+                      className="shrink-0 rounded p-1 text-ink-600 hover:text-danger-400 disabled:opacity-40"
+                      title={member.userId === userId ? "Leave workspace" : "Remove member"}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {isOwner ? (
+          <div className="flex items-center justify-between border-t border-ink-700/80 px-5 py-4">
+            <button onClick={onDeleteWorkspace} className="text-xs font-medium text-danger-500 hover:text-danger-400">Delete workspace</button>
+            <button onClick={onClose} className="rounded-lg border border-ink-700/80 px-4 py-2 text-sm font-medium text-ink-300 hover:bg-ink-800">Done</button>
+          </div>
+        ) : (
+          <div className="flex justify-end border-t border-ink-700/80 px-5 py-4">
+            <button onClick={onClose} className="rounded-lg border border-ink-700/80 px-4 py-2 text-sm font-medium text-ink-300 hover:bg-ink-800">Close</button>
+          </div>
+        )}
       </div>
     </div>
   );
