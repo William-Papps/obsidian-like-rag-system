@@ -2442,18 +2442,18 @@ function AssistantPanel(props: {
   onOpenNote: (source: SourceRef) => void;
   onHide: () => void;
 }) {
-  const tabs: Array<[Tab, string, React.ReactNode]> = [
-    ["ask", "Ask", <MessageSquareText className="h-4 w-4" key="ask" />],
-    ["find", "Find", <Search className="h-4 w-4" key="find" />],
-    ["quiz", "Knowledge Check", <Check className="h-4 w-4" key="quiz" />],
-    ["flashcards", "Training", <Brain className="h-4 w-4" key="cards" />],
-    ["summary", "Briefing", <PanelRight className="h-4 w-4" key="summary" />],
-    ["today", "Planner", <BookOpen className="h-4 w-4" key="today" />],
-    ["exam", "Assessment", <Trophy className="h-4 w-4" key="exam" />]
+  const tabs: Array<[Tab, string, string, React.ReactNode]> = [
+    ["ask", "Ask", "Ask", <MessageSquareText className="h-4 w-4" key="ask" />],
+    ["find", "Find", "Find", <Search className="h-4 w-4" key="find" />],
+    ["quiz", "Knowledge Check", "Check", <Check className="h-4 w-4" key="quiz" />],
+    ["flashcards", "Training Cards", "Training", <Brain className="h-4 w-4" key="cards" />],
+    ["summary", "Briefing", "Briefing", <PanelRight className="h-4 w-4" key="summary" />],
+    ["today", "Planner", "Planner", <BookOpen className="h-4 w-4" key="today" />],
+    ["exam", "Assessment", "Assess", <Trophy className="h-4 w-4" key="exam" />]
   ];
 
   return (
-    <aside className="panel-shell grid h-full min-h-0 grid-rows-[72px_54px_minmax(0,1fr)] overflow-hidden border-l">
+    <aside className="panel-shell grid h-full min-h-0 grid-rows-[72px_70px_minmax(0,1fr)] overflow-hidden border-l">
       <div className="flex min-w-0 items-center justify-between gap-2 border-b border-ink-700/80 px-4">
         <div className="min-w-0">
           <div className="text-sm font-semibold text-ink-100">Knowledge Tools</div>
@@ -2469,17 +2469,20 @@ function AssistantPanel(props: {
           </IconButton>
         </div>
       </div>
-      <div className="relative flex min-w-0 gap-1 overflow-x-auto overflow-y-hidden border-b border-ink-700/80 bg-ink-950/25 p-1.5">
-        {tabs.map(([id, label, icon]) => (
+      <div className="relative flex min-w-0 overflow-x-auto overflow-y-hidden border-b border-ink-700/80 bg-ink-950/30">
+        {tabs.map(([id, fullLabel, shortLabel, icon]) => (
           <button
             key={id}
             onClick={() => props.setTab(id)}
-            className={`relative flex min-w-[3rem] shrink-0 items-center justify-center gap-1 rounded-md px-2 text-xs font-medium transition-all duration-200 ease-premium ${
-              props.tab === id ? "bg-ink-800 text-accent-300 shadow-sm" : "text-ink-500 hover:bg-white/[0.04] hover:text-ink-100"
+            title={fullLabel}
+            className={`relative flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[10px] font-medium transition-all duration-200 ease-premium ${
+              props.tab === id
+                ? "text-accent-300 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-accent-500"
+                : "text-ink-500 hover:bg-white/[0.03] hover:text-ink-300"
             }`}
           >
             {icon}
-            <span className="hidden truncate 2xl:inline">{label}</span>
+            <span>{shortLabel}</span>
           </button>
         ))}
       </div>
