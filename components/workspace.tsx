@@ -145,6 +145,20 @@ type TableDialogState = {
   columns: number;
 } | null;
 
+const SYMBOL_GROUPS: { label: string; symbols: string[] }[] = [
+  { label: "Common Math",    symbols: ["∑","∏","∫","∬","∂","∇","√","∛","∜","∞","±","×","÷","·","°","‰","∝","∎"] },
+  { label: "Relations",     symbols: ["≈","≠","≡","≤","≥","≪","≫","∼","≅","≃","⊂","⊃","⊆","⊇","∈","∉","∅","⊄","⊊"] },
+  { label: "Logic & Sets",  symbols: ["∧","∨","¬","⊤","⊥","⊢","⊨","∀","∃","∄","∴","∵","∪","∩","⊕","⊗"] },
+  { label: "Greek lower",   symbols: ["α","β","γ","δ","ε","ζ","η","θ","ι","κ","λ","μ","ν","ξ","π","ρ","σ","τ","υ","φ","χ","ψ","ω"] },
+  { label: "Greek upper",   symbols: ["Γ","Δ","Θ","Λ","Ξ","Π","Σ","Υ","Φ","Χ","Ψ","Ω"] },
+  { label: "Arrows",        symbols: ["→","←","↑","↓","↔","↕","⇒","⇐","⇑","⇓","⇔","↦","⟹","⟺","↗","↘","↙","↖","⟶","⟵"] },
+  { label: "Superscripts",  symbols: ["⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹","ⁿ","ⁱ","⁺","⁻"] },
+  { label: "Subscripts",    symbols: ["₀","₁","₂","₃","₄","₅","₆","₇","₈","₉","₊","₋","₌","₍","₎"] },
+  { label: "Fractions",     symbols: ["½","⅓","¼","¾","⅔","⅛","⅜","⅝","⅞","⅙","⅚","⅟"] },
+  { label: "Geometry",      symbols: ["∠","∡","∢","⊾","⊿","△","▲","▽","▼","◇","◆","□","■","○","●","⊙","⊚"] },
+  { label: "Misc",          symbols: ["©","®","™","€","£","¥","¢","§","¶","†","‡","•","…","″","′","℃","℉","Å"] },
+];
+
 export function Workspace() {
   const [data, setData] = useState<Bootstrap | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
@@ -193,6 +207,8 @@ export function Workspace() {
   const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
   const [recentlyVisitedIds, setRecentlyVisitedIds] = useState<string[]>(() => readStoredJson("studyos:recentVisited", []));
   const [tocOpen, setTocOpen] = useState(false);
+  const [symbolsOpen, setSymbolsOpen] = useState(false);
+  const [symbolsQuery, setSymbolsQuery] = useState("");
   const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
   const [workspaceModal, setWorkspaceModal] = useState<"manage" | "invite" | "create" | null>(null);
   const [inviteEmail, setInviteEmail] = useState("");
@@ -370,7 +386,7 @@ export function Workspace() {
   }, []);
 
   useEffect(() => {
-    const close = () => { setVaultMenu(null); setTocOpen(false); };
+    const close = () => { setVaultMenu(null); setTocOpen(false); setSymbolsOpen(false); };
     const closeOnEscape = (event: globalThis.KeyboardEvent) => {
       if (event.key === "Escape") close();
     };
@@ -1854,6 +1870,50 @@ export function Workspace() {
                         <div className="text-xs text-ink-500">No headings found. Add <code className="text-ink-400">## Heading</code> to your note.</div>
                       </div>
                     ) : null}
+                  </div>
+                  {/* Symbol picker */}
+                  <div className="relative">
+                    <IconButton label="Insert symbol" onClick={() => { setSymbolsOpen((o) => !o); setSymbolsQuery(""); }}>
+                      <span className={`text-base leading-none font-serif ${symbolsOpen ? "text-accent-300" : ""}`}>∑</span>
+                    </IconButton>
+                    {symbolsOpen && (
+                      <div className="absolute right-0 top-[calc(100%+6px)] z-50 w-80 overflow-hidden rounded-xl border border-ink-700/90 bg-ink-925 shadow-panel">
+                        <div className="border-b border-ink-700/80 p-2">
+                          <input
+                            autoFocus
+                            value={symbolsQuery}
+                            onChange={(e) => setSymbolsQuery(e.target.value)}
+                            placeholder="Search symbols…"
+                            className="w-full rounded-lg bg-ink-900/60 px-2.5 py-1.5 text-xs text-ink-100 outline-none placeholder:text-ink-500"
+                          />
+                        </div>
+                        <div className="max-h-72 overflow-y-auto p-2 space-y-3">
+                          {SYMBOL_GROUPS.map((group) => {
+                            const hits = symbolsQuery.trim()
+                              ? group.symbols.filter((s) => s.includes(symbolsQuery) || group.label.toLowerCase().includes(symbolsQuery.toLowerCase()))
+                              : group.symbols;
+                            if (!hits.length) return null;
+                            return (
+                              <div key={group.label}>
+                                <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-widest text-ink-500">{group.label}</div>
+                                <div className="flex flex-wrap gap-0.5">
+                                  {hits.map((sym) => (
+                                    <button
+                                      key={sym}
+                                      title={sym}
+                                      onClick={() => { void replaceSelectionWith(sym); setSymbolsOpen(false); editorView?.focus(); }}
+                                      className="h-8 w-8 rounded-md text-center text-base text-ink-200 hover:bg-accent-500/20 hover:text-accent-300 font-serif"
+                                    >
+                                      {sym}
+                                    </button>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                   </div>
                   <IconButton label={zenMode ? "Exit zen mode (Ctrl+Shift+Z)" : "Zen mode (Ctrl+Shift+Z)"} onClick={() => setZenMode((z) => !z)}>
                     {zenMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
