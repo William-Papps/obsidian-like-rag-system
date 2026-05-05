@@ -74,7 +74,16 @@ export async function getNote(userId: string, noteId: string, workspaceId?: stri
 
 export async function createNote(
   userId: string,
-  input: { title?: string; folderId?: string | null; markdownContent?: string; workspaceId?: string | null }
+  input: {
+    title?: string;
+    folderId?: string | null;
+    markdownContent?: string;
+    workspaceId?: string | null;
+    department?: string | null;
+    effectiveDate?: string | null;
+    docStatus?: string | null;
+    docType?: string | null;
+  }
 ): Promise<Note> {
   const content = input.markdownContent ?? starter;
   const note: Note = {
@@ -85,12 +94,16 @@ export async function createNote(
     title: input.title?.trim() || "Untitled note",
     markdownContent: content,
     contentHash: sha256(content),
+    department: input.department ?? null,
+    effectiveDate: input.effectiveDate ?? null,
+    docStatus: (input.docStatus as Note["docStatus"]) ?? "active",
+    docType: (input.docType as Note["docType"]) ?? "note",
     createdAt: now(),
     updatedAt: now()
   };
   await dbRun(
-    "insert into notes (id, user_id, folder_id, workspace_id, title, markdown_content, content_hash, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    [note.id, userId, note.folderId, note.workspaceId ?? null, note.title, note.markdownContent, note.contentHash, note.createdAt, note.updatedAt]
+    "insert into notes (id, user_id, folder_id, workspace_id, title, markdown_content, content_hash, department, effective_date, doc_status, doc_type, created_at, updated_at) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    [note.id, userId, note.folderId, note.workspaceId ?? null, note.title, note.markdownContent, note.contentHash, note.department ?? null, note.effectiveDate ?? null, note.docStatus ?? "active", note.docType ?? "note", note.createdAt, note.updatedAt]
   );
   return note;
 }
@@ -98,7 +111,7 @@ export async function createNote(
 export async function updateNote(
   userId: string,
   noteId: string,
-  input: Partial<Pick<Note, "title" | "folderId" | "markdownContent" | "sortOrder">>
+  input: Partial<Pick<Note, "title" | "folderId" | "markdownContent" | "sortOrder" | "department" | "effectiveDate" | "docStatus" | "docType">>
 ): Promise<Note | null> {
   // Owner check first, then share-edit check
   let existing = await dbGet("select * from notes where id = ? and user_id = ?", [noteId, userId])
@@ -138,11 +151,15 @@ export async function updateNote(
     markdownContent: nextContent,
     contentHash: nextHash,
     sortOrder: input.sortOrder !== undefined ? input.sortOrder : existing.sortOrder,
+    department: input.department !== undefined ? input.department : existing.department,
+    effectiveDate: input.effectiveDate !== undefined ? input.effectiveDate : existing.effectiveDate,
+    docStatus: input.docStatus !== undefined ? input.docStatus : existing.docStatus,
+    docType: input.docType !== undefined ? input.docType : existing.docType,
     updatedAt: now()
   };
   await dbRun(
-    "update notes set folder_id = ?, title = ?, markdown_content = ?, content_hash = ?, sort_order = ?, updated_at = ? where id = ? and user_id = ?",
-    [next.folderId, next.title, next.markdownContent, next.contentHash, next.sortOrder ?? null, next.updatedAt, noteId, userId]
+    "update notes set folder_id = ?, title = ?, markdown_content = ?, content_hash = ?, sort_order = ?, department = ?, effective_date = ?, doc_status = ?, doc_type = ?, updated_at = ? where id = ? and user_id = ?",
+    [next.folderId, next.title, next.markdownContent, next.contentHash, next.sortOrder ?? null, next.department ?? null, next.effectiveDate ?? null, next.docStatus ?? null, next.docType ?? null, next.updatedAt, noteId, userId]
   );
 
   if (contentChanged) {

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
+import { createRequire } from "module";
+const pdfParse = createRequire(import.meta.url)("pdf-parse") as (buffer: Buffer) => Promise<{ text: string }>;
 import { withAuthenticatedUser } from "@/lib/auth";
 import { extractTextFromImage } from "@/lib/import/vision";
 import { QuotaExceededError, checkHostedQuota, resolveAiContext } from "@/lib/services/ai-access";
@@ -48,6 +50,16 @@ async function convertDocxToMarkdown(userId: string, buffer: Buffer): Promise<{ 
   }
 }
 
+async function convertPdfToMarkdown(buffer: Buffer): Promise<string> {
+  const data = await pdfParse(buffer);
+  const text = data.text
+    .replace(/\r\n?/g, "\n")
+    .replace(/[ \t]+$/gm, "")
+    .replace(/\n{4,}/g, "\n\n\n")
+    .trim();
+  return text;
+}
+
 async function convertTextToMarkdown(text: string): Promise<string> {
   return text
     .replace(/^\uFEFF/, "")
@@ -85,6 +97,11 @@ export async function POST(request: NextRequest) {
           const result = await convertDocxToMarkdown(user.id, buffer);
           markdown = result.markdown;
           warnings.push(...result.warnings);
+        } else if (fileName.endsWith(".pdf") || file.type === "application/pdf") {
+          if (file.size > 50 * 1024 * 1024) {
+            return NextResponse.json({ error: "PDF file too large (max 50 MB)" }, { status: 400 });
+          }
+          markdown = await convertPdfToMarkdown(buffer);
         } else if (fileName.endsWith(".doc")) {
           return NextResponse.json(
             { error: "Classic .doc files are not fully supported. Please convert to .docx format first." },

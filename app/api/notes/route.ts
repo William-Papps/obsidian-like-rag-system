@@ -10,7 +10,11 @@ const createSchema = z.object({
   title: z.string().optional(),
   folderId: z.string().nullable().optional(),
   markdownContent: z.string().optional(),
-  workspaceId: z.string().nullable().optional()
+  workspaceId: z.string().nullable().optional(),
+  department: z.string().nullable().optional(),
+  effectiveDate: z.string().nullable().optional(),
+  docStatus: z.enum(["draft", "active", "archived"]).nullable().optional(),
+  docType: z.enum(["note", "document"]).nullable().optional()
 });
 
 export async function GET(request: Request) {

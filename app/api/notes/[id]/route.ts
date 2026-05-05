@@ -8,7 +8,11 @@ const updateSchema = z.object({
   title: z.string().optional(),
   folderId: z.string().nullable().optional(),
   markdownContent: z.string().optional(),
-  sortOrder: z.number().int().optional()
+  sortOrder: z.number().int().optional(),
+  department: z.string().nullable().optional(),
+  effectiveDate: z.string().nullable().optional(),
+  docStatus: z.enum(["draft", "active", "archived"]).nullable().optional(),
+  docType: z.enum(["note", "document"]).nullable().optional()
 });
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {

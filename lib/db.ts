@@ -464,6 +464,10 @@ function migrate(database: Database) {
 
   ensureColumn(database, "notes", "workspace_id", "text");
   ensureColumn(database, "folders", "workspace_id", "text");
+  ensureColumn(database, "notes", "department", "text");
+  ensureColumn(database, "notes", "effective_date", "text");
+  ensureColumn(database, "notes", "doc_status", "text default 'active'");
+  ensureColumn(database, "notes", "doc_type", "text default 'note'");
 
   database.exec(`
     create table if not exists note_shares (

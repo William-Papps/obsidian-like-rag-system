@@ -24,6 +24,9 @@ export type NoteShare = {
   updatedAt: string;
 };
 
+export type DocStatus = "draft" | "active" | "archived";
+export type DocType = "note" | "document";
+
 export type Note = {
   id: string;
   userId: string;
@@ -36,6 +39,10 @@ export type Note = {
   sortOrder?: number | null;
   workspaceId?: string | null;
   sharePermission?: NoteSharePermission | null;
+  department?: string | null;
+  effectiveDate?: string | null;
+  docStatus?: DocStatus | null;
+  docType?: DocType | null;
 };
 
 export type Chunk = {
