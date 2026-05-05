@@ -86,13 +86,13 @@ export async function listDescendantFolderIds(userId: string, folderId: string):
 }
 
 async function isDescendant(userId: string, folderId: string, possibleAncestorId: string): Promise<boolean> {
-  let current = await dbGet<{ parent_id: string | null }>("select parent_id from folders where id = ? and user_id = ?", [folderId, userId]);
-  while (current?.parent_id) {
-    if (current.parent_id === possibleAncestorId) return true;
-    current = await dbGet<{ parent_id: string | null }>("select parent_id from folders where id = ? and user_id = ?", [
-      current.parent_id,
-      userId
-    ]);
+  const rows = await dbAll<{ id: string; parent_id: string | null }>("select id, parent_id from folders where user_id = ?", [userId]);
+  const parentById = new Map(rows.map((r) => [r.id, r.parent_id]));
+  let current: string | null | undefined = folderId;
+  while (current) {
+    const parent = parentById.get(current) ?? null;
+    if (parent === possibleAncestorId) return true;
+    current = parent;
   }
   return false;
 }

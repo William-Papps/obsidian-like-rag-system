@@ -11,7 +11,22 @@ export const dynamic = "force-dynamic";
 
 export async function GET() {
   return withAuthenticatedUser(async (user) => {
-    let notes = await listNotes(user.id);
+    const [notesRaw, folders, settings, indexStatus, tagRows, workspaces] = await Promise.all([
+      listNotes(user.id),
+      listFolders(user.id),
+      getProviderSettings(user.id),
+      getIndexStatus(user.id),
+      dbAll<{ note_id: string; tag_name: string }>(
+        `select nt.note_id, t.name as tag_name
+         from note_tags nt
+         join tags t on t.id = nt.tag_id
+         where t.user_id = ?`,
+        [user.id]
+      ),
+      listUserWorkspaces(user.id)
+    ]);
+
+    let notes = notesRaw;
     if (notes.length === 0) {
       notes = [
         await createNote(user.id, {
@@ -34,19 +49,6 @@ The AI answers only from documents you have added and indexed. If the answer isn
         })
       ];
     }
-    const [folders, settings, indexStatus, tagRows, workspaces] = await Promise.all([
-      listFolders(user.id),
-      getProviderSettings(user.id),
-      getIndexStatus(user.id),
-      dbAll<{ note_id: string; tag_name: string }>(
-        `select nt.note_id, t.name as tag_name
-         from note_tags nt
-         join tags t on t.id = nt.tag_id
-         where t.user_id = ?`,
-        [user.id]
-      ),
-      listUserWorkspaces(user.id)
-    ]);
     const noteTags: Record<string, string[]> = {};
     for (const row of tagRows) {
       if (!noteTags[row.note_id]) noteTags[row.note_id] = [];

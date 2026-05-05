@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   allowedDevOrigins: ["notes.eternalbot.net"],
+  experimental: {
+    optimizePackageImports: ["lucide-react", "framer-motion"]
+  },
   async headers() {
     return [
       {

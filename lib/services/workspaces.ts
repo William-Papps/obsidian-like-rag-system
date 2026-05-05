@@ -38,18 +38,45 @@ export async function listUserWorkspaces(userId: string): Promise<WorkspaceWithM
      order by w.created_at asc`,
     [userId]
   );
-  return Promise.all(workspaceRows.map(async (row) => {
-    const members = await listWorkspaceMembers(row.id);
-    return {
-      id: row.id,
-      name: row.name,
-      ownerUserId: row.owner_user_id,
-      description: row.description,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-      members,
-      currentUserRole: row.role as WorkspaceMemberRole
-    };
+  if (workspaceRows.length === 0) return [];
+
+  // Fetch all members for all workspaces in one query instead of one per workspace
+  const workspaceIds = workspaceRows.map((r) => r.id);
+  const allMemberRows = await dbAll<{
+    workspace_id: string; user_id: string; email: string; name: string; role: string; joined_at: string | null; created_at: string;
+  }>(
+    `select wm.workspace_id, wm.user_id, u.email, u.name, wm.role, wm.joined_at, wm.created_at
+     from workspace_members wm
+     join users u on u.id = wm.user_id
+     where wm.workspace_id in (${workspaceIds.map(() => "?").join(",")})
+     order by wm.created_at asc`,
+    workspaceIds
+  );
+
+  const membersByWorkspace = new Map<string, WorkspaceMember[]>();
+  for (const m of allMemberRows) {
+    const list = membersByWorkspace.get(m.workspace_id) ?? [];
+    list.push({
+      workspaceId: m.workspace_id,
+      userId: m.user_id,
+      email: m.email,
+      name: m.name,
+      role: m.role as WorkspaceMemberRole,
+      joinedAt: m.joined_at,
+      createdAt: m.created_at
+    });
+    membersByWorkspace.set(m.workspace_id, list);
+  }
+
+  return workspaceRows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    ownerUserId: row.owner_user_id,
+    description: row.description,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    members: membersByWorkspace.get(row.id) ?? [],
+    currentUserRole: row.role as WorkspaceMemberRole
   }));
 }
 

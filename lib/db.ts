@@ -465,6 +465,12 @@ function migrate(database: Database) {
 
   ensureColumn(database, "notes", "workspace_id", "text");
   ensureColumn(database, "folders", "workspace_id", "text");
+
+  database.exec(`
+    create index if not exists idx_notes_workspace on notes(workspace_id);
+    create index if not exists idx_folders_workspace on folders(workspace_id);
+    create index if not exists idx_chunks_embedded on chunks(user_id, embedded);
+  `);
   ensureColumn(database, "notes", "department", "text");
   ensureColumn(database, "notes", "effective_date", "text");
   ensureColumn(database, "notes", "doc_status", "text default 'active'");
