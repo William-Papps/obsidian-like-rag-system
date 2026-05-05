@@ -18,11 +18,12 @@ export async function GET() {
   return withAuthenticatedUser(async (user) => {
     if (!isAdmin(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
-    // Last 6 month periods in YYYY-MM format.
+    // Last 6 month periods in YYYY-MM format. Use Date.UTC to avoid local-
+    // timezone offsets shifting the month when reading back via getUTC* methods.
     const periods: string[] = [];
     const now = new Date();
     for (let i = 0; i < 6; i++) {
-      const d = new Date(now.getUTCFullYear(), now.getUTCMonth() - i, 1);
+      const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
       periods.push(`${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`);
     }
 
