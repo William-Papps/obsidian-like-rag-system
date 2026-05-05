@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
-import { createRequire } from "module";
-const pdfParse = createRequire(import.meta.url)("pdf-parse") as (buffer: Buffer) => Promise<{ text: string }>;
+import { PDFParse } from "pdf-parse";
 import { withAuthenticatedUser } from "@/lib/auth";
 import { extractTextFromImage } from "@/lib/import/vision";
 import { QuotaExceededError, checkHostedQuota, resolveAiContext } from "@/lib/services/ai-access";
@@ -50,13 +49,14 @@ async function convertDocxToMarkdown(userId: string, buffer: Buffer): Promise<{ 
 }
 
 async function convertPdfToMarkdown(buffer: Buffer): Promise<string> {
-  const data = await pdfParse(buffer);
-  const text = data.text
+  const parser = new PDFParse({ data: buffer });
+  const result = await parser.getText();
+  await parser.destroy();
+  return result.text
     .replace(/\r\n?/g, "\n")
     .replace(/[ \t]+$/gm, "")
     .replace(/\n{4,}/g, "\n\n\n")
     .trim();
-  return text;
 }
 
 async function convertTextToMarkdown(text: string): Promise<string> {
