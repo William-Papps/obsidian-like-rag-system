@@ -17,12 +17,14 @@ export async function reindexNotes(userId: string, scope?: { noteId?: string; fo
     return true;
   });
 
+  const currentProvider = ai.apiKey ? "openai" : "local";
+
   let indexed = 0;
   for (const note of notes) {
-    // Skip notes whose content hash hasn't changed and already have chunks.
+    // Skip only if content hash matches AND chunks were embedded with the current provider.
     const upToDate = await dbGet<{ count: number }>(
-      "select count(*) as count from chunks where user_id = ? and note_id = ? and content_hash = ?",
-      [userId, note.id, note.contentHash]
+      "select count(*) as count from chunks where user_id = ? and note_id = ? and content_hash = ? and coalesce(vector_provider, 'local') = ?",
+      [userId, note.id, note.contentHash, currentProvider]
     );
     if ((upToDate?.count ?? 0) > 0) continue;
 
@@ -53,22 +55,26 @@ async function indexNoteIncremental(
   const newTexts = chunkNote(note);
   const newHashes = newTexts.map((text) => sha256(text));
 
-  // Load existing chunks for this note (with per-chunk hashes where available).
+  const currentProvider = ai.apiKey ? "openai" : "local";
+
+  // Load existing chunks for this note (with per-chunk hashes and provider where available).
   const existing = await dbAll<{
     id: string;
     chunk_content_hash: string | null;
     chunk_index: number;
-  }>("select id, chunk_content_hash, chunk_index from chunks where user_id = ? and note_id = ? order by chunk_index", [userId, note.id]);
+    vector_provider: string | null;
+  }>("select id, chunk_content_hash, chunk_index, vector_provider from chunks where user_id = ? and note_id = ? order by chunk_index", [userId, note.id]);
 
-  // Build lookup: chunk_content_hash → existing chunk row (first match wins).
+  // Build lookup: chunk_content_hash → existing chunk row, but only reuse if provider matches.
   const existingByHash = new Map<string, (typeof existing)[0]>();
   for (const row of existing) {
-    if (row.chunk_content_hash && !existingByHash.has(row.chunk_content_hash)) {
+    const providerMatch = (row.vector_provider ?? "local") === currentProvider;
+    if (row.chunk_content_hash && providerMatch && !existingByHash.has(row.chunk_content_hash)) {
       existingByHash.set(row.chunk_content_hash, row);
     }
   }
 
-  // Determine which indices need embedding (no existing chunk with the same hash).
+  // Determine which indices need embedding (no reusable chunk with same hash + provider).
   const needEmbed: number[] = [];
   for (let i = 0; i < newTexts.length; i++) {
     if (!existingByHash.has(newHashes[i])) needEmbed.push(i);
@@ -102,9 +108,9 @@ async function indexNoteIncremental(
       await dbRun(
         `insert into chunks
            (id, user_id, note_id, chunk_text, chunk_index, content_hash, chunk_content_hash,
-            embedded, vector_id, vector_blob, vector_json, created_at, updated_at)
-         values (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, null, ?, ?)`,
-        [chunkId, userId, note.id, text, i, note.contentHash, chunkHash, vectorId, vectorBlob, now(), now()]
+            embedded, vector_id, vector_blob, vector_json, vector_provider, created_at, updated_at)
+         values (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, null, ?, ?, ?)`,
+        [chunkId, userId, note.id, text, i, note.contentHash, chunkHash, vectorId, vectorBlob, embedding.provider, now(), now()]
       );
     }
   }
