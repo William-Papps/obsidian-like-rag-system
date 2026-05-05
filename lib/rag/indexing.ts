@@ -47,8 +47,9 @@ export async function getIndexStatus(userId: string) {
   return { notes: notes?.count ?? 0, chunks: chunks?.count ?? 0, staleNotes: stale?.count ?? 0 };
 }
 
-// Per-chunk incremental: reuse embeddings for chunks whose content is unchanged.
-// Only new/changed chunks incur an embedding call.
+// Snapshot existing embeddings into memory, wipe the note's rows, then re-insert cleanly.
+// Avoids UNIQUE(note_id, chunk_index, content_hash) conflicts caused by in-place updates
+// when chunks reorder, duplicate, or change provider.
 async function indexNoteIncremental(
   userId: string,
   note: Note,
@@ -56,84 +57,60 @@ async function indexNoteIncremental(
 ): Promise<number> {
   const newTexts = chunkNote(note);
   const newHashes = newTexts.map((text) => sha256(text));
-
   const currentProvider = ai.apiKey ? "openai" : "local";
 
-  // Load existing chunks for this note (with per-chunk hashes and provider where available).
+  // Cache current-provider embeddings by chunk hash before wiping the rows.
   const existing = await dbAll<{
-    id: string;
     chunk_content_hash: string | null;
-    chunk_index: number;
+    vector_blob: Buffer | null;
+    vector_id: string | null;
     vector_provider: string | null;
-  }>("select id, chunk_content_hash, chunk_index, vector_provider from chunks where user_id = ? and note_id = ? order by chunk_index", [userId, note.id]);
-
-  // Two lookups: same-provider (fully reusable) and any-provider (needs re-embedding but row exists).
-  const existingByHash = new Map<string, (typeof existing)[0]>();      // provider matches — reuse as-is
-  const existingByHashAny = new Map<string, (typeof existing)[0]>();   // any provider — update in-place
+  }>(
+    "select chunk_content_hash, vector_blob, vector_id, vector_provider from chunks where user_id = ? and note_id = ? and coalesce(vector_provider, 'local') = ?",
+    [userId, note.id, currentProvider]
+  );
+  const embeddingCache = new Map<string, { vectorBlob: Buffer; vectorId: string }>();
   for (const row of existing) {
-    if (!row.chunk_content_hash) continue;
-    if (!existingByHashAny.has(row.chunk_content_hash)) existingByHashAny.set(row.chunk_content_hash, row);
-    const providerMatch = (row.vector_provider ?? "local") === currentProvider;
-    if (providerMatch && !existingByHash.has(row.chunk_content_hash)) existingByHash.set(row.chunk_content_hash, row);
+    if (row.chunk_content_hash && row.vector_blob && row.vector_id && !embeddingCache.has(row.chunk_content_hash)) {
+      embeddingCache.set(row.chunk_content_hash, { vectorBlob: row.vector_blob, vectorId: row.vector_id });
+    }
   }
 
-  // Need embedding: chunks whose hash has no matching same-provider row.
-  const needEmbed: number[] = [];
-  for (let i = 0; i < newTexts.length; i++) {
-    if (!existingByHash.has(newHashes[i])) needEmbed.push(i);
-  }
+  // Wipe all existing chunks for this note — clean slate eliminates constraint conflicts.
+  await dbRun("delete from chunks where user_id = ? and note_id = ?", [userId, note.id]);
 
-  // Embed only changed/new/provider-mismatched chunks.
-  const embeddings = needEmbed.length > 0
+  // Embed only chunks not covered by the cache.
+  const needEmbed = newTexts.map((_, i) => i).filter((i) => !embeddingCache.has(newHashes[i]));
+  const newEmbeddings = needEmbed.length > 0
     ? await embedBatch(userId, needEmbed.map((i) => newTexts[i]), ai.settings.embeddingModel, ai)
     : [];
 
   let embedIdx = 0;
-  const usedExistingIds = new Set<string>();
-
   for (let i = 0; i < newTexts.length; i++) {
     const chunkHash = newHashes[i];
-    const text = newTexts[i];
-    const reused = existingByHash.get(chunkHash);
+    const cached = embeddingCache.get(chunkHash);
+    let vectorBlob: Buffer | Uint8Array;
+    let vectorId: string;
+    let provider: string;
 
-    if (reused) {
-      usedExistingIds.add(reused.id);
-      await dbRun(
-        "update chunks set chunk_index = ?, content_hash = ?, updated_at = ? where id = ?",
-        [i, note.contentHash, now(), reused.id]
-      );
+    if (cached) {
+      vectorBlob = cached.vectorBlob;
+      vectorId = cached.vectorId;
+      provider = currentProvider;
     } else {
-      const embedding = embeddings[embedIdx++];
-      const vectorId = `${embedding.provider}:${sha256(`${note.id}:${i}:${note.contentHash}`).slice(0, 24)}`;
-      const vectorBlob = new Uint8Array(new Float32Array(embedding.vector).buffer);
-
-      // If a row already exists at this position (different provider), update it in-place
-      // to avoid violating the UNIQUE(note_id, chunk_index, content_hash) constraint.
-      const stale = existingByHashAny.get(chunkHash);
-      if (stale) {
-        usedExistingIds.add(stale.id);
-        await dbRun(
-          "update chunks set chunk_index = ?, content_hash = ?, vector_id = ?, vector_blob = ?, vector_json = null, vector_provider = ?, embedded = 1, updated_at = ? where id = ?",
-          [i, note.contentHash, vectorId, vectorBlob, embedding.provider, now(), stale.id]
-        );
-      } else {
-        const chunkId = id();
-        await dbRun(
-          `insert into chunks
-             (id, user_id, note_id, chunk_text, chunk_index, content_hash, chunk_content_hash,
-              embedded, vector_id, vector_blob, vector_json, vector_provider, created_at, updated_at)
-           values (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, null, ?, ?, ?)`,
-          [chunkId, userId, note.id, text, i, note.contentHash, chunkHash, vectorId, vectorBlob, embedding.provider, now(), now()]
-        );
-      }
+      const embedding = newEmbeddings[embedIdx++];
+      vectorId = `${embedding.provider}:${sha256(`${note.id}:${i}:${note.contentHash}`).slice(0, 24)}`;
+      vectorBlob = new Uint8Array(new Float32Array(embedding.vector).buffer);
+      provider = embedding.provider;
     }
-  }
 
-  // Delete chunks that are no longer part of the note.
-  for (const row of existing) {
-    if (!usedExistingIds.has(row.id)) {
-      await dbRun("delete from chunks where id = ?", [row.id]);
-    }
+    await dbRun(
+      `insert into chunks
+         (id, user_id, note_id, chunk_text, chunk_index, content_hash, chunk_content_hash,
+          embedded, vector_id, vector_blob, vector_json, vector_provider, created_at, updated_at)
+       values (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, null, ?, ?, ?)`,
+      [id(), userId, note.id, newTexts[i], i, note.contentHash, chunkHash, vectorId, vectorBlob, provider, now(), now()]
+    );
   }
 
   return needEmbed.length;
