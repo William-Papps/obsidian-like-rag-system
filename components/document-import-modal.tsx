@@ -46,8 +46,8 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
       });
 
       if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || "Conversion failed");
+        const error = await response.json().catch(() => ({})) as { error?: string };
+        throw new Error(error.error || `Conversion failed (${response.status})`);
       }
 
       const data = await response.json();
