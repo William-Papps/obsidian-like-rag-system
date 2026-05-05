@@ -1588,7 +1588,7 @@ export function Workspace() {
           style={{ ...workspaceGridStyle, height: isMobile ? "calc(100vh - 56px)" : "100vh" }}
         >
         <aside className={`panel-shell relative min-h-0 overflow-hidden border-r transition-opacity duration-200 ${leftOpen && !zenMode ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "vault" ? "hidden" : ""}`}>
-          <div className="border-b border-ink-700/80 px-3 py-2">
+          <div className="border-b border-white/[0.06] bg-ink-950/40 px-3 py-2">
             {/* Breadcrumb: Workspace › Folder  +  actions */}
             <div className="flex min-w-0 items-center gap-1">
               {activeWorkspace ? <Users className="h-3 w-3 shrink-0 text-accent-400" /> : <BookOpen className="h-3 w-3 shrink-0 text-accent-400" />}
@@ -1842,7 +1842,7 @@ export function Workspace() {
         <section className={`grid min-h-0 min-w-0 grid-rows-[auto_42px_45px_minmax(0,1fr)] overflow-hidden bg-ink-925 ${isMobile && mobileTab !== "editor" ? "hidden" : ""}`}>
           {activeNote ? (
             <>
-              <div className="min-w-0 border-b border-ink-700/80 bg-ink-925/95 px-5 py-3">
+              <div className="min-w-0 border-b border-white/[0.06] bg-ink-950/60 px-5 py-3 backdrop-blur-sm">
                 <div className="flex min-w-0 items-center gap-3">
                   <input
                     value={draftTitle}
@@ -2138,9 +2138,21 @@ export function Workspace() {
             </>
           ) : (
             <div className="row-span-4 grid h-full place-items-center p-8">
-              <EmptyState action="Create note" onAction={() => createNote()}>
-                Create a document, then index it to start asking questions from your knowledge base.
-              </EmptyState>
+              <div className="relative w-full max-w-md text-center">
+                <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-500/10 blur-[80px]" />
+                <div className="relative mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-500/30 bg-accent-500/15 shadow-glow">
+                  <Sparkles className="h-6 w-6 text-accent-400" />
+                </div>
+                <div className="relative text-xl font-bold tracking-tight text-ink-100">Start writing</div>
+                <div className="relative mt-2 text-sm leading-6 text-ink-500">Create a document, index it, then ask questions from your knowledge base using the AI tools panel.</div>
+                <button
+                  onClick={() => createNote()}
+                  className="relative mt-5 inline-flex items-center gap-2 rounded-xl bg-accent-500 px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-colors hover:bg-accent-400"
+                >
+                  <FilePlus className="h-4 w-4" />
+                  Create note
+                </button>
+              </div>
             </div>
           )}
         </section>
@@ -2464,12 +2476,12 @@ function SideRail(props: {
       }`}
     >
       <div className={`flex shrink-0 items-center gap-3 px-2 ${expanded ? "" : "justify-center"}`}>
-        <div className="grid h-11 w-11 place-items-center rounded-full border border-accent-500/30 bg-accent-500/15 text-accent-300 shadow-glow">
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-accent-500/35 bg-gradient-to-br from-accent-500/20 to-accent-600/10 text-accent-300 shadow-glow">
           <Sparkles className="h-4 w-4" />
         </div>
         {expanded ? (
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-ink-100">EternalNotes</div>
+            <div className="truncate bg-gradient-to-r from-accent-300 to-accent-400 bg-clip-text text-sm font-bold tracking-tight text-transparent">EternalNotes</div>
             <div className="truncate text-xs text-ink-500">{props.data.user.email}</div>
           </div>
         ) : null}
@@ -2550,7 +2562,7 @@ function EditorNoteTabs({
   onTogglePin: (note: Note) => void;
 }) {
   return (
-    <div className="flex min-w-0 items-end gap-1 overflow-x-auto border-b border-ink-700/80 bg-ink-950/60 px-3 pt-1">
+    <div className="flex min-w-0 items-end gap-1 overflow-x-auto border-b border-white/[0.06] bg-ink-950/50 px-3 pt-1">
       {notes.map((note) => {
         const active = note.id === activeNoteId;
         const pinned = pinnedNoteIds.includes(note.id);
@@ -2558,7 +2570,7 @@ function EditorNoteTabs({
           <div
             key={note.id}
             className={`group flex h-9 min-w-[140px] max-w-[220px] items-center gap-2 rounded-t-lg border border-b-0 px-2.5 ${
-              active ? "border-accent-500/35 bg-ink-925 text-ink-100 shadow-glow" : "border-ink-700/60 bg-ink-900/50 text-ink-400 hover:bg-ink-850/80 hover:text-ink-100"
+              active ? "border-accent-500/30 border-b-transparent bg-ink-900/80 text-ink-100 shadow-[0_0_12px_rgba(139,92,246,0.08)]" : "border-white/[0.06] bg-ink-900/30 text-ink-500 hover:bg-ink-900/60 hover:text-ink-200"
             }`}
           >
             <button onClick={() => onTogglePin(note)} aria-label={pinned ? `Unpin ${note.title}` : `Pin ${note.title}`} className="shrink-0 text-ink-500 hover:text-accent-300">
@@ -2629,23 +2641,23 @@ function NoteViewTabs({
   ];
 
   return (
-    <div className="flex min-w-0 items-end justify-between gap-3 overflow-x-auto overflow-y-hidden border-b border-ink-700/80 bg-ink-950/45 px-5">
-      <div className="flex h-full min-w-max items-end gap-1">
+    <div className="flex min-w-0 items-center justify-between gap-3 overflow-x-auto overflow-y-hidden border-b border-white/[0.06] bg-ink-950/30 px-5">
+      <div className="flex h-full min-w-max items-center gap-1 py-1.5">
         {tabs.map((tab) => (
           <button
             key={tab.id}
             onClick={() => onChange(tab.id)}
-            className={`h-9 rounded-t-lg border border-b-0 px-4 text-sm font-medium ${
+            className={`h-7 rounded-lg px-3.5 text-xs font-semibold transition-colors ${
               value === tab.id
-                ? "border-ink-700 bg-ink-925 text-ink-100 shadow-glow"
-                : "border-transparent text-ink-500 hover:bg-ink-850/70 hover:text-ink-100"
+                ? "border border-accent-500/25 bg-accent-500/12 text-accent-300"
+                : "border border-transparent text-ink-500 hover:text-ink-200"
             }`}
           >
             {tab.label}
           </button>
         ))}
       </div>
-      <div className="hidden min-w-max items-center gap-2 pb-1.5 lg:flex">
+      <div className="hidden min-w-max items-center gap-2 py-1.5 lg:flex">
         {value === "code" && codeLanguage && onChangeCodeLanguage ? (
           <>
             <select
@@ -2775,11 +2787,16 @@ function AssistantPanel(props: {
 
   return (
     <aside className="panel-shell grid h-full min-h-0 grid-rows-[72px_70px_minmax(0,1fr)] overflow-hidden border-l">
-      <div className="flex min-w-0 items-center justify-between gap-2 border-b border-ink-700/80 px-4">
+      <div className="flex min-w-0 items-center justify-between gap-2 border-b border-white/[0.06] px-4">
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-ink-100">Knowledge Tools</div>
+          <div className="flex items-center gap-2">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-accent-500/30 bg-accent-500/15">
+              <Sparkles className="h-3.5 w-3.5 text-accent-400" />
+            </div>
+            <div className="text-sm font-semibold text-ink-100">Knowledge Tools</div>
+          </div>
           <div className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-500">
-            <ShieldCheck className="h-3.5 w-3.5 text-accent-400" />
+            <ShieldCheck className="h-3 w-3 text-accent-400/70" />
             Cited from your documents
           </div>
         </div>
@@ -2790,19 +2807,19 @@ function AssistantPanel(props: {
           </IconButton>
         </div>
       </div>
-      <div className="relative flex min-w-0 overflow-x-auto overflow-y-hidden border-b border-ink-700/80 bg-ink-950/30">
+      <div className="relative flex min-w-0 overflow-x-auto overflow-y-hidden border-b border-white/[0.06] bg-white/[0.015]">
         {tabs.map(([id, fullLabel, shortLabel, icon]) => (
           <button
             key={id}
             onClick={() => props.setTab(id)}
             title={fullLabel}
-            className={`relative flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[10px] font-medium transition-all duration-200 ease-premium ${
+            className={`relative flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[10px] font-medium transition-all duration-150 ${
               props.tab === id
-                ? "text-accent-300 after:absolute after:bottom-0 after:left-0 after:right-0 after:h-[2px] after:bg-accent-500"
-                : "text-ink-500 hover:bg-white/[0.03] hover:text-ink-300"
+                ? "text-accent-300 after:absolute after:bottom-0 after:left-1 after:right-1 after:h-[2px] after:rounded-full after:bg-accent-500"
+                : "text-ink-500 hover:text-ink-300"
             }`}
           >
-            {icon}
+            <span className={props.tab === id ? "text-accent-400" : ""}>{icon}</span>
             <span>{shortLabel}</span>
           </button>
         ))}
@@ -4352,8 +4369,8 @@ function NoteRow({
       draggable={!bulkMode}
       onDragStart={onDragStart}
       onContextMenu={onMenu}
-      className={`group relative flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-all duration-200 ease-premium ${
-        bulkSelected ? "border-accent-500/40 bg-accent-500/12" : active ? "border-accent-500/30 bg-accent-500/10 text-ink-100 shadow-glow" : "border-transparent text-ink-300 hover:bg-white/[0.04] hover:text-ink-100"
+      className={`group relative flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-all duration-150 ${
+        bulkSelected ? "border-accent-500/40 bg-accent-500/12" : active ? "border-accent-500/25 bg-accent-500/10 text-ink-100 shadow-[0_0_12px_rgba(139,92,246,0.08)]" : "border-transparent text-ink-300 hover:border-white/[0.05] hover:bg-white/[0.035] hover:text-ink-100"
       }`}
     >
       {bulkMode ? (
@@ -5345,7 +5362,7 @@ function ResizeHandle({ side, onPointerDown }: { side: "left" | "right"; onPoint
 
 function MetricPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-ink-700/80 bg-ink-950/35 px-2.5 py-2">
+    <div className="rounded-lg border border-white/[0.07] bg-white/[0.025] px-2.5 py-2">
       <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-500">{label}</div>
       <div className="mt-0.5 truncate text-xs font-semibold text-ink-200">{value}</div>
     </div>
@@ -5394,9 +5411,9 @@ function ToolHeader({ title, description }: { title: string; description: string
 
 function EmptyState({ children, action, onAction }: { children: React.ReactNode; action: string; onAction: () => void }) {
   return (
-    <div className="surface-soft rounded-xl p-4 text-sm leading-6 text-ink-400">
+    <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-4 text-sm leading-6 text-ink-400">
       <div>{children}</div>
-      <button onClick={onAction} className="mt-3 rounded-lg border border-accent-500/30 bg-accent-500/10 px-3 py-1.5 text-xs font-semibold text-accent-300 hover:bg-accent-500/20">
+      <button onClick={onAction} className="mt-3 rounded-lg border border-accent-500/30 bg-accent-500/12 px-3 py-1.5 text-xs font-semibold text-accent-300 transition-colors hover:bg-accent-500/20">
         {action}
       </button>
     </div>
