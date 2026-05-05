@@ -247,13 +247,20 @@ export function Workspace() {
       return;
     }
     const payload = (await response.json()) as Bootstrap;
-    const wsParam = currentWsId ? `?workspaceId=${currentWsId}` : "";
-    const [folders, notes, indexStatus] = await Promise.all([
-      fetch(`/api/folders${wsParam}`, { cache: "no-store" }).then((result) => result.json() as Promise<FolderType[]>),
-      fetch(`/api/notes${wsParam}`, { cache: "no-store" }).then((result) => result.json() as Promise<Note[]>),
-      fetch("/api/index", { cache: "no-store" }).then((result) => result.json() as Promise<Bootstrap["indexStatus"]>)
-    ]);
-    const next = { ...payload, folders, notes, indexStatus };
+
+    // Bootstrap already includes personal-workspace folders, notes, and indexStatus.
+    // Only fetch workspace-specific overrides when actually inside a workspace.
+    let folders = payload.folders;
+    let notes = payload.notes;
+    if (currentWsId) {
+      const wsParam = `?workspaceId=${currentWsId}`;
+      [folders, notes] = await Promise.all([
+        fetch(`/api/folders${wsParam}`, { cache: "no-store" }).then((r) => r.json() as Promise<FolderType[]>),
+        fetch(`/api/notes${wsParam}`, { cache: "no-store" }).then((r) => r.json() as Promise<Note[]>)
+      ]);
+    }
+
+    const next = { ...payload, folders, notes };
     dataRef.current = next;
     setData(next);
     setActiveNoteId((current) => current || next.notes[0]?.id || null);

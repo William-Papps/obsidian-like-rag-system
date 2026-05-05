@@ -36,12 +36,14 @@ export async function reindexNotes(userId: string, scope?: { noteId?: string; fo
 }
 
 export async function getIndexStatus(userId: string) {
-  const notes = await dbGet<{ count: number }>("select count(*) as count from notes where user_id = ?", [userId]);
-  const chunks = await dbGet<{ count: number }>("select count(*) as count from chunks where user_id = ?", [userId]);
-  const stale = await dbGet<{ count: number }>(
-    "select count(*) as count from notes n where n.user_id = ? and not exists (select 1 from chunks c where c.note_id = n.id and c.content_hash = n.content_hash)",
-    [userId]
-  );
+  const [notes, chunks, stale] = await Promise.all([
+    dbGet<{ count: number }>("select count(*) as count from notes where user_id = ?", [userId]),
+    dbGet<{ count: number }>("select count(*) as count from chunks where user_id = ?", [userId]),
+    dbGet<{ count: number }>(
+      "select count(*) as count from notes n where n.user_id = ? and not exists (select 1 from chunks c where c.note_id = n.id and c.content_hash = n.content_hash)",
+      [userId]
+    )
+  ]);
   return { notes: notes?.count ?? 0, chunks: chunks?.count ?? 0, staleNotes: stale?.count ?? 0 };
 }
 
