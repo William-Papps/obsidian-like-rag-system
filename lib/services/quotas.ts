@@ -12,22 +12,27 @@ export const PLAN_LIMITS: Record<HostedPlan, Record<AiFeature, number | null>> =
     index: null
   },
   starter: {
-    ask: 200,
-    quiz: 100,
-    flashcards: 100,
-    summary: 100,
-    ocr: 50,
-    index: 75
+    ask: 300,
+    quiz: 150,
+    flashcards: 150,
+    summary: 150,
+    ocr: 75,
+    index: 200
   },
   pro: {
-    ask: 600,
-    quiz: 300,
-    flashcards: 300,
-    summary: 300,
-    ocr: 150,
-    index: 200
+    ask: 1500,
+    quiz: 750,
+    flashcards: 750,
+    summary: 750,
+    ocr: 400,
+    index: 2000
   }
 };
+
+async function isOwnerOrAdmin(userId: string): Promise<boolean> {
+  const row = await dbGet<{ role: string }>("select role from users where id = ?", [userId]);
+  return row?.role === "owner" || row?.role === "admin";
+}
 
 export class QuotaExceededError extends Error {
   feature: AiFeature;
@@ -68,6 +73,7 @@ export async function getUsageSummary(userId: string, plan: HostedPlan): Promise
 }
 
 export async function peekQuota(userId: string, plan: HostedPlan, feature: AiFeature) {
+  if (await isOwnerOrAdmin(userId)) return;
   const limit = PLAN_LIMITS[plan][feature];
   if (typeof limit !== "number") {
     throw new QuotaExceededError(feature, "Hosted AI is not enabled for this account.");
@@ -83,28 +89,35 @@ export async function peekQuota(userId: string, plan: HostedPlan, feature: AiFea
 }
 
 export async function consumeQuota(userId: string, plan: HostedPlan, feature: AiFeature) {
+  const privileged = await isOwnerOrAdmin(userId);
   const limit = PLAN_LIMITS[plan][feature];
-  if (typeof limit !== "number") {
-    throw new QuotaExceededError(feature, "Hosted AI is not enabled for this account.");
+
+  if (!privileged) {
+    if (typeof limit !== "number") {
+      throw new QuotaExceededError(feature, "Hosted AI is not enabled for this account.");
+    }
+    const period = currentUsagePeriod();
+    const current = await dbGet<{ id: string; count: number }>(
+      "select id, count from ai_usage where user_id = ? and period = ? and feature = ?",
+      [userId, period, feature]
+    );
+    if ((current?.count ?? 0) >= limit) {
+      throw new QuotaExceededError(feature, `Your hosted AI quota for ${feature} is exhausted this month.`);
+    }
   }
 
+  // Always record usage for visibility in the admin dashboard, even for privileged users.
   const period = currentUsagePeriod();
   const current = await dbGet<{ id: string; count: number }>(
     "select id, count from ai_usage where user_id = ? and period = ? and feature = ?",
     [userId, period, feature]
   );
-
-  if ((current?.count ?? 0) >= limit) {
-    throw new QuotaExceededError(feature, `Your hosted AI quota for ${feature} is exhausted this month.`);
-  }
-
   if (current) {
     await dbRun("update ai_usage set count = count + 1, updated_at = ? where id = ?", [now(), current.id]);
-    return;
+  } else {
+    await dbRun(
+      "insert into ai_usage (id, user_id, period, feature, count, created_at, updated_at) values (?, ?, ?, ?, 1, ?, ?)",
+      [id(), userId, period, feature, now(), now()]
+    );
   }
-
-  await dbRun(
-    "insert into ai_usage (id, user_id, period, feature, count, created_at, updated_at) values (?, ?, ?, ?, 1, ?, ?)",
-    [id(), userId, period, feature, now(), now()]
-  );
 }
