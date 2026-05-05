@@ -9,14 +9,6 @@ function imagesDir() {
   return path.join(base, "images");
 }
 
-async function reindexNoteIfChanged(userId: string, noteId: string) {
-  try {
-    const { reindexNotes } = await import("@/lib/rag/indexing");
-    await reindexNotes(userId, { noteId });
-  } catch {
-    // best-effort — never block a save because indexing failed
-  }
-}
 
 const starter = `# Untitled document
 
@@ -161,10 +153,6 @@ export async function updateNote(
     "update notes set folder_id = ?, title = ?, markdown_content = ?, content_hash = ?, sort_order = ?, department = ?, effective_date = ?, doc_status = ?, doc_type = ?, updated_at = ? where id = ? and user_id = ?",
     [next.folderId, next.title, next.markdownContent, next.contentHash, next.sortOrder ?? null, next.department ?? null, next.effectiveDate ?? null, next.docStatus ?? null, next.docType ?? null, next.updatedAt, noteId, userId]
   );
-
-  if (contentChanged) {
-    void reindexNoteIfChanged(userId, noteId);
-  }
 
   return next;
 }
