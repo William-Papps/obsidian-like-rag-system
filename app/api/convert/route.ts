@@ -1,9 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import mammoth from "mammoth";
 import { createRequire } from "module";
-// Use the internal lib path to avoid pdf-parse's top-level test-file lookup
-// which crashes the module when the test fixtures aren't present.
-const pdfParse = createRequire(import.meta.url)("pdf-parse/lib/pdf-parse.js") as (buffer: Buffer) => Promise<{ text: string }>;
+const pdfParse = createRequire(import.meta.url)("pdf-parse") as (buffer: Buffer) => Promise<{ text: string }>;
 import { withAuthenticatedUser } from "@/lib/auth";
 import { extractTextFromImage } from "@/lib/import/vision";
 import { QuotaExceededError, checkHostedQuota, resolveAiContext } from "@/lib/services/ai-access";
