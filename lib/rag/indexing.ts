@@ -65,22 +65,23 @@ async function indexNoteIncremental(
     vector_provider: string | null;
   }>("select id, chunk_content_hash, chunk_index, vector_provider from chunks where user_id = ? and note_id = ? order by chunk_index", [userId, note.id]);
 
-  // Build lookup: chunk_content_hash → existing chunk row, but only reuse if provider matches.
-  const existingByHash = new Map<string, (typeof existing)[0]>();
+  // Two lookups: same-provider (fully reusable) and any-provider (needs re-embedding but row exists).
+  const existingByHash = new Map<string, (typeof existing)[0]>();      // provider matches — reuse as-is
+  const existingByHashAny = new Map<string, (typeof existing)[0]>();   // any provider — update in-place
   for (const row of existing) {
+    if (!row.chunk_content_hash) continue;
+    if (!existingByHashAny.has(row.chunk_content_hash)) existingByHashAny.set(row.chunk_content_hash, row);
     const providerMatch = (row.vector_provider ?? "local") === currentProvider;
-    if (row.chunk_content_hash && providerMatch && !existingByHash.has(row.chunk_content_hash)) {
-      existingByHash.set(row.chunk_content_hash, row);
-    }
+    if (providerMatch && !existingByHash.has(row.chunk_content_hash)) existingByHash.set(row.chunk_content_hash, row);
   }
 
-  // Determine which indices need embedding (no reusable chunk with same hash + provider).
+  // Need embedding: chunks whose hash has no matching same-provider row.
   const needEmbed: number[] = [];
   for (let i = 0; i < newTexts.length; i++) {
     if (!existingByHash.has(newHashes[i])) needEmbed.push(i);
   }
 
-  // Embed only changed/new chunks.
+  // Embed only changed/new/provider-mismatched chunks.
   const embeddings = needEmbed.length > 0
     ? await embedBatch(userId, needEmbed.map((i) => newTexts[i]), ai.settings.embeddingModel, ai)
     : [];
@@ -95,23 +96,34 @@ async function indexNoteIncremental(
 
     if (reused) {
       usedExistingIds.add(reused.id);
-      // Update position and note-level hash to keep skip-check working on next run.
       await dbRun(
         "update chunks set chunk_index = ?, content_hash = ?, updated_at = ? where id = ?",
         [i, note.contentHash, now(), reused.id]
       );
     } else {
       const embedding = embeddings[embedIdx++];
-      const chunkId = id();
       const vectorId = `${embedding.provider}:${sha256(`${note.id}:${i}:${note.contentHash}`).slice(0, 24)}`;
       const vectorBlob = new Uint8Array(new Float32Array(embedding.vector).buffer);
-      await dbRun(
-        `insert into chunks
-           (id, user_id, note_id, chunk_text, chunk_index, content_hash, chunk_content_hash,
-            embedded, vector_id, vector_blob, vector_json, vector_provider, created_at, updated_at)
-         values (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, null, ?, ?, ?)`,
-        [chunkId, userId, note.id, text, i, note.contentHash, chunkHash, vectorId, vectorBlob, embedding.provider, now(), now()]
-      );
+
+      // If a row already exists at this position (different provider), update it in-place
+      // to avoid violating the UNIQUE(note_id, chunk_index, content_hash) constraint.
+      const stale = existingByHashAny.get(chunkHash);
+      if (stale) {
+        usedExistingIds.add(stale.id);
+        await dbRun(
+          "update chunks set chunk_index = ?, content_hash = ?, vector_id = ?, vector_blob = ?, vector_json = null, vector_provider = ?, embedded = 1, updated_at = ? where id = ?",
+          [i, note.contentHash, vectorId, vectorBlob, embedding.provider, now(), stale.id]
+        );
+      } else {
+        const chunkId = id();
+        await dbRun(
+          `insert into chunks
+             (id, user_id, note_id, chunk_text, chunk_index, content_hash, chunk_content_hash,
+              embedded, vector_id, vector_blob, vector_json, vector_provider, created_at, updated_at)
+           values (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, null, ?, ?, ?)`,
+          [chunkId, userId, note.id, text, i, note.contentHash, chunkHash, vectorId, vectorBlob, embedding.provider, now(), now()]
+        );
+      }
     }
   }
 
