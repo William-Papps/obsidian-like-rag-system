@@ -161,6 +161,7 @@ const SYMBOL_GROUPS: { label: string; symbols: string[] }[] = [
 
 export function Workspace() {
   const [data, setData] = useState<Bootstrap | null>(null);
+  const dataRef = useRef<Bootstrap | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [scope, setScope] = useState<Scope>({ type: "all" });
@@ -184,7 +185,8 @@ export function Workspace() {
   const [dragItem, setDragItem] = useState<DragItem>(null);
   const [sourceHighlight, setSourceHighlight] = useState<SourceHighlight | null>(null);
   const [editorView, setEditorView] = useState<EditorView | null>(null);
-  const [editorCursor, setEditorCursor] = useState(0);
+  const editorCursorRef = useRef(0);
+  const [cursorInTable, setCursorInTable] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
@@ -250,10 +252,14 @@ export function Workspace() {
       fetch("/api/index", { cache: "no-store" }).then((result) => result.json() as Promise<Bootstrap["indexStatus"]>)
     ]);
     const next = { ...payload, folders, notes, indexStatus };
+    dataRef.current = next;
     setData(next);
     setActiveNoteId((current) => current || next.notes[0]?.id || null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeWorkspaceId]);
+
+  // Keep dataRef in sync so saveActiveMarkdownDebounced can read it without a dependency
+  useEffect(() => { dataRef.current = data; }, [data]);
 
   const switchWorkspace = useCallback(async (wsId: string | null) => {
     setActiveWorkspaceId(wsId);
@@ -527,7 +533,9 @@ export function Workspace() {
     if (!activeNote || sourceHighlight?.noteId !== activeNote.id) return null;
     return sourceHighlight;
   }, [activeNote, sourceHighlight]);
-  const currentTableContext = editorView ? getTableContext(editorView.state.doc.toString(), editorCursor) : null;
+  const currentTableContext = (editorView && cursorInTable)
+    ? getTableContext(editorView.state.doc.toString(), editorCursorRef.current)
+    : null;
 
   const tocHeadings = useMemo(() => {
     const headings: { level: number; text: string; pos: number }[] = [];
@@ -614,18 +622,8 @@ export function Workspace() {
 
   const saveActiveMarkdownDebounced = useCallback(
     (noteId: string, markdownContent: string) => {
-      if (!data) return;
-      // Optimistically update local state so the editor never "snaps back".
-      setData((current) =>
-        current
-          ? {
-              ...current,
-              notes: current.notes.map((note) => (note.id === noteId ? { ...note, markdownContent, updatedAt: new Date().toISOString() } : note))
-            }
-          : current
-      );
+      if (!dataRef.current) return;
       setSaving(true);
-
       if (markdownSaveTimer.current) window.clearTimeout(markdownSaveTimer.current);
       const seq = ++markdownSaveSeq.current;
       markdownSaveTimer.current = window.setTimeout(async () => {
@@ -635,13 +633,23 @@ export function Workspace() {
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ markdownContent })
           });
+          // Update notes list after save so sidebar stays in sync
+          setData((current) =>
+            current
+              ? {
+                  ...current,
+                  notes: current.notes.map((n) =>
+                    n.id === noteId ? { ...n, markdownContent, updatedAt: new Date().toISOString() } : n
+                  )
+                }
+              : current
+          );
         } finally {
-          // Only clear "saving" if this is the latest scheduled save.
           if (markdownSaveSeq.current === seq) setSaving(false);
         }
       }, 450);
     },
-    [data]
+    [] // no dependency on data — reads via dataRef
   );
 
   const replaceActiveMarkdown = useCallback(
@@ -934,7 +942,7 @@ export function Workspace() {
       const fenceMarker = snippet.includes("```") ? "````" : "```";
       const fence = `${fenceMarker}${lang}\n${snippet}\n${fenceMarker}`;
 
-      const cursor = clamp(editorCursor, 0, draftMarkdown.length);
+      const cursor = clamp(editorCursorRef.current, 0, draftMarkdown.length);
       const currentText = draftMarkdown;
       const before = currentText.slice(0, cursor);
       const lead = cursor > 0 && !before.endsWith("\n\n") ? (before.endsWith("\n") ? "\n" : "\n\n") : "";
@@ -2066,7 +2074,12 @@ export function Workspace() {
                     className="h-full"
                     height="100%"
                     onCreateEditor={setEditorView}
-                    onUpdate={(update) => setEditorCursor(update.state.selection.main.head)}
+                    onUpdate={(update) => {
+                      const pos = update.state.selection.main.head;
+                      editorCursorRef.current = pos;
+                      const inTable = !!getTableContext(update.state.doc.toString(), pos);
+                      if (inTable !== cursorInTable) setCursorInTable(inTable);
+                    }}
                     value={draftMarkdown}
                     extensions={editorExtensions}
                     theme={cmTheme}
