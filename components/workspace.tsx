@@ -176,6 +176,8 @@ export function Workspace() {
   const [codeSnippet, setCodeSnippet] = useState("");
   const [draftTitle, setDraftTitle] = useState("");
   const [draftMarkdown, setDraftMarkdown] = useState("");
+  const draftMarkdownRef = useRef("");
+  const draftMarkdownTimer = useRef<number | null>(null);
   const [openNoteIds, setOpenNoteIds] = useState<string[]>([]);
   const [pinnedNoteIds, setPinnedNoteIds] = useState<string[]>(() => readStoredJson("studyos:pinnedNotes", []));
   const [vaultRootId, setVaultRootId] = useState<string>(() => readStoredJson("studyos:vaultRootId", "__all__"));
@@ -471,7 +473,9 @@ export function Workspace() {
 
   useEffect(() => {
     setDraftTitle(activeNote?.title ?? "");
-    setDraftMarkdown(activeNote?.markdownContent ?? "");
+    const md = activeNote?.markdownContent ?? "";
+    draftMarkdownRef.current = md;
+    setDraftMarkdown(md);
     setHistoryOpen(false);
   }, [activeNote?.id]);
   const openNoteFromSource = useCallback(
@@ -652,9 +656,26 @@ export function Workspace() {
     [] // no dependency on data — reads via dataRef
   );
 
+  // Hot path — called on every keystroke via CodeMirror onChange.
+  // Does NOT call setDraftMarkdown to avoid re-rendering on every keypress.
+  // draftMarkdown state (for TOC/preview) is updated on a 300ms debounce instead.
+  const onEditorChange = useCallback(
+    (markdownContent: string) => {
+      if (!activeNote) return;
+      draftMarkdownRef.current = markdownContent;
+      saveActiveMarkdownDebounced(activeNote.id, markdownContent);
+      if (draftMarkdownTimer.current) window.clearTimeout(draftMarkdownTimer.current);
+      draftMarkdownTimer.current = window.setTimeout(() => setDraftMarkdown(markdownContent), 300);
+    },
+    [activeNote, saveActiveMarkdownDebounced]
+  );
+
+  // Cold path — toolbar actions, version restore, imports. Immediate state update is fine.
   const replaceActiveMarkdown = useCallback(
     async (markdownContent: string) => {
       if (!activeNote) return;
+      draftMarkdownRef.current = markdownContent;
+      if (draftMarkdownTimer.current) window.clearTimeout(draftMarkdownTimer.current);
       setDraftMarkdown(markdownContent);
       saveActiveMarkdownDebounced(activeNote.id, markdownContent);
     },
@@ -942,8 +963,8 @@ export function Workspace() {
       const fenceMarker = snippet.includes("```") ? "````" : "```";
       const fence = `${fenceMarker}${lang}\n${snippet}\n${fenceMarker}`;
 
-      const cursor = clamp(editorCursorRef.current, 0, draftMarkdown.length);
-      const currentText = draftMarkdown;
+      const currentText = draftMarkdownRef.current;
+      const cursor = clamp(editorCursorRef.current, 0, currentText.length);
       const before = currentText.slice(0, cursor);
       const lead = cursor > 0 && !before.endsWith("\n\n") ? (before.endsWith("\n") ? "\n" : "\n\n") : "";
       const insert = `${lead}${fence}\n\n`;
@@ -2066,7 +2087,7 @@ export function Workspace() {
                 <div
                   className={`h-full min-h-0 min-w-0 overflow-hidden bg-ink-900/50 ${noteView === "split" ? "border-r border-ink-700/80" : ""}`}
                   onFocus={() => {
-                    const isStarter = draftMarkdown.trimEnd() === "# Untitled document\n\nAdd your content here. Index this document to make it queryable by the AI tools.";
+                    const isStarter = draftMarkdownRef.current.trimEnd() === "# Untitled document\n\nAdd your content here. Index this document to make it queryable by the AI tools.";
                     if (isStarter) void replaceActiveMarkdown("");
                   }}
                 >
@@ -2084,7 +2105,7 @@ export function Workspace() {
                     extensions={editorExtensions}
                     theme={cmTheme}
                     basicSetup={{ foldGutter: false, highlightActiveLine: true }}
-                    onChange={(value) => replaceActiveMarkdown(value)}
+                    onChange={onEditorChange}
                   />
                 </div>
                 ) : null}
