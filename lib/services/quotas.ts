@@ -12,20 +12,20 @@ export const PLAN_LIMITS: Record<HostedPlan, Record<AiFeature, number | null>> =
     index: null
   },
   starter: {
-    ask: 300,
-    quiz: 150,
-    flashcards: 150,
-    summary: 150,
-    ocr: 75,
-    index: 200
+    ask: 200,
+    quiz: 100,
+    flashcards: 100,
+    summary: 100,
+    ocr: 50,
+    index: 75
   },
   pro: {
-    ask: 1500,
-    quiz: 750,
-    flashcards: 750,
-    summary: 750,
-    ocr: 400,
-    index: 2000
+    ask: 600,
+    quiz: 300,
+    flashcards: 300,
+    summary: 300,
+    ocr: 150,
+    index: 200
   }
 };
 
