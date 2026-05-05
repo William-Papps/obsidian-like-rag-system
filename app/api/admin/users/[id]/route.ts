@@ -23,9 +23,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (body.role && body.role !== user.role) {
         return NextResponse.json({ error: "You cannot change your own role from this route." }, { status: 400 });
       }
-      if (body.hostedPlan || body.hostedAccessGranted !== undefined) {
-        return NextResponse.json({ error: "Use your own account settings for personal plan changes." }, { status: 400 });
-      }
+      if (body.hostedPlan) await adminSetUserPlan(user.id, body.hostedPlan);
+      if (body.hostedAccessGranted !== undefined) await adminSetHostedAccess(user.id, body.hostedAccessGranted);
       return NextResponse.json({ ok: true });
     }
     const target = await getManagedUser(id);
