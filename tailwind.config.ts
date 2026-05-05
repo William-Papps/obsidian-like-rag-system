@@ -45,6 +45,15 @@ const config: Config = {
       },
       transitionTimingFunction: {
         premium: "cubic-bezier(0.22, 1, 0.36, 1)"
+      },
+      keyframes: {
+        slide: {
+          "0%": { transform: "translateX(-100%)" },
+          "100%": { transform: "translateX(400%)" }
+        }
+      },
+      animation: {
+        slide: "slide 1.4s ease-in-out infinite"
       }
     }
   },

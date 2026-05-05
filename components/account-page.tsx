@@ -196,7 +196,7 @@ export function AccountPage({
     { id: "ai", label: "AI Settings", icon: Sparkles },
     { id: "billing", label: "Billing", icon: CreditCard },
     { id: "security", label: "Security", icon: Lock },
-    { id: "backup", label: "Backup", icon: Download },
+    ...(initialAdmin ? [{ id: "backup" as const, label: "Backup", icon: Download }] : []),
     ...(initialAdmin ? [{ id: "admin" as const, label: "Admin", icon: Settings }] : [])
   ];
 
