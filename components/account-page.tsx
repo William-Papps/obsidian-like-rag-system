@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowLeft, CreditCard, Download, KeyRound, Loader2, LogOut, Palette, Save, ShieldCheck, Sparkles, User2 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowLeft, CreditCard, Download, KeyRound, Loader2, LogOut, Palette, Save, Sparkles, User2, Activity, Zap, BarChart3, Users, Settings, Lock } from "lucide-react";
 import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import type { AdminUserSummary, AuditLog, BillingState, ProviderSettings, RuntimeSettings, StudyActivity } from "@/lib/types";
 
@@ -194,9 +195,9 @@ export function AccountPage({
     { id: "appearance", label: "Appearance", icon: Palette },
     { id: "ai", label: "AI Settings", icon: Sparkles },
     { id: "billing", label: "Billing", icon: CreditCard },
-    { id: "security", label: "Security", icon: ShieldCheck },
+    { id: "security", label: "Security", icon: Lock },
     { id: "backup", label: "Backup", icon: Download },
-    ...(initialAdmin ? [{ id: "admin" as const, label: "Admin", icon: ShieldCheck }] : [])
+    ...(initialAdmin ? [{ id: "admin" as const, label: "Admin", icon: Settings }] : [])
   ];
 
   async function saveAdminRuntime(next: Partial<RuntimeSettings>) {
@@ -256,37 +257,63 @@ export function AccountPage({
     }
   }
 
+  const initials = user.name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+
   return (
     <main className="min-h-screen bg-ink-950 text-ink-100">
-      <div className="border-b border-ink-700/80 bg-ink-950/90 backdrop-blur-xl">
+      {/* Ambient background glow */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute left-1/4 top-0 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-accent-500/8 blur-[120px]" />
+        <div className="absolute right-1/4 bottom-1/4 h-[400px] w-[600px] rounded-full bg-accent-600/6 blur-[100px]" />
+      </div>
+
+      {/* Top bar */}
+      <div className="relative border-b border-white/[0.06] bg-ink-950/80 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <div className="min-w-0">
-            <Link href="/" className="inline-flex items-center gap-2 text-xs font-medium text-ink-500 hover:text-ink-300">
-              <ArrowLeft className="h-4 w-4" />
+            <Link href="/" className="inline-flex items-center gap-2 text-xs font-medium text-ink-500 transition-colors hover:text-ink-300">
+              <ArrowLeft className="h-3.5 w-3.5" />
               Back to workspace
             </Link>
-            <div className="mt-2 text-2xl font-semibold tracking-tight text-ink-100">Account</div>
-            <div className="mt-1 text-sm text-ink-500">Manage your profile, AI access, hosted usage, and backups.</div>
+            <div className="mt-2 text-2xl font-bold tracking-tight text-ink-100">Account</div>
+            <div className="mt-0.5 text-sm text-ink-500">Manage your profile, AI access, hosted usage, and backups.</div>
           </div>
           <button
             onClick={signOut}
             disabled={signingOut}
-            className="inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border border-ink-700/80 px-4 text-sm font-medium text-ink-300 hover:bg-white/[0.04] disabled:opacity-60"
+            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.04] px-4 text-sm font-medium text-ink-300 transition-colors hover:bg-white/[0.07] hover:text-ink-100 disabled:opacity-60"
           >
-            {signingOut ? <Loader2 className="h-4 w-4 animate-spin" /> : <LogOut className="h-4 w-4" />}
+            {signingOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
             Sign out
           </button>
         </div>
       </div>
 
-      <div className="mx-auto grid w-full max-w-[1440px] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[260px_minmax(0,1fr)]">
-        <aside className="panel-shell rounded-2xl border border-ink-700/80 p-3">
-          <div className="rounded-xl border border-accent-500/20 bg-accent-500/10 p-4">
-            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">Signed in as</div>
-            <div className="mt-2 truncate text-lg font-semibold text-ink-100">{user.name}</div>
-            <div className="mt-1 truncate text-sm text-ink-400">{user.email}</div>
+      <div className="relative mx-auto grid w-full max-w-[1440px] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[280px_minmax(0,1fr)]">
+        {/* Sidebar */}
+        <aside className="h-fit rounded-2xl border border-white/[0.08] bg-ink-900/60 p-3 shadow-panel backdrop-blur-xl lg:sticky lg:top-6">
+          {/* User card */}
+          <div className="relative overflow-hidden rounded-xl border border-accent-500/20 bg-gradient-to-br from-accent-500/15 via-accent-600/10 to-transparent p-4">
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-accent-400/5 to-transparent" />
+            <div className="relative flex items-center gap-3">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent-500 to-accent-600 text-sm font-bold text-white shadow-glow">
+                {initials}
+              </div>
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold text-ink-100">{user.name}</div>
+                <div className="truncate text-xs text-ink-400">{user.email}</div>
+              </div>
+            </div>
+            <div className="relative mt-3 flex items-center gap-1.5">
+              <div className="h-1.5 w-1.5 rounded-full bg-success-400" />
+              <span className="text-xs text-ink-500">
+                {billing.subscription.plan === "free" ? "Personal plan" : `${billing.subscription.plan} plan`}
+              </span>
+            </div>
           </div>
-          <div className="mt-4 space-y-1.5">
+
+          {/* Nav items */}
+          <nav className="mt-3 space-y-0.5">
             {navItems.map((item) => {
               const Icon = item.icon;
               const active = section === item.id;
@@ -294,109 +321,184 @@ export function AccountPage({
                 <button
                   key={item.id}
                   onClick={() => setSection(item.id)}
-                  className={`flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left text-sm transition ${
-                    active ? "border border-accent-500/30 bg-accent-500/12 text-ink-100" : "border border-transparent text-ink-400 hover:bg-white/[0.03] hover:text-ink-200"
+                  className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors ${
+                    active
+                      ? "text-ink-100"
+                      : "text-ink-400 hover:bg-white/[0.03] hover:text-ink-200"
                   }`}
                 >
-                  <Icon className={`h-4 w-4 ${active ? "text-accent-300" : ""}`} />
-                  {item.label}
+                  {active && (
+                    <motion.div
+                      layoutId="nav-pill"
+                      className="absolute inset-0 rounded-xl border border-accent-500/25 bg-accent-500/10"
+                      transition={{ type: "spring", stiffness: 500, damping: 40 }}
+                    />
+                  )}
+                  <Icon className={`relative h-4 w-4 shrink-0 ${active ? "text-accent-400" : ""}`} />
+                  <span className="relative">{item.label}</span>
                 </button>
               );
             })}
-          </div>
+          </nav>
         </aside>
 
-        <section className="space-y-6">
-          {notice ? <NoticeBanner notice={notice} /> : null}
+        {/* Main content */}
+        <section className="min-w-0 space-y-4">
+          {/* Notice banner */}
+          <AnimatePresence>
+            {notice && (
+              <motion.div
+                key="notice"
+                initial={{ opacity: 0, y: -12, scale: 0.97 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -8, scale: 0.97 }}
+                transition={{ type: "spring", stiffness: 460, damping: 36 }}
+              >
+                <NoticeBanner notice={notice} />
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-          {section === "profile" ? (
-            <div className="panel-shell rounded-2xl border border-ink-700/80 p-6">
-              <SectionHeading eyebrow="Profile" title="Account details" description="This area is for account identity and access, not note editing." />
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <MetricCard label="Display name" value={user.name} />
-                <MetricCard label="Email" value={user.email} />
-              </div>
-              <div className="mt-6 rounded-xl border border-ink-700/80 bg-ink-950/40 p-4 text-sm leading-6 text-ink-400">
-                The note system stays free. AI usage can run on a personal API key or on a hosted plan backed by the server key if the server owner has configured one.
-              </div>
-              <div className="mt-6 rounded-xl border border-ink-700/80 bg-ink-950/35 p-4">
-                <div className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">Recent activity</div>
-                <div className="mt-3 space-y-2">
-                  {activity.length ? (
-                    activity.slice(0, 6).map((item) => (
-                      <div key={item.id} className="rounded-lg border border-ink-700/80 px-3 py-2">
-                        <div className="text-sm font-medium text-ink-200">{formatActivity(item.kind)}</div>
-                        <div className="mt-1 text-xs text-ink-500">
-                          {[item.scopeLabel, item.noteTitle].filter(Boolean).join(" - ") || "General activity"} - {new Date(item.createdAt).toLocaleString()}
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <div className="text-sm text-ink-500">No activity recorded yet.</div>
-                  )}
-                </div>
-              </div>
-            </div>
-          ) : null}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={section}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -6 }}
+              transition={{ duration: 0.18, ease: "easeOut" }}
+              className="space-y-4"
+            >
+              {/* ─── PROFILE ─── */}
+              {section === "profile" && (
+                <>
+                  <GlassPanel>
+                    <SectionHeading eyebrow="Profile" title="Account details" icon={<User2 className="h-5 w-5" />} description="Your identity and account information." />
+                    <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                      <MetricCard label="Display name" value={user.name} accent />
+                      <MetricCard label="Email address" value={user.email} />
+                    </div>
+                    <div className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm leading-6 text-ink-400">
+                      The note system stays free. AI usage can run on a personal API key or on a hosted plan backed by the server key if the server owner has configured one.
+                    </div>
+                  </GlassPanel>
 
-          {section === "appearance" ? (
-            <div className="panel-shell rounded-2xl border border-ink-700/80 p-6">
-              <SectionHeading eyebrow="Appearance" title="Theme" description="Choose a colour theme. Your preference is saved locally and applied instantly." />
-              <div className="mt-6 grid gap-4 sm:grid-cols-3">
-                {([
-                  {
-                    id: "purple" as AppTheme,
-                    label: "Purple",
-                    description: "Default — deep purple dark",
-                    swatches: ["#0F0D15", "#2D2547", "#8B5CF6", "#C4B5FD"]
-                  },
-                  {
-                    id: "midnight" as AppTheme,
-                    label: "Midnight",
-                    description: "Neutral dark with blue accent",
-                    swatches: ["#09090B", "#27272A", "#3B82F6", "#93C5FD"]
-                  },
-                  {
-                    id: "light" as AppTheme,
-                    label: "Light",
-                    description: "Clean light with violet accent",
-                    swatches: ["#FFFFFF", "#E0DEEE", "#7C3AED", "#6D28D9"]
-                  }
-                ] as const).map((t) => {
-                  const active = appTheme === t.id;
-                  return (
-                    <button
-                      key={t.id}
-                      onClick={() => setAppTheme(t.id)}
-                      className={`rounded-xl border-2 p-4 text-left transition ${active ? "border-accent-500 bg-accent-500/10" : "border-ink-700/60 hover:border-ink-600"}`}
-                    >
-                      <div className="flex gap-2 mb-3">
-                        {t.swatches.map((color, i) => (
-                          <div key={i} className="h-7 flex-1 rounded-md border border-black/10" style={{ background: color }} />
-                        ))}
-                      </div>
-                      <div className={`text-sm font-semibold ${active ? "text-accent-300" : "text-ink-100"}`}>{t.label}</div>
-                      <div className="mt-0.5 text-xs text-ink-500">{t.description}</div>
-                      {active && <div className="mt-2 text-xs font-semibold text-accent-400">Active</div>}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ) : null}
+                  <GlassPanel>
+                    <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">
+                      <Activity className="h-3.5 w-3.5" />
+                      Recent activity
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      {activity.length ? (
+                        activity.slice(0, 6).map((item, i) => (
+                          <motion.div
+                            key={item.id}
+                            initial={{ opacity: 0, x: -8 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: i * 0.04 }}
+                            className="flex items-start justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5"
+                          >
+                            <div>
+                              <div className="text-sm font-medium text-ink-200">{formatActivity(item.kind)}</div>
+                              <div className="mt-0.5 text-xs text-ink-500">
+                                {[item.scopeLabel, item.noteTitle].filter(Boolean).join(" · ") || "General activity"}
+                              </div>
+                            </div>
+                            <div className="shrink-0 text-[11px] text-ink-600">{new Date(item.createdAt).toLocaleDateString()}</div>
+                          </motion.div>
+                        ))
+                      ) : (
+                        <div className="py-4 text-center text-sm text-ink-500">No activity recorded yet.</div>
+                      )}
+                    </div>
+                  </GlassPanel>
+                </>
+              )}
 
-          {section === "ai" ? (
-            <>
-              <div className="panel-shell rounded-2xl border border-ink-700/80 p-6">
-                <SectionHeading
-                  eyebrow="AI setup"
-                  title="Provider and model settings"
-                  description="This section is for BYOK setup and model configuration. Billing and hosted plan selection live separately."
-                />
+              {/* ─── APPEARANCE ─── */}
+              {section === "appearance" && (
+                <GlassPanel>
+                  <SectionHeading eyebrow="Appearance" title="Theme" icon={<Palette className="h-5 w-5" />} description="Choose a colour theme. Your preference is saved locally and applied instantly." />
+                  <div className="mt-6 grid gap-4 sm:grid-cols-3">
+                    {([
+                      {
+                        id: "purple" as AppTheme,
+                        label: "Purple",
+                        description: "Deep purple dark",
+                        swatches: ["#0F0D15", "#2D2547", "#8B5CF6", "#C4B5FD"]
+                      },
+                      {
+                        id: "midnight" as AppTheme,
+                        label: "Midnight",
+                        description: "Neutral dark, blue accent",
+                        swatches: ["#09090B", "#27272A", "#3B82F6", "#93C5FD"]
+                      },
+                      {
+                        id: "light" as AppTheme,
+                        label: "Light",
+                        description: "Clean light, violet accent",
+                        swatches: ["#FFFFFF", "#E0DEEE", "#7C3AED", "#6D28D9"]
+                      }
+                    ] as const).map((t, i) => {
+                      const active = appTheme === t.id;
+                      return (
+                        <motion.button
+                          key={t.id}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.06 }}
+                          onClick={() => setAppTheme(t.id)}
+                          className={`relative overflow-hidden rounded-xl border-2 p-4 text-left transition-all ${
+                            active
+                              ? "border-accent-500/60 bg-accent-500/10 shadow-[0_0_24px_rgba(139,92,246,0.15)]"
+                              : "border-white/[0.08] hover:border-white/[0.14] hover:bg-white/[0.02]"
+                          }`}
+                        >
+                          {active && (
+                            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-accent-500/8 to-transparent" />
+                          )}
+                          <div className="relative flex gap-1.5 mb-4">
+                            {t.swatches.map((color, idx) => (
+                              <div key={idx} className="h-8 flex-1 rounded-lg border border-black/10 shadow-sm" style={{ background: color }} />
+                            ))}
+                          </div>
+                          <div className={`relative text-sm font-semibold ${active ? "text-accent-300" : "text-ink-100"}`}>{t.label}</div>
+                          <div className="relative mt-0.5 text-xs text-ink-500">{t.description}</div>
+                          {active && (
+                            <div className="relative mt-2 inline-flex items-center gap-1 rounded-full border border-accent-500/30 bg-accent-500/15 px-2 py-0.5 text-[11px] font-semibold text-accent-300">
+                              Active
+                            </div>
+                          )}
+                        </motion.button>
+                      );
+                    })}
+                  </div>
+                </GlassPanel>
+              )}
 
-                <div className="mt-6 rounded-xl border border-ink-700/80 bg-ink-950/40 p-4 text-sm leading-6 text-ink-400">{aiStatus}</div>
+              {/* ─── AI SETTINGS ─── */}
+              {section === "ai" && (
+                <GlassPanel>
+                  <SectionHeading
+                    eyebrow="AI setup"
+                    title="Provider & model settings"
+                    icon={<Sparkles className="h-5 w-5" />}
+                    description="BYOK setup and model configuration. Billing and hosted plan selection live separately."
+                  />
 
-                <div className="mt-6 space-y-4">
+                  <div className={`mt-5 rounded-xl border px-4 py-3 text-sm leading-6 ${
+                    settings.maskedKey
+                      ? "border-success-400/25 bg-success-400/8 text-success-300"
+                      : billing.subscription.plan !== "free" && billing.hostedAccessGranted
+                      ? "border-accent-500/25 bg-accent-500/8 text-accent-300"
+                      : "border-white/[0.08] bg-white/[0.03] text-ink-400"
+                  }`}>
+                    <div className="flex items-center gap-2">
+                      <Zap className="h-3.5 w-3.5 shrink-0" />
+                      {aiStatus}
+                    </div>
+                  </div>
+
+                  <div className="mt-6 space-y-4">
                     <Field label={`OpenAI API key${settings.maskedKey ? ` (${settings.maskedKey})` : ""}`}>
                       <input
                         value={apiKey}
@@ -409,10 +511,11 @@ export function AccountPage({
                     </Field>
 
                     {settings.maskedKey ? (
-                      <label className="flex items-center gap-2 rounded-lg border border-ink-700/80 bg-ink-950/40 px-3 py-2 text-sm text-ink-300">
-                        <input type="checkbox" checked={clearApiKey} onChange={(event) => setClearApiKey(event.target.checked)} />
-                        Clear saved personal API key and use hosted/local mode instead
-                      </label>
+                      <PillToggleLabel
+                        label="Clear saved personal API key and use hosted/local mode instead"
+                        checked={clearApiKey}
+                        onChange={setClearApiKey}
+                      />
                     ) : null}
 
                     <Field label="OpenAI project ID">
@@ -453,323 +556,395 @@ export function AccountPage({
                       </Field>
                     </div>
 
-                    <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm leading-6 text-amber-300">
+                    <div className="rounded-xl border border-amber-400/25 bg-amber-400/8 p-4 text-sm leading-6 text-amber-300">
                       MVP local storage writes the personal key to an ignored file under <code>data/secrets</code>. Hosted deployment should replace this with encrypted per-user secret storage.
                     </div>
 
-                    <button
-                      onClick={saveSettings}
-                      disabled={savingSettings}
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 text-sm font-semibold text-ink-950 shadow-glow hover:bg-accent-400 disabled:opacity-60"
-                    >
-                      {savingSettings ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    <PrimaryButton onClick={saveSettings} disabled={savingSettings} loading={savingSettings} icon={<Save className="h-4 w-4" />}>
                       {savingSettings ? "Saving..." : "Save AI settings"}
-                    </button>
-                </div>
-              </div>
-            </>
-          ) : null}
-
-          {section === "billing" ? (
-            <>
-              <div className="panel-shell rounded-2xl border border-ink-700/80 p-6">
-                <SectionHeading
-                  eyebrow="Billing"
-                  title="Plan and billing setup"
-                  description="Manage your plan. Online payments are coming soon — contact support to upgrade to Pro."
-                />
-                <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-                  <div className="space-y-4">
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <MetricCard label="Current plan" value={billing.subscription.plan === "free" ? "Personal (Free)" : "Pro ($12/mo)"} />
-                      <MetricCard label="Subscription status" value={formatBillingStatus(billing.subscription.status)} />
-                    </div>
-
-                    <div className="rounded-xl border border-ink-700/80 bg-ink-950/35 p-4 text-sm leading-6 text-ink-400">
-                      {billing.subscription.plan === "free"
-                        ? "You are on the Personal plan. Add your own OpenAI API key in the AI Settings tab to enable AI features."
-                        : "You are on the Pro plan. Hosted AI is active — no API key required."}
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-2">
-                      <Field label="Billing name">
-                        <input
-                          value={billingName}
-                          onKeyDown={allowNativeTextShortcuts}
-                          onChange={(event) => setBillingName(event.target.value)}
-                          className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
-                        />
-                      </Field>
-                      <Field label="Billing email">
-                        <input
-                          value={billingEmail}
-                          type="email"
-                          onKeyDown={allowNativeTextShortcuts}
-                          onChange={(event) => setBillingEmail(event.target.value)}
-                          className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
-                        />
-                      </Field>
-                    </div>
-
-                    <Field label={`Plan${settings.hostedKeyAvailable ? "" : " (hosted AI not configured on this server)"}`}>
-                      <select
-                        value={hostedPlan === "pro" ? "starter" : hostedPlan}
-                        onChange={(event) => setHostedPlan(event.target.value as typeof hostedPlan)}
-                        className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
-                      >
-                        <option value="free">Personal — Bring your own key (Free)</option>
-                        <option value="starter">Pro — Hosted AI ($12/mo)</option>
-                      </select>
-                    </Field>
-
-                    {settings.hostedKeyAvailable && hostedPlan !== "free" ? (
-                      <div className="rounded-xl border border-ink-700/80 bg-ink-950/35 p-4">
-                        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">Hosted key access</div>
-                        <div className="mt-2 text-sm leading-6 text-ink-400">
-                          {billing.hostedAccessGranted
-                            ? "This account is approved to use the server-managed key."
-                            : "This account is not approved yet. Save your hosted plan choice here, then the owner can grant server-key access from the admin panel."}
-                        </div>
-                      </div>
-                    ) : null}
-
-                    <div className="rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-sm leading-6 text-amber-300">
-                      Online payments are coming soon. To upgrade to Pro, contact support and we will activate your account manually.
-                    </div>
-
-                    <button
-                      onClick={saveBilling}
-                      disabled={savingBilling || !billingEmail.trim()}
-                      className="inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 text-sm font-semibold text-ink-950 shadow-glow hover:bg-accent-400 disabled:opacity-60"
-                    >
-                      {savingBilling ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                      {savingBilling ? "Saving..." : "Save billing setup"}
-                    </button>
+                    </PrimaryButton>
                   </div>
+                </GlassPanel>
+              )}
 
-                  <div className="space-y-4">
-                    <PlanCard
-                      title="Personal — Free"
-                      active={hostedPlan === "free"}
-                      description="Full access to all features. Bring your own OpenAI API key."
-                      bullets={["Unlimited documents", "All AI tools (BYOK)", "Team workspaces", "Version history", "No monthly cost"]}
+              {/* ─── BILLING ─── */}
+              {section === "billing" && (
+                <>
+                  <GlassPanel>
+                    <SectionHeading
+                      eyebrow="Billing"
+                      title="Plan & billing setup"
+                      icon={<CreditCard className="h-5 w-5" />}
+                      description="Manage your plan. Online payments are coming soon — contact support to upgrade to Pro."
                     />
-                    <PlanCard
-                      title="Pro — $12/mo"
-                      active={hostedPlan === "starter" || hostedPlan === "pro"}
-                      description="Everything in Personal plus hosted AI — no API key needed."
-                      bullets={["500 Ask queries/mo", "200 Knowledge Checks/mo", "200 Training Cards/mo", "100 Briefings/mo", "50 OCR scans/mo", "Team workspaces"]}
-                    />
-                  </div>
-                </div>
-              </div>
 
-              <div className="panel-shell rounded-2xl border border-ink-700/80 p-6">
-                <SectionHeading
-                  eyebrow="Usage"
-                  title="Hosted AI quota"
-                  description="BYOK does not consume hosted usage. These counters apply only when AI runs on the server-managed key."
-                />
-                <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                  {settings.usage.map((item) => (
-                    <div key={item.feature} className="rounded-xl border border-ink-700/80 bg-ink-950/35 p-4">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">{item.feature}</div>
-                        <div className="rounded-full border border-ink-700/80 px-2 py-1 text-[11px] text-ink-500">
-                          {item.limit === null ? "Hosted disabled" : `${item.used} used`}
+                    <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
+                      <div className="space-y-4">
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <MetricCard label="Current plan" value={billing.subscription.plan === "free" ? "Personal (Free)" : "Pro ($12/mo)"} accent />
+                          <MetricCard label="Status" value={formatBillingStatus(billing.subscription.status)} />
                         </div>
-                      </div>
-                      <div className="mt-3 text-lg font-semibold text-ink-100">
-                        {item.limit === null ? "Unavailable" : `${item.remaining} remaining`}
-                      </div>
-                      <div className="mt-1 text-sm leading-6 text-ink-500">
-                        {item.limit === null ? "Use your own API key or enable a hosted plan." : `Monthly limit ${item.limit}.`}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          ) : null}
 
-          {section === "security" ? (
-            <div className="panel-shell rounded-2xl border border-ink-700/80 p-6">
-              <SectionHeading eyebrow="Security" title="Password and session access" description="Keep account settings separate from your workspace." />
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <Field label="Current password">
-                  <input
-                    value={currentPassword}
-                    type="password"
-                    onKeyDown={allowNativeTextShortcuts}
-                    onChange={(event) => setCurrentPassword(event.target.value)}
-                    className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
-                  />
-                </Field>
-                <div />
-                <Field label="New password">
-                  <input
-                    value={newPassword}
-                    type="password"
-                    onKeyDown={allowNativeTextShortcuts}
-                    onChange={(event) => setNewPassword(event.target.value)}
-                    className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
-                  />
-                </Field>
-                <Field label="Confirm new password">
-                  <input
-                    value={confirmPassword}
-                    type="password"
-                    onKeyDown={allowNativeTextShortcuts}
-                    onChange={(event) => setConfirmPassword(event.target.value)}
-                    className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
-                  />
-                </Field>
-              </div>
-              <button
-                onClick={savePassword}
-                disabled={changingPassword || !currentPassword || newPassword.length < 8 || confirmPassword.length < 8}
-                className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 text-sm font-semibold text-ink-950 shadow-glow hover:bg-accent-400 disabled:opacity-60"
-              >
-                {changingPassword ? <Loader2 className="h-4 w-4 animate-spin" /> : <KeyRound className="h-4 w-4" />}
-                {changingPassword ? "Updating password..." : "Change password"}
-              </button>
-            </div>
-          ) : null}
-
-          {section === "backup" ? (
-            <div className="panel-shell rounded-2xl border border-ink-700/80 p-6">
-              <SectionHeading eyebrow="Backup" title="Export database snapshot" description="Download the SQLite database so you can restore notes and indexes later." />
-              <div className="mt-6 rounded-xl border border-ink-700/80 bg-ink-950/35 p-4 text-sm leading-6 text-ink-400">
-                This export includes the database only. Files under <code>data/secrets</code> are not included and still need filesystem backup.
-              </div>
-              <button
-                onClick={downloadBackup}
-                disabled={downloadingBackup}
-                className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 text-sm font-semibold text-ink-950 shadow-glow hover:bg-accent-400 disabled:opacity-60"
-              >
-                {downloadingBackup ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-                {downloadingBackup ? "Preparing backup..." : "Download database backup"}
-              </button>
-            </div>
-          ) : null}
-
-          {section === "admin" && adminData ? (
-            <>
-              <div className="panel-shell rounded-2xl border border-ink-700/80 p-6">
-                <SectionHeading eyebrow="Admin" title="Instance controls" description="Runtime controls for this self-hosted instance. These do not rewrite environment files; they persist in the local database." />
-                <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                  <ToggleCard
-                    label="Self signup"
-                    description="Allow new users to register."
-                    checked={adminData.runtime.selfSignupEnabled}
-                    busy={savingAdmin}
-                    onChange={(checked) => void saveAdminRuntime({ selfSignupEnabled: checked })}
-                  />
-                  <ToggleCard
-                    label="Hosted AI"
-                    description="Allow users to consume hosted plan quota on the server key."
-                    checked={adminData.runtime.hostedAiEnabled}
-                    busy={savingAdmin}
-                    onChange={(checked) => void saveAdminRuntime({ hostedAiEnabled: checked })}
-                  />
-                  <ToggleCard
-                    label="Email verification"
-                    description="Require email verification before first login."
-                    checked={adminData.runtime.emailVerificationEnabled}
-                    busy={savingAdmin}
-                    onChange={(checked) => void saveAdminRuntime({ emailVerificationEnabled: checked })}
-                  />
-                </div>
-              </div>
-
-              <div className="panel-shell rounded-2xl border border-ink-700/80 p-6">
-                <SectionHeading eyebrow="Users" title="User management" description="Manually manage hosted plans, roles, and account access before billing automation exists." />
-                <div className="mt-6 space-y-3">
-                  {adminData.users.map((managedUser) => (
-                    <div key={managedUser.id} className="rounded-xl border border-ink-700/80 bg-ink-950/35 p-4">
-                      <div className="flex flex-wrap items-start justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="truncate text-sm font-semibold text-ink-100">{managedUser.name}</div>
-                          <div className="truncate text-xs text-ink-500">{managedUser.email}</div>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <Field label="Billing name">
+                            <input
+                              value={billingName}
+                              onKeyDown={allowNativeTextShortcuts}
+                              onChange={(event) => setBillingName(event.target.value)}
+                              className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
+                            />
+                          </Field>
+                          <Field label="Billing email">
+                            <input
+                              value={billingEmail}
+                              type="email"
+                              onKeyDown={allowNativeTextShortcuts}
+                              onChange={(event) => setBillingEmail(event.target.value)}
+                              className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
+                            />
+                          </Field>
                         </div>
-                        <div className="rounded-full border border-ink-700/80 px-2 py-1 text-[11px] text-ink-400">
-                          {managedUser.disabledAt ? "Disabled" : managedUser.subscriptionStatus}
-                        </div>
-                      </div>
-                      <div className="mt-4 grid gap-3 lg:grid-cols-5">
-                        <SelectField
-                          label="Role"
-                          value={managedUser.role}
-                          onChange={(value) => void updateManagedUser(managedUser.id, { role: value as "user" | "admin" | "owner" })}
-                          options={[
-                            { value: "user", label: "User" },
-                            { value: "admin", label: "Admin" },
-                            { value: "owner", label: "Owner" }
-                          ]}
-                        />
-                        <SelectField
-                          label="Hosted plan"
-                          value={managedUser.hostedPlan}
-                          onChange={(value) => void updateManagedUser(managedUser.id, { hostedPlan: value as "free" | "starter" | "pro" })}
-                          options={[
-                            { value: "free", label: "Free" },
-                            { value: "starter", label: "AI Starter" },
-                            { value: "pro", label: "AI Pro" }
-                          ]}
-                        />
-                        <ToggleInline
-                          label="Disabled"
-                          checked={Boolean(managedUser.disabledAt)}
-                          onChange={(checked) => void updateManagedUser(managedUser.id, { disabled: checked })}
-                        />
-                        <ToggleInline
-                          label="Hosted key access"
-                          checked={Boolean(managedUser.hostedAccessGrantedAt)}
-                          onChange={(checked) => void updateManagedUser(managedUser.id, { hostedAccessGranted: checked })}
-                        />
-                        <div className="flex items-end">
-                          <button
-                            onClick={() => void deleteManagedUser(managedUser.id)}
-                            disabled={savingAdmin || managedUser.id === user.id}
-                            className="w-full rounded-lg border border-danger-400/30 px-3 py-2 text-sm font-medium text-danger-400 hover:bg-danger-400/10 disabled:opacity-50"
+
+                        <Field label={`Plan${settings.hostedKeyAvailable ? "" : " (hosted AI not configured on this server)"}`}>
+                          <select
+                            value={hostedPlan === "pro" ? "starter" : hostedPlan}
+                            onChange={(event) => setHostedPlan(event.target.value as typeof hostedPlan)}
+                            className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
                           >
-                            Delete user
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                            <option value="free">Personal — Bring your own key (Free)</option>
+                            <option value="starter">Pro — Hosted AI ($12/mo)</option>
+                          </select>
+                        </Field>
 
-              <div className="panel-shell rounded-2xl border border-ink-700/80 p-6">
-                <SectionHeading eyebrow="Audit" title="Recent activity" description="Simple local logs for auth, admin, and account changes." />
-                <div className="mt-6 space-y-2">
-                  {adminData.logs.map((log) => (
-                    <div key={log.id} className="rounded-xl border border-ink-700/80 bg-ink-950/35 px-4 py-3">
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="text-sm font-medium text-ink-200">{log.event}</div>
-                        <div className="text-[11px] uppercase tracking-[0.14em] text-ink-500">{log.level}</div>
+                        {settings.hostedKeyAvailable && hostedPlan !== "free" ? (
+                          <div className={`rounded-xl border p-4 ${billing.hostedAccessGranted ? "border-success-400/25 bg-success-400/8" : "border-white/[0.08] bg-white/[0.02]"}`}>
+                            <div className="flex items-center gap-2">
+                              <div className={`h-1.5 w-1.5 rounded-full ${billing.hostedAccessGranted ? "bg-success-400" : "bg-ink-500"}`} />
+                              <div className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">Hosted key access</div>
+                            </div>
+                            <div className="mt-2 text-sm leading-6 text-ink-400">
+                              {billing.hostedAccessGranted
+                                ? "This account is approved to use the server-managed key."
+                                : "Not approved yet. Save your hosted plan choice, then the owner can grant access from the admin panel."}
+                            </div>
+                          </div>
+                        ) : null}
+
+                        <div className="rounded-xl border border-amber-400/25 bg-amber-400/8 p-4 text-sm leading-6 text-amber-300">
+                          Online payments are coming soon. To upgrade to Pro, contact support and we will activate your account manually.
+                        </div>
+
+                        <PrimaryButton onClick={saveBilling} disabled={savingBilling || !billingEmail.trim()} loading={savingBilling} icon={<Save className="h-4 w-4" />}>
+                          {savingBilling ? "Saving..." : "Save billing setup"}
+                        </PrimaryButton>
                       </div>
-                      <div className="mt-1 text-xs text-ink-500">{new Date(log.createdAt).toLocaleString()}</div>
+
+                      <div className="space-y-3">
+                        <PlanCard
+                          title="Personal"
+                          price="Free"
+                          active={hostedPlan === "free"}
+                          description="Full access to all features. Bring your own OpenAI API key."
+                          bullets={["Unlimited documents", "All AI tools (BYOK)", "Team workspaces", "Version history"]}
+                        />
+                        <PlanCard
+                          title="Pro"
+                          price="$12/mo"
+                          active={hostedPlan === "starter" || hostedPlan === "pro"}
+                          description="Everything in Personal plus hosted AI — no API key needed."
+                          bullets={["500 Ask queries/mo", "200 Knowledge Checks/mo", "200 Training Cards/mo", "100 Briefings/mo", "50 OCR scans/mo"]}
+                          highlight
+                        />
+                      </div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            </>
-          ) : null}
+                  </GlassPanel>
+
+                  <GlassPanel>
+                    <SectionHeading
+                      eyebrow="Usage"
+                      title="Hosted AI quota"
+                      icon={<BarChart3 className="h-5 w-5" />}
+                      description="BYOK does not consume hosted usage. These counters apply only when AI runs on the server-managed key."
+                    />
+                    <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                      {settings.usage.map((item, i) => (
+                        <motion.div
+                          key={item.feature}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.05 }}
+                          className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4"
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-400">{item.feature}</div>
+                            <div className="text-[11px] text-ink-500">
+                              {item.limit === null ? "Disabled" : `${item.used} / ${item.limit}`}
+                            </div>
+                          </div>
+                          {item.limit !== null && (
+                            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
+                              <motion.div
+                                className="h-full rounded-full bg-gradient-to-r from-accent-600 to-accent-400"
+                                initial={{ width: 0 }}
+                                animate={{ width: `${Math.min(100, (item.used / item.limit) * 100)}%` }}
+                                transition={{ delay: 0.1 + i * 0.05, duration: 0.6, ease: "easeOut" }}
+                              />
+                            </div>
+                          )}
+                          <div className="mt-2 text-base font-semibold text-ink-100">
+                            {item.limit === null ? "Unavailable" : `${item.remaining} remaining`}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </GlassPanel>
+                </>
+              )}
+
+              {/* ─── SECURITY ─── */}
+              {section === "security" && (
+                <GlassPanel>
+                  <SectionHeading eyebrow="Security" title="Password & session" icon={<Lock className="h-5 w-5" />} description="Update your password to keep your account secure." />
+                  <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                    <Field label="Current password">
+                      <input
+                        value={currentPassword}
+                        type="password"
+                        onKeyDown={allowNativeTextShortcuts}
+                        onChange={(event) => setCurrentPassword(event.target.value)}
+                        className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
+                      />
+                    </Field>
+                    <div />
+                    <Field label="New password">
+                      <input
+                        value={newPassword}
+                        type="password"
+                        onKeyDown={allowNativeTextShortcuts}
+                        onChange={(event) => setNewPassword(event.target.value)}
+                        className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
+                      />
+                    </Field>
+                    <Field label="Confirm new password">
+                      <input
+                        value={confirmPassword}
+                        type="password"
+                        onKeyDown={allowNativeTextShortcuts}
+                        onChange={(event) => setConfirmPassword(event.target.value)}
+                        className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
+                      />
+                    </Field>
+                  </div>
+                  <div className="mt-4">
+                    <PrimaryButton
+                      onClick={savePassword}
+                      disabled={changingPassword || !currentPassword || newPassword.length < 8 || confirmPassword.length < 8}
+                      loading={changingPassword}
+                      icon={<KeyRound className="h-4 w-4" />}
+                    >
+                      {changingPassword ? "Updating..." : "Change password"}
+                    </PrimaryButton>
+                  </div>
+                </GlassPanel>
+              )}
+
+              {/* ─── BACKUP ─── */}
+              {section === "backup" && (
+                <GlassPanel>
+                  <SectionHeading eyebrow="Backup" title="Export database snapshot" icon={<Download className="h-5 w-5" />} description="Download the SQLite database so you can restore notes and indexes later." />
+                  <div className="mt-6 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 text-sm leading-6 text-ink-400">
+                    This export includes the database only. Files under <code className="rounded bg-white/[0.06] px-1 py-0.5 text-xs">data/secrets</code> are not included and still need filesystem backup.
+                  </div>
+                  <div className="mt-4">
+                    <PrimaryButton onClick={downloadBackup} disabled={downloadingBackup} loading={downloadingBackup} icon={<Download className="h-4 w-4" />}>
+                      {downloadingBackup ? "Preparing backup..." : "Download database backup"}
+                    </PrimaryButton>
+                  </div>
+                </GlassPanel>
+              )}
+
+              {/* ─── ADMIN ─── */}
+              {section === "admin" && adminData && (
+                <>
+                  <GlassPanel>
+                    <SectionHeading
+                      eyebrow="Admin"
+                      title="Instance controls"
+                      icon={<Settings className="h-5 w-5" />}
+                      description="Runtime controls for this self-hosted instance. These persist in the local database."
+                    />
+                    <div className="mt-6 grid gap-3 sm:grid-cols-3">
+                      <ToggleCard
+                        label="Self signup"
+                        description="Allow new users to register."
+                        checked={adminData.runtime.selfSignupEnabled}
+                        busy={savingAdmin}
+                        onChange={(checked) => void saveAdminRuntime({ selfSignupEnabled: checked })}
+                      />
+                      <ToggleCard
+                        label="Hosted AI"
+                        description="Allow users to consume hosted plan quota on the server key."
+                        checked={adminData.runtime.hostedAiEnabled}
+                        busy={savingAdmin}
+                        onChange={(checked) => void saveAdminRuntime({ hostedAiEnabled: checked })}
+                      />
+                      <ToggleCard
+                        label="Email verification"
+                        description="Require email verification before first login."
+                        checked={adminData.runtime.emailVerificationEnabled}
+                        busy={savingAdmin}
+                        onChange={(checked) => void saveAdminRuntime({ emailVerificationEnabled: checked })}
+                      />
+                    </div>
+                  </GlassPanel>
+
+                  <GlassPanel>
+                    <SectionHeading
+                      eyebrow="Users"
+                      title="User management"
+                      icon={<Users className="h-5 w-5" />}
+                      description="Manage hosted plans, roles, and account access."
+                    />
+                    <div className="mt-6 space-y-3">
+                      {adminData.users.map((managedUser, i) => {
+                        const userInitials = managedUser.name.split(" ").map((w: string) => w[0]).join("").slice(0, 2).toUpperCase();
+                        const isCurrentUser = managedUser.id === user.id;
+                        return (
+                          <motion.div
+                            key={managedUser.id}
+                            initial={{ opacity: 0, y: 6 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: i * 0.04 }}
+                            className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02]"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-white/[0.05]">
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-accent-500/40 to-accent-600/30 text-xs font-bold text-accent-200">
+                                  {userInitials}
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <div className="truncate text-sm font-semibold text-ink-100">{managedUser.name}</div>
+                                    {isCurrentUser && (
+                                      <span className="shrink-0 rounded-full border border-accent-500/30 bg-accent-500/10 px-2 py-0.5 text-[10px] font-semibold text-accent-300">You</span>
+                                    )}
+                                  </div>
+                                  <div className="truncate text-xs text-ink-500">{managedUser.email}</div>
+                                </div>
+                              </div>
+                              <div className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
+                                managedUser.disabledAt
+                                  ? "border-danger-400/30 text-danger-400"
+                                  : "border-white/[0.1] text-ink-400"
+                              }`}>
+                                {managedUser.disabledAt ? "Disabled" : managedUser.subscriptionStatus}
+                              </div>
+                            </div>
+
+                            <div className="grid gap-3 px-4 py-3 lg:grid-cols-5">
+                              <SelectField
+                                label="Role"
+                                value={managedUser.role}
+                                onChange={(value) => void updateManagedUser(managedUser.id, { role: value as "user" | "admin" | "owner" })}
+                                options={[
+                                  { value: "user", label: "User" },
+                                  { value: "admin", label: "Admin" },
+                                  { value: "owner", label: "Owner" }
+                                ]}
+                              />
+                              <SelectField
+                                label="Hosted plan"
+                                value={managedUser.hostedPlan}
+                                onChange={(value) => void updateManagedUser(managedUser.id, { hostedPlan: value as "free" | "starter" | "pro" })}
+                                options={[
+                                  { value: "free", label: "Free" },
+                                  { value: "starter", label: "AI Starter" },
+                                  { value: "pro", label: "AI Pro" }
+                                ]}
+                              />
+                              <ToggleInline
+                                label="Disabled"
+                                checked={Boolean(managedUser.disabledAt)}
+                                onChange={(checked) => void updateManagedUser(managedUser.id, { disabled: checked })}
+                              />
+                              <ToggleInline
+                                label="Hosted key access"
+                                checked={Boolean(managedUser.hostedAccessGrantedAt)}
+                                onChange={(checked) => void updateManagedUser(managedUser.id, { hostedAccessGranted: checked })}
+                              />
+                              <div className="flex items-end">
+                                <button
+                                  onClick={() => void deleteManagedUser(managedUser.id)}
+                                  disabled={savingAdmin || isCurrentUser}
+                                  className="w-full rounded-lg border border-danger-400/25 px-3 py-2 text-sm font-medium text-danger-400 transition-colors hover:bg-danger-400/8 disabled:opacity-40"
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </GlassPanel>
+
+                  <GlassPanel>
+                    <SectionHeading eyebrow="Audit" title="Recent activity" icon={<Activity className="h-5 w-5" />} description="Simple local logs for auth, admin, and account changes." />
+                    <div className="mt-6 space-y-2">
+                      {adminData.logs.map((log, i) => (
+                        <motion.div
+                          key={log.id}
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ delay: i * 0.025 }}
+                          className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5"
+                        >
+                          <div>
+                            <div className="text-sm font-medium text-ink-200">{log.event}</div>
+                            <div className="mt-0.5 text-xs text-ink-500">{new Date(log.createdAt).toLocaleString()}</div>
+                          </div>
+                          <div className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest ${
+                            log.level === "warn" || log.level === "error"
+                              ? "border-amber-400/25 text-amber-400"
+                              : "border-white/[0.08] text-ink-500"
+                          }`}>
+                            {log.level}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </GlassPanel>
+                </>
+              )}
+            </motion.div>
+          </AnimatePresence>
         </section>
       </div>
     </main>
   );
 }
 
-function SectionHeading({ eyebrow, title, description }: { eyebrow: string; title: string; description: string }) {
+// ─── Sub-components ────────────────────────────────────────────────────────────
+
+function GlassPanel({ children }: { children: ReactNode }) {
   return (
-    <div>
-      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">{eyebrow}</div>
-      <div className="mt-2 text-2xl font-semibold tracking-tight text-ink-100">{title}</div>
-      <div className="mt-2 text-sm leading-6 text-ink-500">{description}</div>
+    <div className="rounded-2xl border border-white/[0.08] bg-ink-900/60 p-6 shadow-panel backdrop-blur-xl">
+      {children}
+    </div>
+  );
+}
+
+function SectionHeading({ eyebrow, title, icon, description }: { eyebrow: string; title: string; icon: ReactNode; description: string }) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-accent-500/25 bg-accent-500/10 text-accent-400">
+        {icon}
+      </div>
+      <div>
+        <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-500">{eyebrow}</div>
+        <div className="mt-0.5 text-xl font-bold tracking-tight text-ink-100">{title}</div>
+        <div className="mt-1 text-sm leading-5 text-ink-500">{description}</div>
+      </div>
     </div>
   );
 }
@@ -783,12 +958,43 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-function MetricCard({ label, value }: { label: string; value: string }) {
+function MetricCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className="rounded-xl border border-ink-700/80 bg-ink-950/35 p-4">
-      <div className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">{label}</div>
-      <div className="mt-2 text-lg font-semibold text-ink-100">{value}</div>
+    <div className={`relative overflow-hidden rounded-xl border p-4 ${accent ? "border-accent-500/20 bg-accent-500/8" : "border-white/[0.08] bg-white/[0.02]"}`}>
+      {accent && <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-0.5 rounded-l-xl bg-gradient-to-b from-accent-400 to-accent-600" />}
+      <div className="text-xs font-semibold uppercase tracking-[0.12em] text-ink-500">{label}</div>
+      <div className="mt-1.5 text-base font-semibold text-ink-100 truncate">{value}</div>
     </div>
+  );
+}
+
+function PillToggleLabel({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2.5">
+      <PillToggle checked={checked} onChange={onChange} />
+      <span className="text-sm text-ink-300">{label}</span>
+    </label>
+  );
+}
+
+function PillToggle({ checked, onChange, disabled }: { checked: boolean; onChange: (v: boolean) => void; disabled?: boolean }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+      className={`relative h-5 w-9 shrink-0 rounded-full border transition-colors ${
+        checked ? "border-accent-500/50 bg-accent-500" : "border-white/[0.15] bg-white/[0.08]"
+      } disabled:opacity-50`}
+    >
+      <motion.div
+        className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm"
+        animate={{ left: checked ? "calc(100% - 18px)" : "2px" }}
+        transition={{ type: "spring", stiffness: 500, damping: 36 }}
+      />
+    </button>
   );
 }
 
@@ -806,23 +1012,23 @@ function ToggleCard({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <label className="rounded-xl border border-ink-700/80 bg-ink-950/35 p-4">
+    <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-semibold text-ink-100">{label}</div>
-          <div className="mt-1 text-sm leading-6 text-ink-500">{description}</div>
+          <div className="mt-1 text-xs leading-5 text-ink-500">{description}</div>
         </div>
-        <input type="checkbox" checked={checked} disabled={busy} onChange={(event) => onChange(event.target.checked)} />
+        <PillToggle checked={checked} onChange={onChange} disabled={busy} />
       </div>
-    </label>
+    </div>
   );
 }
 
 function ToggleInline({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
-    <label className="flex h-full items-center gap-2 rounded-lg border border-ink-700/80 px-3 py-2 text-sm text-ink-300">
-      <input type="checkbox" checked={checked} onChange={(event) => onChange(event.target.checked)} />
-      {label}
+    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-sm text-ink-300">
+      <PillToggle checked={checked} onChange={onChange} />
+      <span className="text-xs font-medium">{label}</span>
     </label>
   );
 }
@@ -841,7 +1047,7 @@ function SelectField({
   return (
     <label className="block">
       <div className="mb-1.5 text-xs font-medium text-ink-400">{label}</div>
-      <select value={value} onChange={(event) => onChange(event.target.value)} className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none">
+      <select value={value} onChange={(event) => onChange(event.target.value)} className="control-soft w-full rounded-lg px-3 py-2 text-sm outline-none">
         {options.map((option) => (
           <option key={option.value} value={option.value}>
             {option.label}
@@ -852,68 +1058,99 @@ function SelectField({
   );
 }
 
-function PlanCard({ title, description, bullets, active }: { title: string; description: string; bullets: string[]; active: boolean }) {
+function PlanCard({ title, price, description, bullets, active, highlight }: { title: string; price: string; description: string; bullets: string[]; active: boolean; highlight?: boolean }) {
   return (
-    <div className={`rounded-xl border p-4 ${active ? "border-accent-500/35 bg-accent-500/10" : "border-ink-700/80 bg-ink-950/35"}`}>
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-sm font-semibold text-ink-100">{title}</div>
-        {active ? <div className="rounded-full border border-accent-500/30 px-2 py-1 text-[11px] font-semibold text-accent-300">Selected</div> : null}
+    <div className={`relative overflow-hidden rounded-xl border p-4 transition-all ${
+      active
+        ? highlight
+          ? "border-accent-500/40 bg-accent-500/10 shadow-[0_0_30px_rgba(139,92,246,0.12)]"
+          : "border-accent-500/30 bg-accent-500/8"
+        : "border-white/[0.08] bg-white/[0.02]"
+    }`}>
+      {active && highlight && (
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-accent-500/8 to-transparent" />
+      )}
+      <div className="relative flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-bold text-ink-100">{title}</div>
+          <div className="mt-0.5 text-xl font-bold text-accent-300">{price}</div>
+        </div>
+        {active && (
+          <div className="rounded-full border border-accent-500/35 bg-accent-500/15 px-2 py-0.5 text-[11px] font-semibold text-accent-300">
+            Selected
+          </div>
+        )}
       </div>
-      <div className="mt-2 text-sm leading-6 text-ink-500">{description}</div>
-      <div className="mt-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">
-        <CreditCard className="h-3.5 w-3.5" />
-        Included limits
-      </div>
-      <ul className="mt-3 space-y-2 text-sm text-ink-300">
+      <div className="relative mt-2 text-xs leading-5 text-ink-500">{description}</div>
+      <ul className="relative mt-3 space-y-1.5">
         {bullets.map((bullet) => (
-          <li key={bullet}>{bullet}</li>
+          <li key={bullet} className="flex items-center gap-2 text-xs text-ink-400">
+            <div className="h-1 w-1 shrink-0 rounded-full bg-accent-500/60" />
+            {bullet}
+          </li>
         ))}
       </ul>
     </div>
   );
 }
 
+function PrimaryButton({
+  onClick,
+  disabled,
+  loading,
+  icon,
+  children
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  loading?: boolean;
+  icon?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-accent-500 px-5 text-sm font-semibold text-white shadow-glow transition-all hover:bg-accent-400 hover:-translate-y-px disabled:opacity-60 disabled:transform-none"
+    >
+      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : icon}
+      {children}
+    </button>
+  );
+}
+
 function NoticeBanner({ notice }: { notice: NonNullable<Notice> }) {
-  const tone =
-    notice.tone === "success"
-      ? "border-success-400/25 bg-success-400/10 text-success-400"
-      : notice.tone === "error"
-        ? "border-danger-400/25 bg-danger-400/10 text-danger-400"
-        : "border-accent-500/25 bg-accent-500/10 text-accent-300";
-  return <div className={`rounded-xl border px-4 py-3 text-sm shadow-panel ${tone}`}>{notice.message}</div>;
+  const styles = {
+    success: "border-success-400/25 bg-success-400/10 text-success-300",
+    error: "border-danger-400/25 bg-danger-400/10 text-danger-300",
+    info: "border-accent-500/25 bg-accent-500/10 text-accent-300"
+  };
+  return (
+    <div className={`rounded-xl border px-4 py-3 text-sm font-medium shadow-panel ${styles[notice.tone]}`}>
+      {notice.message}
+    </div>
+  );
 }
 
 function formatBillingStatus(status: BillingState["subscription"]["status"]) {
   switch (status) {
-    case "manual":
-      return "Manual active";
-    case "pending_provider":
-      return "Pending payment provider";
-    case "inactive":
-      return "Inactive";
-    case "canceled":
-      return "Canceled";
-    default:
-      return "Free";
+    case "manual": return "Manual active";
+    case "pending_provider": return "Pending payment provider";
+    case "inactive": return "Inactive";
+    case "canceled": return "Canceled";
+    default: return "Free";
   }
 }
 
 function formatActivity(kind: StudyActivity["kind"]) {
   switch (kind) {
-    case "ask":
-      return "Queried knowledge base";
-    case "quiz_generated":
-      return "Generated knowledge check";
-    case "quiz_checked":
-      return "Checked answer";
-    case "flashcard_generated":
-      return "Generated training card";
-    case "summary_generated":
-      return "Generated briefing";
-    case "import":
-      return "Imported document";
-    default:
-      return kind;
+    case "ask": return "Queried knowledge base";
+    case "quiz_generated": return "Generated knowledge check";
+    case "quiz_checked": return "Checked answer";
+    case "flashcard_generated": return "Generated training card";
+    case "summary_generated": return "Generated briefing";
+    case "import": return "Imported document";
+    default: return kind;
   }
 }
 
