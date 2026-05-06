@@ -816,8 +816,9 @@ export function Workspace() {
           .map((n) => ({
             label: n.title,
             type: "text" as const,
-            apply: (view: EditorView) => {
-              view.dispatch({ changes: { from: match.from, to: context.pos, insert: `[[${n.title}]]` } });
+            // from/to are the live positions CodeMirror provides at accept-time, not stale closure values
+            apply: (view: EditorView, _completion: unknown, from: number, to: number) => {
+              view.dispatch({ changes: { from: from - 2, to, insert: `[[${n.title}]]` } });
             }
           }));
         if (options.length === 0) return null;
@@ -2404,7 +2405,7 @@ export function Workspace() {
                     value={editorSeed}
                     extensions={editorExtensions}
                     theme={cmTheme}
-                    basicSetup={{ foldGutter: false, highlightActiveLine: true }}
+                    basicSetup={{ foldGutter: false, highlightActiveLine: true, autocompletion: false }}
                     onChange={onEditorChange}
                   />
                 </div>
