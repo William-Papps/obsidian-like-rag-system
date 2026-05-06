@@ -178,7 +178,6 @@ export function Workspace() {
   const [draftTitle, setDraftTitle] = useState("");
   const [draftMarkdown, setDraftMarkdown] = useState("");
   const draftMarkdownRef = useRef("");
-  const draftMarkdownTimer = useRef<number | null>(null);
   const [openNoteIds, setOpenNoteIds] = useState<string[]>([]);
   const [pinnedNoteIds, setPinnedNoteIds] = useState<string[]>(() => readStoredJson("studyos:pinnedNotes", []));
   const [vaultRootId, setVaultRootId] = useState<string>(() => readStoredJson("studyos:vaultRootId", "__all__"));
@@ -676,16 +675,12 @@ export function Workspace() {
     [] // no dependency on data — reads via dataRef
   );
 
-  // Hot path — called on every keystroke via CodeMirror onChange.
-  // Does NOT call setDraftMarkdown to avoid re-rendering on every keypress.
-  // draftMarkdown state (for TOC/preview) is updated on a 300ms debounce instead.
   const onEditorChange = useCallback(
     (markdownContent: string) => {
       if (!activeNote) return;
       draftMarkdownRef.current = markdownContent;
+      setDraftMarkdown(markdownContent);
       saveActiveMarkdownDebounced(activeNote.id, markdownContent);
-      if (draftMarkdownTimer.current) window.clearTimeout(draftMarkdownTimer.current);
-      draftMarkdownTimer.current = window.setTimeout(() => setDraftMarkdown(markdownContent), 300);
     },
     [activeNote, saveActiveMarkdownDebounced]
   );
@@ -695,7 +690,6 @@ export function Workspace() {
     async (markdownContent: string) => {
       if (!activeNote) return;
       draftMarkdownRef.current = markdownContent;
-      if (draftMarkdownTimer.current) window.clearTimeout(draftMarkdownTimer.current);
       setDraftMarkdown(markdownContent);
       saveActiveMarkdownDebounced(activeNote.id, markdownContent);
     },
