@@ -226,6 +226,10 @@ export function Workspace() {
   const [shareLoading, setShareLoading] = useState(false);
   const [inlineAI, setInlineAI] = useState<{ query: string; loading: boolean; pos: number; x: number; y: number } | null>(null);
   const openInlineAIRef = useRef<(view: EditorView) => void>(() => {});
+  const [relatedNotes, setRelatedNotes] = useState<{ noteId: string; title: string; score: number }[]>([]);
+  const [suggestingTags, setSuggestingTags] = useState(false);
+  const [suggestedTagsState, setSuggestedTagsState] = useState<{ suggested: string[]; existingTags: { id: string; name: string; color: string }[] } | null>(null);
+  const [suggestTagsOpen, setSuggestTagsOpen] = useState(false);
   const [cmTheme, setCmTheme] = useState<"dark" | "light">(() => {
     try { return JSON.parse(localStorage.getItem("studyos:theme") ?? '"purple"') === "light" ? "light" : "dark"; }
     catch { return "dark"; }
@@ -1423,6 +1427,20 @@ export function Workspace() {
     return [...tagSet].sort();
   }, [data?.noteTags]);
 
+  useEffect(() => {
+    setRelatedNotes([]);
+    setSuggestedTagsState(null);
+    setSuggestTagsOpen(false);
+    if (!activeNoteId) return;
+    let cancelled = false;
+    fetch(`/api/notes/${activeNoteId}/related`).then(async (r) => {
+      if (!r.ok || cancelled) return;
+      const data = await r.json() as { noteId: string; title: string; score: number }[];
+      if (!cancelled) setRelatedNotes(data);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [activeNoteId]);
+
   const vaultNotes = useMemo(() => {
     if (!data) return [];
     let notes = data.notes;
@@ -1440,6 +1458,48 @@ export function Workspace() {
   }, [draftMarkdown]);
 
   const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
+
+  async function suggestTagsForNote() {
+    if (!activeNote) return;
+    setSuggestingTags(true);
+    setSuggestTagsOpen(true);
+    try {
+      const res = await fetch(`/api/notes/${activeNote.id}/suggest-tags`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        notify(body.error ?? "Could not suggest tags", "error");
+        setSuggestTagsOpen(false);
+        return;
+      }
+      const body = await res.json() as { suggested: string[]; existingTags: { id: string; name: string; color: string }[] };
+      setSuggestedTagsState(body);
+    } finally {
+      setSuggestingTags(false);
+    }
+  }
+
+  async function applyTag(tagName: string, existingTagsFromSuggest: { id: string; name: string; color: string }[]) {
+    if (!activeNote) return;
+    const existing = existingTagsFromSuggest.find((t) => t.name.toLowerCase() === tagName.toLowerCase());
+    const currentNoteTags = data?.noteTags[activeNote.id] ?? [];
+    if (currentNoteTags.includes(tagName)) return;
+    let tagId: string;
+    if (existing) {
+      tagId = existing.id;
+    } else {
+      const res = await fetch("/api/tags", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ name: tagName }) });
+      if (!res.ok) { notify("Failed to create tag", "error"); return; }
+      const newTag = await res.json() as { id: string };
+      tagId = newTag.id;
+    }
+    await fetch(`/api/notes/${activeNote.id}/tags`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tagId }) });
+    setData((d) => {
+      if (!d) return d;
+      const prev = d.noteTags[activeNote.id] ?? [];
+      return { ...d, noteTags: { ...d.noteTags, [activeNote.id]: [...prev, tagName] } };
+    });
+    notify(`Tag "${tagName}" applied`, "success");
+  }
 
   async function reindexScope(input: { noteId?: string; folderId?: string | null }, label: string) {
     notify(`Indexing ${label}`, "info");
@@ -2068,6 +2128,63 @@ export function Workspace() {
                       </div>
                     </span>
                   ) : null}
+                  {relatedNotes.length > 0 ? (
+                    <span className="group relative inline-flex max-w-full items-center gap-1.5 rounded-full border border-ink-700/80 bg-ink-850/70 px-2.5 py-1 text-ink-400 hover:border-accent-500/25 hover:text-accent-300 cursor-pointer">
+                      <Sparkles className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{relatedNotes.length} related</span>
+                      <div className="pointer-events-none absolute left-0 top-full z-30 mt-1 hidden min-w-[200px] rounded-xl border border-ink-700/80 bg-ink-900 p-2 shadow-panel group-hover:block">
+                        <div className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-widest text-ink-500">Related notes</div>
+                        {relatedNotes.map((r) => (
+                          <button
+                            key={r.noteId}
+                            onClick={() => selectNote(r.noteId)}
+                            className="flex w-full items-center justify-between gap-2 truncate rounded px-2 py-1 text-left text-xs text-ink-200 hover:bg-white/[0.06]"
+                          >
+                            <span className="truncate">{r.title}</span>
+                            <span className="shrink-0 text-[10px] text-ink-500">{Math.round(r.score * 100)}%</span>
+                          </button>
+                        ))}
+                      </div>
+                    </span>
+                  ) : null}
+                  {/* Suggest tags */}
+                  <div className="relative">
+                    <button
+                      onClick={() => { if (!suggestTagsOpen) void suggestTagsForNote(); else setSuggestTagsOpen(false); }}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-ink-700/80 bg-ink-850/70 px-2.5 py-1 text-ink-400 hover:border-accent-500/25 hover:text-accent-300"
+                    >
+                      <Tag className="h-3.5 w-3.5 shrink-0" />
+                      <span className="text-xs">{suggestingTags ? "Thinking…" : "Suggest tags"}</span>
+                    </button>
+                    {suggestTagsOpen && suggestedTagsState && (
+                      <div className="absolute left-0 top-full z-40 mt-1 min-w-[200px] rounded-xl border border-ink-700/80 bg-ink-900 p-3 shadow-panel">
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="text-[10px] font-semibold uppercase tracking-widest text-ink-500">AI suggested tags</span>
+                          <button onClick={() => setSuggestTagsOpen(false)} className="text-ink-600 hover:text-ink-300"><X className="h-3 w-3" /></button>
+                        </div>
+                        {suggestedTagsState.suggested.length === 0 ? (
+                          <div className="text-xs text-ink-500">No suggestions available.</div>
+                        ) : suggestedTagsState.suggested.map((tag) => {
+                          const alreadyApplied = (data.noteTags[activeNote.id] ?? []).includes(tag);
+                          return (
+                            <div key={tag} className="flex items-center justify-between gap-2 rounded px-1 py-1">
+                              <span className="text-xs text-ink-200">{tag}</span>
+                              {alreadyApplied ? (
+                                <span className="text-[10px] text-ink-500">Applied</span>
+                              ) : (
+                                <button
+                                  onClick={() => void applyTag(tag, suggestedTagsState.existingTags)}
+                                  className="rounded-md bg-accent-500/20 px-2 py-0.5 text-[10px] font-semibold text-accent-300 hover:bg-accent-500/30"
+                                >
+                                  Apply
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
               <EditorNoteTabs
