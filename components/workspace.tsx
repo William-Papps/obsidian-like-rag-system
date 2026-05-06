@@ -689,6 +689,16 @@ export function Workspace() {
     [saveActiveMarkdownDebounced]
   );
 
+  const cursorInTableRef = useRef(false);
+  cursorInTableRef.current = cursorInTable;
+
+  const onEditorUpdate = useCallback((update: import("@codemirror/view").ViewUpdate) => {
+    const pos = update.state.selection.main.head;
+    editorCursorRef.current = pos;
+    const inTable = !!getTableContext(update.state.doc.toString(), pos);
+    if (inTable !== cursorInTableRef.current) setCursorInTable(inTable);
+  }, []);
+
   // Cold path — toolbar actions, version restore, imports. Immediate state update is fine.
   const replaceActiveMarkdown = useCallback(
     async (markdownContent: string) => {
@@ -2252,6 +2262,7 @@ export function Workspace() {
                                 const restored = await res.json() as Note;
                                 setData((d) => d ? { ...d, notes: d.notes.map((n) => n.id === restored.id ? restored : n) } : d);
                                 setDraftMarkdown(restored.markdownContent);
+                                setEditorSeed(restored.markdownContent);
                                 setDraftTitle(restored.title);
                                 setHistoryOpen(false);
                                 notify("Version restored", "success");
@@ -2389,12 +2400,7 @@ export function Workspace() {
                     className="h-full"
                     height="100%"
                     onCreateEditor={setEditorView}
-                    onUpdate={(update) => {
-                      const pos = update.state.selection.main.head;
-                      editorCursorRef.current = pos;
-                      const inTable = !!getTableContext(update.state.doc.toString(), pos);
-                      if (inTable !== cursorInTable) setCursorInTable(inTable);
-                    }}
+                    onUpdate={onEditorUpdate}
                     value={editorSeed}
                     extensions={editorExtensions}
                     theme={cmTheme}
