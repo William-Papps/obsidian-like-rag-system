@@ -208,6 +208,7 @@ export function Workspace() {
   const [historyRestoring, setHistoryRestoring] = useState(false);
   const [zenMode, setZenMode] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [vaultSearch, setVaultSearch] = useState("");
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkSelectedIds, setBulkSelectedIds] = useState<Set<string>>(new Set());
   const [recentlyVisitedIds, setRecentlyVisitedIds] = useState<string[]>(() => readStoredJson("studyos:recentVisited", []));
@@ -225,7 +226,14 @@ export function Workspace() {
   const [shareEmail, setShareEmail] = useState("");
   const [sharePermission, setSharePermission] = useState<NoteSharePermission>("edit");
   const [shareLoading, setShareLoading] = useState(false);
-  const [inlineAI, setInlineAI] = useState<{ query: string; loading: boolean; pos: number; x: number; y: number } | null>(null);
+  const [inlineAI, setInlineAI] = useState<{
+    query: string;
+    loading: boolean;
+    pos: number;
+    x: number;
+    y: number;
+    preview?: string;
+  } | null>(null);
   const openInlineAIRef = useRef<(view: EditorView) => void>(() => {});
   const [relatedNotes, setRelatedNotes] = useState<{ noteId: string; title: string; score: number }[]>([]);
   const [suggestingTags, setSuggestingTags] = useState(false);
@@ -717,8 +725,8 @@ export function Workspace() {
 
   async function submitInlineAI() {
     if (!inlineAI || !inlineAI.query.trim() || !activeNote) return;
-    const { query, pos } = inlineAI;
-    setInlineAI((s) => s ? { ...s, loading: true } : null);
+    const { query } = inlineAI;
+    setInlineAI((s) => s ? { ...s, loading: true, preview: "" } : null);
     try {
       const response = await fetch("/api/ask", {
         method: "POST",
@@ -741,21 +749,28 @@ export function Workspace() {
           if (!line.trim()) continue;
           try {
             const ev = JSON.parse(line) as { type: string; data?: unknown };
-            if (ev.type === "chunk") answer += ev.data as string;
+            if (ev.type === "chunk") {
+              answer += ev.data as string;
+              setInlineAI((s) => s ? { ...s, preview: answer } : null);
+            }
           } catch { continue; }
         }
       }
-      if (answer.trim() && editorView) {
-        const insert = `\n\n> **AI:** ${answer.trim()}\n\n`;
-        const currentText = editorView.state.doc.toString();
-        const nextText = `${currentText.slice(0, pos)}${insert}${currentText.slice(pos)}`;
-        await applyEditorText(nextText, { anchor: pos + insert.length });
-      }
-      setInlineAI(null);
+      setInlineAI((s) => s ? { ...s, loading: false, preview: answer.trim() } : null);
     } catch (error) {
       notify(error instanceof Error ? error.message : "AI request failed", "error");
       setInlineAI((s) => s ? { ...s, loading: false } : null);
     }
+  }
+
+  async function applyInlineAIPreview() {
+    if (!inlineAI?.preview || !editorView) return;
+    const { pos, preview } = inlineAI;
+    const insert = `\n\n> **AI:** ${preview}\n\n`;
+    const currentText = editorView.state.doc.toString();
+    const nextText = `${currentText.slice(0, pos)}${insert}${currentText.slice(pos)}`;
+    await applyEditorText(nextText, { anchor: pos + insert.length });
+    setInlineAI(null);
   }
 
   const pasteClipboardImage = useCallback(
@@ -1524,8 +1539,12 @@ export function Workspace() {
     if (!data) return [];
     let notes = data.notes;
     if (selectedTag) notes = notes.filter((n) => (data.noteTags[n.id] ?? []).includes(selectedTag));
+    if (vaultSearch.trim()) {
+      const q = vaultSearch.toLowerCase();
+      notes = notes.filter((n) => n.title.toLowerCase().includes(q));
+    }
     return notes;
-  }, [data, selectedTag]);
+  }, [data, selectedTag, vaultSearch]);
 
   const wordCount = useMemo(() => {
     const text = draftMarkdown
@@ -1786,7 +1805,25 @@ export function Workspace() {
             </div>
           </div>
 
-          <div className="h-[calc(100%-45px)] overflow-auto px-3 py-4">
+          <div className="border-b border-ink-700/40 px-3 py-2">
+            <div className="flex items-center gap-2 rounded-lg border border-ink-700/50 bg-ink-900/60 px-2.5 py-1.5">
+              <Search className="h-3.5 w-3.5 shrink-0 text-ink-500" />
+              <input
+                type="text"
+                value={vaultSearch}
+                onChange={(e) => setVaultSearch(e.target.value)}
+                placeholder="Filter notes…"
+                className="min-w-0 flex-1 bg-transparent text-xs text-ink-100 placeholder-ink-600 outline-none"
+              />
+              {vaultSearch && (
+                <button onClick={() => setVaultSearch("")} className="text-ink-600 hover:text-ink-300">
+                  <X className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="h-[calc(100%-85px)] overflow-auto px-3 py-4">
             {bulkMode && bulkSelectedIds.size > 0 ? (
               <div className="mb-3 flex items-center gap-2 rounded-lg border border-accent-500/25 bg-accent-500/10 px-3 py-2">
                 <span className="flex-1 text-xs font-semibold text-accent-300">{bulkSelectedIds.size} selected</span>
@@ -1819,7 +1856,31 @@ export function Workspace() {
                 )}
               </div>
             ) : null}
-            {vaultRootFolder ? (
+            {vaultSearch.trim() ? (
+              <div className="space-y-1">
+                {vaultNotes.length === 0 ? (
+                  <div className="px-2 py-6 text-center text-xs text-ink-500">No notes match &ldquo;{vaultSearch}&rdquo;</div>
+                ) : vaultNotes.map((note) => (
+                  <NoteRow
+                    key={note.id}
+                    note={note}
+                    active={activeNoteId === note.id}
+                    pinned={pinnedNoteIds.includes(note.id)}
+                    bulkMode={bulkMode}
+                    bulkSelected={bulkSelectedIds.has(note.id)}
+                    onToggleBulk={() => setBulkSelectedIds((prev) => { const next = new Set(prev); next.has(note.id) ? next.delete(note.id) : next.add(note.id); return next; })}
+                    onClick={() => { selectNote(note.id); setVaultSearch(""); }}
+                    onTogglePin={() => togglePinNote(note)}
+                    onRename={() => renameNoteById(note)}
+                    onDelete={() => requestDeleteNote(note)}
+                    onMove={() => chooseFolderForNote(note)}
+                    onReindex={() => reindexScope({ noteId: note.id }, note.title)}
+                    onDragStart={() => setDragItem({ kind: "note", id: note.id })}
+                    onMenu={(event) => { event.preventDefault(); event.stopPropagation(); setVaultMenu({ kind: "note", id: note.id, x: event.clientX, y: event.clientY }); }}
+                  />
+                ))}
+              </div>
+            ) : vaultRootFolder ? (
               <>
                 <button
                   onClick={() => {
@@ -2401,33 +2462,58 @@ export function Workspace() {
 
         {inlineAI && (
           <div
-            style={{ position: "fixed", top: inlineAI.y, left: inlineAI.x, zIndex: 60, minWidth: 320, maxWidth: 420 }}
+            style={{ position: "fixed", top: inlineAI.y, left: inlineAI.x, zIndex: 60, minWidth: 340, maxWidth: 460 }}
             className="rounded-xl border border-accent-500/30 bg-ink-925 shadow-panel"
             onKeyDown={(e) => e.stopPropagation()}
           >
             <div className="border-b border-ink-700/60 px-3 py-2 text-xs font-semibold text-accent-300">Ask AI — inserts answer at cursor (Ctrl+/)</div>
-            <textarea
-              autoFocus
-              rows={2}
-              value={inlineAI.query}
-              onChange={(e) => setInlineAI((s) => s ? { ...s, query: e.target.value } : null)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitInlineAI(); }
-                if (e.key === "Escape") setInlineAI(null);
-              }}
-              placeholder="Ask a question… (Enter to insert, Esc to close)"
-              disabled={inlineAI.loading}
-              className="w-full resize-none bg-transparent p-3 text-sm text-ink-100 outline-none placeholder:text-ink-500"
-            />
-            <div className="flex items-center justify-end gap-3 border-t border-ink-700/60 px-3 py-2">
-              {inlineAI.loading && <span className="text-xs text-ink-500">Thinking…</span>}
-              <button onClick={() => setInlineAI(null)} className="text-xs text-ink-500 hover:text-ink-300">Cancel</button>
-              <button
-                onClick={() => void submitInlineAI()}
-                disabled={inlineAI.loading || !inlineAI.query.trim()}
-                className="rounded-lg bg-accent-600 px-3 py-1 text-xs font-semibold text-ink-100 disabled:opacity-40 hover:bg-accent-500"
-              >Insert</button>
-            </div>
+            {inlineAI.preview == null ? (
+              <>
+                <textarea
+                  autoFocus
+                  rows={2}
+                  value={inlineAI.query}
+                  onChange={(e) => setInlineAI((s) => s ? { ...s, query: e.target.value } : null)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitInlineAI(); }
+                    if (e.key === "Escape") setInlineAI(null);
+                  }}
+                  placeholder="Ask a question… (Enter to generate, Esc to close)"
+                  disabled={inlineAI.loading}
+                  className="w-full resize-none bg-transparent p-3 text-sm text-ink-100 outline-none placeholder:text-ink-500"
+                />
+                <div className="flex items-center justify-end gap-3 border-t border-ink-700/60 px-3 py-2">
+                  {inlineAI.loading && <span className="text-xs text-ink-500">Generating…</span>}
+                  <button onClick={() => setInlineAI(null)} className="text-xs text-ink-500 hover:text-ink-300">Cancel</button>
+                  <button
+                    onClick={() => void submitInlineAI()}
+                    disabled={inlineAI.loading || !inlineAI.query.trim()}
+                    className="rounded-lg bg-accent-600 px-3 py-1 text-xs font-semibold text-ink-100 disabled:opacity-40 hover:bg-accent-500"
+                  >Generate</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="max-h-48 overflow-y-auto p-3 text-sm text-ink-200 whitespace-pre-wrap">
+                  {inlineAI.preview || <span className="text-ink-500 animate-pulse">Generating…</span>}
+                </div>
+                <div className="flex items-center justify-between gap-3 border-t border-ink-700/60 px-3 py-2">
+                  <button
+                    onClick={() => setInlineAI((s) => s ? { ...s, preview: undefined } : null)}
+                    className="text-xs text-ink-500 hover:text-ink-300"
+                    disabled={inlineAI.loading}
+                  >Retry</button>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => setInlineAI(null)} className="text-xs text-ink-500 hover:text-ink-300">Discard</button>
+                    <button
+                      onClick={() => void applyInlineAIPreview()}
+                      disabled={inlineAI.loading || !inlineAI.preview}
+                      className="rounded-lg bg-accent-600 px-3 py-1 text-xs font-semibold text-ink-100 disabled:opacity-40 hover:bg-accent-500"
+                    >Insert</button>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 
