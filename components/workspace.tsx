@@ -6,6 +6,7 @@ import { python } from "@codemirror/lang-python";
 import { html } from "@codemirror/lang-html";
 import { css } from "@codemirror/lang-css";
 import { sql } from "@codemirror/lang-sql";
+import { autocompletion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
 import { EditorSelection, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
@@ -775,6 +776,33 @@ export function Workspace() {
 
   const imagePreviewExtension = useMemo(() => createMarkdownImagePreviewExtension(), []);
 
+  // Stable ref so wikilink autocomplete always sees current notes without recreating the extension.
+  const notesForAutocompleteRef = useRef<Note[]>([]);
+  notesForAutocompleteRef.current = data?.notes ?? [];
+
+  const wikilinkCompletion = useMemo(() => autocompletion({
+    override: [
+      (context: CompletionContext): CompletionResult | null => {
+        const match = context.matchBefore(/\[\[[^\]]{0,80}$/);
+        if (!match) return null;
+        const query = match.text.slice(2).toLowerCase();
+        if (!context.explicit && query.length === 0) return null;
+        const options = notesForAutocompleteRef.current
+          .filter((n) => n.title.toLowerCase().includes(query))
+          .slice(0, 10)
+          .map((n) => ({
+            label: n.title,
+            type: "text" as const,
+            apply: (view: EditorView) => {
+              view.dispatch({ changes: { from: match.from, to: context.pos, insert: `[[${n.title}]]` } });
+            }
+          }));
+        if (options.length === 0) return null;
+        return { from: match.from + 2, options, validFor: /^[^\]]*$/ };
+      }
+    ]
+  }), []); // stable — reads notes via ref
+
   const codeLanguageExtension = useMemo(() => {
     switch (codeLanguage) {
       case "typescript":
@@ -801,6 +829,7 @@ export function Workspace() {
     const extensions = [
       markdown(),
       EditorView.lineWrapping,
+      wikilinkCompletion,
       imagePreviewExtension,
       EditorView.domEventHandlers({
         click: (_event, view) => {
@@ -1408,6 +1437,56 @@ export function Workspace() {
     URL.revokeObjectURL(url);
   }
 
+  async function exportVaultAsZip() {
+    if (!data) return;
+    const { default: JSZip } = await import("jszip") as { default: typeof import("jszip") };
+    const zip = new JSZip();
+    for (const note of vaultNotes) {
+      const folder = data.folders.find((f) => f.id === note.folderId);
+      const dir = folder ? `${folder.name}/` : "";
+      const filename = `${note.title.replace(/[/\\:*?"<>|]/g, "-")}.md`;
+      zip.file(dir + filename, note.markdownContent);
+    }
+    const blob = await zip.generateAsync({ type: "blob" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "vault-export.zip";
+    anchor.click();
+    URL.revokeObjectURL(url);
+  }
+
+  const [publicToken, setPublicToken] = useState<string | null>(null);
+  const [publicLinkLoading, setPublicLinkLoading] = useState(false);
+
+  useEffect(() => {
+    setPublicToken(null);
+    if (!activeNoteId) return;
+    fetch(`/api/notes/${activeNoteId}/public-link`)
+      .then(async (r) => { if (r.ok) { const d = await r.json() as { token: string | null }; setPublicToken(d.token); } })
+      .catch(() => {});
+  }, [activeNoteId]);
+
+  async function togglePublicLink() {
+    if (!activeNote) return;
+    setPublicLinkLoading(true);
+    try {
+      if (publicToken) {
+        await fetch(`/api/notes/${activeNote.id}/public-link`, { method: "DELETE" });
+        setPublicToken(null);
+        notify("Public link disabled", "info");
+      } else {
+        const res = await fetch(`/api/notes/${activeNote.id}/public-link`, { method: "POST" });
+        const body = await res.json() as { token: string };
+        setPublicToken(body.token);
+        await navigator.clipboard.writeText(`${window.location.origin}/share/${body.token}`);
+        notify("Public link copied to clipboard", "success");
+      }
+    } finally {
+      setPublicLinkLoading(false);
+    }
+  }
+
   const backlinks = useMemo(() => {
     if (!activeNote || !data) return [];
     const titleLower = activeNote.title.toLowerCase();
@@ -1700,6 +1779,9 @@ export function Workspace() {
                 <IconButton label="New folder" onClick={() => createFolder()}>
                   <FolderPlus className="h-3.5 w-3.5" />
                 </IconButton>
+                <IconButton label="Export vault as zip" onClick={() => void exportVaultAsZip()}>
+                  <Download className="h-3.5 w-3.5" />
+                </IconButton>
               </div>
             </div>
           </div>
@@ -1950,6 +2032,24 @@ export function Workspace() {
                   <IconButton label="Export as Markdown" onClick={exportActiveNote}>
                     <Download className="h-4 w-4" />
                   </IconButton>
+                  <IconButton
+                    label={publicToken ? "Public link active — click to copy or disable" : "Create public share link"}
+                    onClick={() => {
+                      if (publicToken) {
+                        void navigator.clipboard.writeText(`${window.location.origin}/share/${publicToken}`);
+                        notify("Public link copied", "success");
+                      } else {
+                        void togglePublicLink();
+                      }
+                    }}
+                  >
+                    <Link className={`h-4 w-4 ${publicToken ? "text-accent-300" : ""}`} />
+                  </IconButton>
+                  {publicToken && (
+                    <IconButton label="Disable public link" onClick={() => void togglePublicLink()} tone="danger">
+                      <X className="h-4 w-4" />
+                    </IconButton>
+                  )}
                   <div className="relative">
                     <IconButton label={tocOpen ? "Close table of contents" : "Table of contents"} onClick={() => setTocOpen((o) => !o)}>
                       <List className={`h-4 w-4 ${tocOpen ? "text-accent-300" : ""}`} />

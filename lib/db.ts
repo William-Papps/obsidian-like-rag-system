@@ -475,6 +475,7 @@ function migrate(database: Database) {
   ensureColumn(database, "notes", "effective_date", "text");
   ensureColumn(database, "notes", "doc_status", "text default 'active'");
   ensureColumn(database, "notes", "doc_type", "text default 'note'");
+  ensureColumn(database, "notes", "public_token", "text");
 
   database.exec(`
     create table if not exists note_shares (
