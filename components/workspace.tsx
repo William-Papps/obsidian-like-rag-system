@@ -164,6 +164,7 @@ export function Workspace() {
   const [data, setData] = useState<Bootstrap | null>(null);
   const dataRef = useRef<Bootstrap | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
+  const activeNoteRef = useRef<Note | null>(null);
   const [saving, setSaving] = useState(false);
   const [scope, setScope] = useState<Scope>({ type: "all" });
   const [tab, setTab] = useState<Tab>("ask");
@@ -451,6 +452,7 @@ export function Workspace() {
   }, []);
 
   const activeNote = useMemo(() => data?.notes.find((note) => note.id === activeNoteId) ?? null, [data, activeNoteId]);
+  activeNoteRef.current = activeNote;
   const activeWorkspace = useMemo(() => data?.workspaces.find((w) => w.id === activeWorkspaceId) ?? null, [data, activeWorkspaceId]);
   const openNotes = useMemo(
     () =>
@@ -677,12 +679,12 @@ export function Workspace() {
 
   const onEditorChange = useCallback(
     (markdownContent: string) => {
-      if (!activeNote) return;
+      if (!activeNoteRef.current) return;
       draftMarkdownRef.current = markdownContent;
       setDraftMarkdown(markdownContent);
-      saveActiveMarkdownDebounced(activeNote.id, markdownContent);
+      saveActiveMarkdownDebounced(activeNoteRef.current.id, markdownContent);
     },
-    [activeNote, saveActiveMarkdownDebounced]
+    [saveActiveMarkdownDebounced]
   );
 
   // Cold path — toolbar actions, version restore, imports. Immediate state update is fine.
@@ -905,7 +907,7 @@ export function Workspace() {
           const imageItem = items.find((item) => item.type.startsWith("image/"));
           if (!imageItem) return false;
           const file = imageItem.getAsFile();
-          if (!file || !activeNote) return false;
+          if (!file || !activeNoteRef.current) return false;
           event.preventDefault();
           void pasteClipboardImage(file, view);
           return true;
@@ -914,7 +916,7 @@ export function Workspace() {
     ];
     if (!editorHighlight?.excerpt.trim()) return extensions;
     return [...extensions, createSourceHighlightExtension(editorHighlight.excerpt)];
-  }, [activeNote, editorHighlight, imagePreviewExtension, pasteClipboardImage]);
+  }, [editorHighlight, imagePreviewExtension, pasteClipboardImage]);
 
   const codeEditorExtensions = useMemo(() => {
     const base = [EditorView.lineWrapping, codeLanguageExtension].flat();
