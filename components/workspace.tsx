@@ -179,6 +179,7 @@ export function Workspace() {
   const [draftTitle, setDraftTitle] = useState("");
   const [draftMarkdown, setDraftMarkdown] = useState("");
   const draftMarkdownRef = useRef("");
+  const [editorSeed, setEditorSeed] = useState("");
   const [openNoteIds, setOpenNoteIds] = useState<string[]>([]);
   const [pinnedNoteIds, setPinnedNoteIds] = useState<string[]>(() => readStoredJson("studyos:pinnedNotes", []));
   const [vaultRootId, setVaultRootId] = useState<string>(() => readStoredJson("studyos:vaultRootId", "__all__"));
@@ -497,6 +498,7 @@ export function Workspace() {
     const md = activeNote?.markdownContent ?? "";
     draftMarkdownRef.current = md;
     setDraftMarkdown(md);
+    setEditorSeed(md);
     setHistoryOpen(false);
   }, [activeNote?.id]);
   const openNoteFromSource = useCallback(
@@ -2393,7 +2395,7 @@ export function Workspace() {
                       const inTable = !!getTableContext(update.state.doc.toString(), pos);
                       if (inTable !== cursorInTable) setCursorInTable(inTable);
                     }}
-                    value={draftMarkdown}
+                    value={editorSeed}
                     extensions={editorExtensions}
                     theme={cmTheme}
                     basicSetup={{ foldGutter: false, highlightActiveLine: true }}
