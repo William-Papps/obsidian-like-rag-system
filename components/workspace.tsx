@@ -1430,6 +1430,17 @@ export function Workspace() {
     return notes;
   }, [data, selectedTag]);
 
+  const wordCount = useMemo(() => {
+    const text = draftMarkdown
+      .replace(/```[\s\S]*?```/g, "")
+      .replace(/`[^`]+`/g, "")
+      .replace(/[#*_~\[\]()!|]/g, " ")
+      .trim();
+    return text ? text.split(/\s+/).filter(Boolean).length : 0;
+  }, [draftMarkdown]);
+
+  const readingMinutes = Math.max(1, Math.ceil(wordCount / 200));
+
   async function reindexScope(input: { noteId?: string; folderId?: string | null }, label: string) {
     notify(`Indexing ${label}`, "info");
     const response = await fetch("/api/index", {
@@ -1846,7 +1857,7 @@ export function Workspace() {
           <ResizeHandle side="left" onPointerDown={(event) => resizePanel("left", event)} />
         </aside>
 
-        <section className={`grid min-h-0 min-w-0 grid-rows-[auto_42px_45px_minmax(0,1fr)] overflow-hidden bg-ink-925 ${isMobile && mobileTab !== "editor" ? "hidden" : ""}`}>
+        <section className={`grid min-h-0 min-w-0 grid-rows-[auto_42px_45px_minmax(0,1fr)_auto] overflow-hidden bg-ink-925 ${isMobile && mobileTab !== "editor" ? "hidden" : ""}`}>
           {activeNote ? (
             <>
               <div className="min-w-0 border-b border-white/[0.06] bg-ink-950/60 px-5 py-3 backdrop-blur-sm">
@@ -2142,9 +2153,16 @@ export function Workspace() {
                 </div>
                 ) : null}
               </div>
+              {noteView !== "code" && (
+                <div className="flex items-center gap-4 border-t border-ink-700/30 px-4 py-1 text-[11px] text-ink-600">
+                  <span>{wordCount.toLocaleString()} words</span>
+                  <span>{readingMinutes} min read</span>
+                  <span>{draftMarkdown.length.toLocaleString()} chars</span>
+                </div>
+              )}
             </>
           ) : (
-            <div className="row-span-4 grid h-full place-items-center p-8">
+            <div className="row-span-5 grid h-full place-items-center p-8">
               <div className="relative w-full max-w-md text-center">
                 <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-500/10 blur-[80px]" />
                 <div className="relative mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-500/30 bg-accent-500/15 shadow-glow">

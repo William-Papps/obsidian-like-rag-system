@@ -1,5 +1,11 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+import katex from "katex";
+import "katex/dist/katex.min.css";
+import hljs from "highlight.js/lib/common";
+import "highlight.js/styles/github-dark.css";
+
 function escapeHtml(s: string) {
   return s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;" }[c] ?? c));
 }
@@ -13,8 +19,24 @@ function safeHref(href: string) {
   }
 }
 
+function renderMath(tex: string, displayMode: boolean): string {
+  try {
+    return katex.renderToString(tex, { displayMode, throwOnError: false, output: "html" });
+  } catch {
+    return escapeHtml(tex);
+  }
+}
+
 function inline(raw: string, onWikilink?: (title: string) => void): string {
-  return escapeHtml(raw)
+  // Extract inline math $...$ before HTML-escaping so TeX isn't mangled.
+  const mathParts: string[] = [];
+  const withMathPlaceholders = raw.replace(/\$(?!\$)([^$\n]+?)\$/g, (_, tex) => {
+    const idx = mathParts.length;
+    mathParts.push(tex);
+    return `\x00M${idx}\x00`;
+  });
+
+  let html = escapeHtml(withMathPlaceholders)
     // images: ![alt](/_img/id) or external
     .replace(/!\[([^\]]*)\]\((\/_img\/[^)]+)\)/g, (_, alt, src) =>
       `<img src="/api/images/${src.replace("/_img/", "")}" alt="${alt}" class="md-img" loading="lazy" />`
@@ -40,6 +62,13 @@ function inline(raw: string, onWikilink?: (title: string) => void): string {
     .replace(/\*([^*]+)\*/g, "<em>$1</em>")
     .replace(/~~([^~]+)~~/g, "<del>$1</del>")
     .replace(/`([^`]+)`/g, "<code>$1</code>");
+
+  // Restore inline math placeholders as KaTeX HTML
+  if (mathParts.length > 0) {
+    html = html.replace(/\x00M(\d+)\x00/g, (_, idx) => renderMath(mathParts[parseInt(idx)], false));
+  }
+
+  return html;
 }
 
 function parseTable(tableLines: string[]): string {
@@ -75,6 +104,8 @@ export function renderMarkdown(markdown: string, onWikilink?: (title: string) =>
   let codeLang = "";
   let inCode = false;
   let tableLines: string[] = [];
+  let displayMath: string[] = [];
+  let inDisplayMath = false;
 
   const flushList = () => {
     if (list.length) {
@@ -128,8 +159,23 @@ export function renderMarkdown(markdown: string, onWikilink?: (title: string) =>
       tableLines = [];
     }
   };
+  const flushDisplayMath = () => {
+    if (displayMath.length) {
+      blocks.push(`<div class="md-math-display">${renderMath(displayMath.join("\n"), true)}</div>`);
+      displayMath = [];
+    }
+  };
 
   for (const line of lines) {
+    // Display math $$...$$
+    if (line.trim() === "$$") {
+      if (inDisplayMath) { flushDisplayMath(); }
+      else { flushList(); flushQuote(); flushTable(); }
+      inDisplayMath = !inDisplayMath;
+      continue;
+    }
+    if (inDisplayMath) { displayMath.push(line); continue; }
+
     if (line.startsWith("```")) {
       if (inCode) { flushCode(); }
       else { flushList(); flushQuote(); flushTable(); codeLang = line.slice(3).trim(); }
@@ -173,7 +219,7 @@ export function renderMarkdown(markdown: string, onWikilink?: (title: string) =>
     blocks.push(`<p>${inline(line, onWikilink)}</p>`);
   }
 
-  flushList(); flushQuote(); flushCode(); flushTable();
+  flushList(); flushQuote(); flushCode(); flushTable(); flushDisplayMath();
   return blocks.join("");
 }
 
@@ -184,7 +230,15 @@ export function MarkdownPreview({
   markdown: string;
   onWikilinkClick?: (title: string) => void;
 }) {
+  const containerRef = useRef<HTMLDivElement>(null);
   const html = renderMarkdown(markdown);
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    containerRef.current.querySelectorAll<HTMLElement>("pre code[class*='language-']").forEach((block) => {
+      if (!block.dataset.highlighted) hljs.highlightElement(block);
+    });
+  }, [html]);
 
   function handleClick(event: React.MouseEvent<HTMLDivElement>) {
     const target = event.target as HTMLElement;
@@ -209,6 +263,7 @@ export function MarkdownPreview({
 
   return (
     <div
+      ref={containerRef}
       className="markdown-preview h-full overflow-auto px-8 py-7"
       dangerouslySetInnerHTML={{ __html: html }}
       onClick={handleClick}
