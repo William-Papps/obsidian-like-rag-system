@@ -90,7 +90,7 @@ async function isDescendant(userId: string, folderId: string, possibleAncestorId
   const parentById = new Map(rows.map((r) => [r.id, r.parent_id]));
   let current: string | null | undefined = folderId;
   while (current) {
-    const parent = parentById.get(current) ?? null;
+    const parent: string | null = parentById.get(current) ?? null;
     if (parent === possibleAncestorId) return true;
     current = parent;
   }

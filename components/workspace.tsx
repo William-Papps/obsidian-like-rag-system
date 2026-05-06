@@ -6,7 +6,6 @@ import { python } from "@codemirror/lang-python";
 import { html } from "@codemirror/lang-html";
 import { css } from "@codemirror/lang-css";
 import { sql } from "@codemirror/lang-sql";
-import { autocompletion, type CompletionContext, type CompletionResult } from "@codemirror/autocomplete";
 import { EditorSelection, RangeSetBuilder } from "@codemirror/state";
 import { Decoration, EditorView, ViewPlugin, WidgetType, type DecorationSet, type ViewUpdate } from "@codemirror/view";
 import CodeMirror from "@uiw/react-codemirror";
@@ -800,32 +799,6 @@ export function Workspace() {
   const imagePreviewExtension = useMemo(() => createMarkdownImagePreviewExtension(), []);
 
   // Stable ref so wikilink autocomplete always sees current notes without recreating the extension.
-  const notesForAutocompleteRef = useRef<Note[]>([]);
-  notesForAutocompleteRef.current = data?.notes ?? [];
-
-  const wikilinkCompletion = useMemo(() => autocompletion({
-    override: [
-      (context: CompletionContext): CompletionResult | null => {
-        const match = context.matchBefore(/\[\[[^\]]{0,80}$/);
-        if (!match) return null;
-        const query = match.text.slice(2).toLowerCase();
-        if (!context.explicit && query.length === 0) return null;
-        const options = notesForAutocompleteRef.current
-          .filter((n) => n.title.toLowerCase().includes(query))
-          .slice(0, 10)
-          .map((n) => ({
-            label: n.title,
-            type: "text" as const,
-            // from/to are the live positions CodeMirror provides at accept-time, not stale closure values
-            apply: (view: EditorView, _completion: unknown, from: number, to: number) => {
-              view.dispatch({ changes: { from: from - 2, to, insert: `[[${n.title}]]` } });
-            }
-          }));
-        if (options.length === 0) return null;
-        return { from: match.from + 2, options, validFor: /^[^\]]*$/ };
-      }
-    ]
-  }), []); // stable — reads notes via ref
 
   const codeLanguageExtension = useMemo(() => {
     switch (codeLanguage) {
@@ -853,7 +826,6 @@ export function Workspace() {
     const extensions = [
       markdown(),
       EditorView.lineWrapping,
-      wikilinkCompletion,
       imagePreviewExtension,
       EditorView.domEventHandlers({
         click: (_event, view) => {
