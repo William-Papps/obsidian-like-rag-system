@@ -16,11 +16,32 @@ export type UseVoiceAssistantOptions = {
 };
 
 // --- wake / stop detection ---
-const WAKE_WORD = "hey eternal";
+// "hey eternal" may be mis-heard as several alternatives
+const WAKE_PATTERNS = [
+  "hey eternal",
+  "hey a turn all",
+  "hey turn all",
+  "hey attorney",
+  "hey internal",
+  "eternal",          // fallback: just the keyword alone
+];
 const STOP_PHRASES = ["hey eternal done", "hey eternal stop", "hey eternal finish", "stop dictating", "finish dictating", "done dictating"];
 const CREATE_NOTE_RE = /(?:create|make|new)\s+(?:a\s+)?note\s+called\s+(.+?)(?:\s+in\s+(?:the\s+)?(.+?)\s+folder)?$/i;
 const CREATE_FOLDER_RE = /(?:create|make|new)\s+(?:a\s+)?folder\s+called\s+(.+?)(?:\s+in\s+(?:the\s+)?(.+?)\s+folder)?$/i;
 const QUESTION_RE = /^(?:what(?:'s| is)|who(?:'s| is)|how|when|where|why|tell me|explain|describe|give me)\s+(.+)$/i;
+
+// Errors from which we cannot recover by restarting
+const FATAL_ERRORS = new Set(["not-allowed", "service-not-allowed", "audio-capture"]);
+
+function detectWakeWord(lower: string): { found: boolean; afterWake: string } {
+  for (const pattern of WAKE_PATTERNS) {
+    const idx = lower.indexOf(pattern);
+    if (idx !== -1) {
+      return { found: true, afterWake: lower.slice(idx + pattern.length).trim() };
+    }
+  }
+  return { found: false, afterWake: "" };
+}
 
 function matchFolder(hint: string, folders: VoiceFolder[]): VoiceFolder | null {
   const h = hint.toLowerCase().trim();
@@ -37,7 +58,6 @@ function browserSpeak(text: string): Promise<void> {
     window.speechSynthesis.cancel();
     const utter = new SpeechSynthesisUtterance(text);
     utter.rate = 1.05;
-    // Prefer higher-quality voices when available
     const voices = window.speechSynthesis.getVoices();
     const preferred = voices.find(
       (v) => v.name.includes("Google") || v.name.includes("Samantha") || v.name.includes("Karen") || v.name.includes("Daniel")
@@ -47,6 +67,19 @@ function browserSpeak(text: string): Promise<void> {
     utter.onerror = () => resolve();
     window.speechSynthesis.speak(utter);
   });
+}
+
+function checkAvailability(): string | null {
+  if (typeof window === "undefined") return "Not available server-side.";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const w = window as any;
+  if (!w.SpeechRecognition && !w.webkitSpeechRecognition) {
+    return "Your browser doesn't support speech recognition. Try Chrome or Edge.";
+  }
+  if (window.location.protocol === "http:" && window.location.hostname !== "localhost") {
+    return "Voice assistant requires HTTPS. Open the app over a secure connection.";
+  }
+  return null;
 }
 
 export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
@@ -61,10 +94,7 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const shouldRestartRef = useRef(false);
-  // Tracks the text committed to the editor during dictation so we can
-  // avoid double-inserting when a final result arrives after an interim.
   const dictationBufferRef = useRef("");
-  // Position in editor where dictation started (we append from there)
   const dictationPosRef = useRef<number>(0);
 
   // ── TTS ─────────────────────────────────────────────────────────────────
@@ -95,7 +125,6 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
       await browserSpeak(text);
     }
 
-    // Return to idle after speaking (unless the state changed externally)
     if (voiceStateRef.current === "speaking") {
       setVoiceState("idle");
       voiceStateRef.current = "idle";
@@ -108,7 +137,6 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
     const view = optionsRef.current.editorViewRef.current;
     if (!view || !text.trim()) return;
     if (replace) {
-      // Replace from dictation start to end of doc with the new text
       const from = dictationPosRef.current;
       const to = view.state.doc.length;
       view.dispatch({ changes: { from, to, insert: text } });
@@ -147,15 +175,12 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
           await speak(`I couldn't find a folder called ${folderHint}. Creating in the current location.`);
         }
       } else if (folders.length > 0) {
-        // Check if any folder name closely matches words in the title
         const titleWords = title.toLowerCase().split(/\s+/);
         const suggested = folders.find((f) =>
           titleWords.some((w) => w.length > 3 && f.name.toLowerCase().includes(w))
         );
         if (suggested) {
           await speak(`Should I put this in the ${suggested.name} folder? Say yes or no.`);
-          // The next command cycle will handle yes/no; for now just proceed to idle
-          // Store pending state in a ref for the next utterance
           pendingFolderSuggestionRef.current = { title, suggested, resolve: onCreateNote };
           setVoiceState("idle");
           voiceStateRef.current = "idle";
@@ -167,7 +192,6 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
       await onCreateNote(title, folderId);
       await speak(`Note "${title}" created${folderConfirm}. Go ahead and dictate. Say Hey Eternal done when you're finished.`);
 
-      // Enter dictation mode — seed the start position
       const view = optionsRef.current.editorViewRef.current;
       dictationPosRef.current = view ? view.state.doc.length : 0;
       dictationBufferRef.current = "";
@@ -202,7 +226,6 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
       setStatusText("Thinking…");
       try {
         const answer = await onAskQuestion(raw.trim());
-        // Speak only the first ~400 chars to keep the response short
         const short = answer.length > 400 ? answer.slice(0, 400).replace(/\s\S+$/, "") + "…" : answer;
         await speak(short);
       } catch {
@@ -217,7 +240,6 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
     setStatusText("Listening for Hey Eternal…");
   }, [speak, insertText]);
 
-  // Pending folder suggestion (yes/no follow-up)
   const pendingFolderSuggestionRef = useRef<{
     title: string;
     suggested: VoiceFolder;
@@ -231,7 +253,6 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
 
     // ── DICTATING ────────────────────────────────────────────────────────
     if (state === "dictating") {
-      // Check for stop phrase
       if (STOP_PHRASES.some((p) => lower.includes(p))) {
         setInterimText("");
         await speak("Got it. Note saved.");
@@ -253,7 +274,8 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
 
     // ── IDLE — waiting for wake word ──────────────────────────────────────
     if (state === "idle") {
-      if (!lower.includes(WAKE_WORD)) return;
+      const { found, afterWake } = detectWakeWord(lower);
+      if (!found) return;
 
       // Handle pending yes/no
       if (pendingFolderSuggestionRef.current) {
@@ -271,13 +293,15 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
         return;
       }
 
-      // Extract command after the wake word
-      const afterWake = lower.slice(lower.indexOf(WAKE_WORD) + WAKE_WORD.length).trim();
       if (afterWake.length > 2) {
-        // Full command in one utterance
-        void handleCommand(transcript.slice(transcript.toLowerCase().indexOf(WAKE_WORD) + WAKE_WORD.length).trim());
+        // Full command in one utterance — use original case from transcript
+        const wakePattern = WAKE_PATTERNS.find((p) => lower.includes(p)) ?? "hey eternal";
+        const originalIdx = transcript.toLowerCase().indexOf(wakePattern);
+        const afterInOriginal = originalIdx !== -1
+          ? transcript.slice(originalIdx + wakePattern.length).trim()
+          : afterWake;
+        void handleCommand(afterInOriginal);
       } else {
-        // Wake word only — wait for next utterance
         setVoiceState("awake");
         voiceStateRef.current = "awake";
         setStatusText("Listening for command…");
@@ -329,19 +353,37 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rec.onerror = (e: any) => {
-      if (e.error === "not-allowed") {
+      if (FATAL_ERRORS.has(e.error)) {
+        // Non-recoverable — stop the assistant and surface a clear message
         shouldRestartRef.current = false;
         setVoiceState("off");
         voiceStateRef.current = "off";
-        setStatusText("Microphone access denied.");
+        const msg =
+          e.error === "not-allowed" ? "Microphone access denied. Allow microphone in browser settings." :
+          e.error === "service-not-allowed" ? "Speech recognition blocked — the app must be served over HTTPS." :
+          "No microphone found or it is in use by another app.";
+        setStatusText(msg);
+        setInterimText("");
       }
+      // no-speech / network / aborted are transient — let onend restart
     };
 
-    rec.start();
+    try {
+      rec.start();
+    } catch {
+      // start() can throw synchronously if called too soon after stop()
+    }
   }, [handleTranscript]);
 
   const enable = useCallback(() => {
     if (voiceStateRef.current !== "off") return;
+
+    const problem = checkAvailability();
+    if (problem) {
+      setStatusText(problem);
+      return; // stay "off" — the status text will surface the reason
+    }
+
     shouldRestartRef.current = true;
     setVoiceState("idle");
     voiceStateRef.current = "idle";
@@ -366,7 +408,6 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
     else disable();
   }, [enable, disable]);
 
-  // Cleanup on unmount
   useEffect(() => () => { disable(); }, [disable]);
 
   return { voiceState, statusText, interimText, toggle };

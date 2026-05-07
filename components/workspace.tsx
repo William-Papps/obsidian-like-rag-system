@@ -2480,11 +2480,12 @@ export function Workspace() {
                   <span>{wordCount.toLocaleString()} words</span>
                   <span>{readingMinutes} min read</span>
                   <span>{draftMarkdown.length.toLocaleString()} chars</span>
-                  {voiceState !== "off" && (
+                  {(voiceState !== "off" || voiceStatusText) && (
                     <span className={`ml-auto flex items-center gap-1.5 ${
                       voiceState === "dictating" ? "text-emerald-400" :
                       voiceState === "processing" || voiceState === "awake" ? "text-accent-400" :
-                      voiceState === "speaking" ? "text-amber-400" : "text-ink-500"
+                      voiceState === "speaking" ? "text-amber-400" :
+                      voiceState === "off" ? "text-red-400" : "text-ink-500"
                     }`}>
                       <Mic2 className="h-3 w-3" />
                       {voiceInterimText
