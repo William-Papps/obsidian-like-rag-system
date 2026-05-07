@@ -37,10 +37,22 @@ export async function GET() {
       periods
     );
 
-    // Per-user totals for the current period.
-    const perUserRows = await dbAll<{ user_id: string; feature: string; count: number }>(
-      "select user_id, feature, count from ai_usage where period = ?",
+    // Per-user totals for the current period, joined with user name/email.
+    const perUserRows = await dbAll<{ user_id: string; name: string; email: string; feature: string; count: number }>(
+      `select a.user_id, coalesce(u.name, 'Deleted user') as name, coalesce(u.email, a.user_id) as email, a.feature, a.count
+       from ai_usage a
+       left join users u on u.id = a.user_id
+       where a.period = ?
+       order by a.user_id, a.feature`,
       [periods[0]]
+    );
+
+    // Note and chunk counts per user.
+    const noteCountRows = await dbAll<{ user_id: string; note_count: number; chunk_count: number }>(
+      `select n.user_id, count(distinct n.id) as note_count, count(c.id) as chunk_count
+       from notes n
+       left join chunks c on c.note_id = n.id
+       group by n.user_id`
     );
 
     return NextResponse.json({
@@ -49,6 +61,7 @@ export async function GET() {
       logs: await listAuditLogs(40),
       usageByPeriod: usageRows,
       currentPeriodPerUser: perUserRows,
+      noteCounts: noteCountRows,
       periods
     });
   });

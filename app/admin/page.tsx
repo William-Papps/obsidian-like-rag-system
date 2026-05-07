@@ -4,7 +4,8 @@ import { useEffect, useState, useCallback } from "react";
 import type { AdminUserSummary, AuditLog, RuntimeSettings } from "@/lib/types";
 
 type UsageRow = { period: string; feature: string; total: number };
-type PerUserRow = { user_id: string; feature: string; count: number };
+type PerUserRow = { user_id: string; name: string; email: string; feature: string; count: number };
+type NoteCountRow = { user_id: string; note_count: number; chunk_count: number };
 
 type AdminPayload = {
   runtime: RuntimeSettings;
@@ -12,6 +13,7 @@ type AdminPayload = {
   logs: AuditLog[];
   usageByPeriod: UsageRow[];
   currentPeriodPerUser: PerUserRow[];
+  noteCounts: NoteCountRow[];
   periods: string[];
 };
 
@@ -78,7 +80,7 @@ export default function AdminPage() {
     <div className="flex min-h-screen items-center justify-center bg-ink-950 text-ink-400">Loading…</div>
   );
 
-  const { runtime, users, logs, usageByPeriod, currentPeriodPerUser, periods } = data;
+  const { runtime, users, logs, usageByPeriod, currentPeriodPerUser, noteCounts, periods } = data;
 
   const features = ["ask", "quiz", "flashcards", "summary", "ocr", "index"] as const;
   type Feature = typeof features[number];
@@ -96,11 +98,17 @@ export default function AdminPage() {
     grandTotals.set(row.feature, (grandTotals.get(row.feature) ?? 0) + row.total);
   }
 
-  // Per-user map for current period
-  const perUserMap = new Map<string, Map<string, number>>();
+  // Per-user map for current period: user_id → { featureMap, name, email }
+  const perUserMap = new Map<string, { name: string; email: string; features: Map<string, number> }>();
   for (const row of currentPeriodPerUser) {
-    if (!perUserMap.has(row.user_id)) perUserMap.set(row.user_id, new Map());
-    perUserMap.get(row.user_id)!.set(row.feature, row.count);
+    if (!perUserMap.has(row.user_id)) perUserMap.set(row.user_id, { name: row.name, email: row.email, features: new Map() });
+    perUserMap.get(row.user_id)!.features.set(row.feature, row.count);
+  }
+
+  // Note/chunk counts per user
+  const noteCountMap = new Map<string, { noteCount: number; chunkCount: number }>();
+  for (const row of noteCounts) {
+    noteCountMap.set(row.user_id, { noteCount: row.note_count, chunkCount: row.chunk_count });
   }
 
   const featureLabel: Record<Feature, string> = {
@@ -123,6 +131,12 @@ export default function AdminPage() {
             <p className="mt-1 text-sm text-ink-400">{users.length} user{users.length !== 1 ? "s" : ""} registered</p>
           </div>
           <div className="flex gap-3">
+            <button
+              onClick={() => void load()}
+              className="rounded-xl border border-ink-700 px-4 py-2 text-sm font-semibold text-ink-200 hover:border-accent-500/40 hover:text-white"
+            >
+              Refresh
+            </button>
             <a href="/api/backup" className="rounded-xl border border-ink-700 px-4 py-2 text-sm font-semibold text-ink-200 hover:border-accent-500/40 hover:text-white">
               Download backup
             </a>
@@ -219,7 +233,7 @@ export default function AdminPage() {
           </div>
 
           {/* Per-user breakdown for current month */}
-          {currentPeriodPerUser.length > 0 ? (
+          {perUserMap.size > 0 ? (
             <div className="mt-4 overflow-x-auto rounded-2xl border border-ink-700 bg-ink-900">
               <div className="border-b border-ink-700 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-ink-400">
                 Per-user breakdown — {currentPeriod}
@@ -231,25 +245,29 @@ export default function AdminPage() {
                     {features.map((f) => (
                       <th key={f} className="px-4 py-3 text-right text-xs font-semibold text-ink-400">{featureLabel[f]}</th>
                     ))}
+                    <th className="px-4 py-3 text-right text-xs font-semibold text-ink-400">Total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-ink-800">
-                  {users.filter((u) => perUserMap.has(u.id)).map((u) => {
-                    const uMap = perUserMap.get(u.id)!;
+                  {[...perUserMap.entries()].map(([userId, { name, email, features: fMap }]) => {
+                    const total = features.reduce((s, f) => s + (fMap.get(f) ?? 0), 0);
                     return (
-                      <tr key={u.id}>
+                      <tr key={userId}>
                         <td className="px-4 py-3">
-                          <div className="text-sm font-medium text-ink-100">{u.name}</div>
-                          <div className="text-xs text-ink-500">{u.email}</div>
+                          <div className="text-sm font-medium text-ink-100">{name}</div>
+                          <div className="text-xs text-ink-500">{email}</div>
                         </td>
                         {features.map((f) => {
-                          const count = uMap.get(f) ?? 0;
+                          const count = fMap.get(f) ?? 0;
                           return (
                             <td key={f} className={`px-4 py-3 text-right tabular-nums ${count > 0 ? "text-ink-100" : "text-ink-600"}`}>
-                              {count > 0 ? count : "—"}
+                              {count > 0 ? count.toLocaleString() : "—"}
                             </td>
                           );
                         })}
+                        <td className="px-4 py-3 text-right font-semibold tabular-nums text-accent-300">
+                          {total.toLocaleString()}
+                        </td>
                       </tr>
                     );
                   })}
@@ -270,64 +288,82 @@ export default function AdminPage() {
             <table className="w-full text-sm">
               <thead className="border-b border-ink-700 bg-ink-850/60">
                 <tr>
-                  {["Name / Email", "Role", "Plan", "Status", "Joined", "Actions"].map((h) => (
+                  {["Name / Email", "Role", "Plan", "Status", "Notes", "Verified", "Joined", "Actions"].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-ink-400">{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody className="divide-y divide-ink-800">
-                {users.map((u) => (
-                  <tr key={u.id} className={u.disabledAt ? "opacity-50" : ""}>
-                    <td className="px-4 py-3">
-                      <div className="font-medium">{u.name}</div>
-                      <div className="text-xs text-ink-400">{u.email}</div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <select
-                        value={u.role}
-                        disabled={!!actionBusy}
-                        onChange={(e) => void userAction(u.id, { role: e.target.value })}
-                        className="rounded bg-ink-800 px-2 py-1 text-xs"
-                      >
-                        <option value="user">user</option>
-                        <option value="admin">admin</option>
-                        <option value="owner">owner</option>
-                      </select>
-                    </td>
-                    <td className="px-4 py-3">
-                      <select
-                        value={u.hostedPlan}
-                        disabled={!!actionBusy}
-                        onChange={(e) => void userAction(u.id, { hostedPlan: e.target.value })}
-                        className="rounded bg-ink-800 px-2 py-1 text-xs"
-                      >
-                        <option value="free">free</option>
-                        <option value="starter">starter</option>
-                        <option value="pro">pro</option>
-                      </select>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-ink-400">{u.subscriptionStatus}</td>
-                    <td className="px-4 py-3 text-xs text-ink-400">{u.createdAt.slice(0, 10)}</td>
-                    <td className="px-4 py-3">
-                      <div className="flex gap-2">
-                        <button
+                {users.map((u) => {
+                  const nc = noteCountMap.get(u.id);
+                  return (
+                    <tr key={u.id} className={u.disabledAt ? "opacity-50" : ""}>
+                      <td className="px-4 py-3">
+                        <div className="font-medium">{u.name}</div>
+                        <div className="text-xs text-ink-400">{u.email}</div>
+                        {u.hostedAccessGrantedAt ? (
+                          <div className="mt-0.5 text-[10px] text-accent-400">Hosted access granted</div>
+                        ) : null}
+                      </td>
+                      <td className="px-4 py-3">
+                        <select
+                          value={u.role}
                           disabled={!!actionBusy}
-                          onClick={() => void userAction(u.id, { disabled: !u.disabledAt })}
-                          className="rounded border border-ink-700 px-2 py-1 text-xs hover:border-amber-400/40 hover:text-amber-400"
+                          onChange={(e) => void userAction(u.id, { role: e.target.value })}
+                          className="rounded bg-ink-800 px-2 py-1 text-xs"
                         >
-                          {u.disabledAt ? "Enable" : "Disable"}
-                        </button>
-                        <button
+                          <option value="user">user</option>
+                          <option value="admin">admin</option>
+                          <option value="owner">owner</option>
+                        </select>
+                      </td>
+                      <td className="px-4 py-3">
+                        <select
+                          value={u.hostedPlan}
                           disabled={!!actionBusy}
-                          onClick={() => void deleteUser(u.id, u.name)}
-                          className="rounded border border-ink-700 px-2 py-1 text-xs hover:border-danger-400/40 hover:text-danger-400"
+                          onChange={(e) => void userAction(u.id, { hostedPlan: e.target.value })}
+                          className="rounded bg-ink-800 px-2 py-1 text-xs"
                         >
-                          Delete
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
+                          <option value="free">free</option>
+                          <option value="starter">starter</option>
+                          <option value="pro">pro</option>
+                        </select>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-ink-400">{u.subscriptionStatus}</td>
+                      <td className="px-4 py-3 text-xs tabular-nums text-ink-400">
+                        {nc ? (
+                          <span>{nc.noteCount.toLocaleString()} <span className="text-ink-600">/ {nc.chunkCount.toLocaleString()} chunks</span></span>
+                        ) : "—"}
+                      </td>
+                      <td className="px-4 py-3 text-xs">
+                        {u.emailVerifiedAt ? (
+                          <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-400">Yes</span>
+                        ) : (
+                          <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-amber-400">No</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-xs text-ink-400">{u.createdAt.slice(0, 10)}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex gap-2">
+                          <button
+                            disabled={!!actionBusy}
+                            onClick={() => void userAction(u.id, { disabled: !u.disabledAt })}
+                            className="rounded border border-ink-700 px-2 py-1 text-xs hover:border-amber-400/40 hover:text-amber-400"
+                          >
+                            {u.disabledAt ? "Enable" : "Disable"}
+                          </button>
+                          <button
+                            disabled={!!actionBusy}
+                            onClick={() => void deleteUser(u.id, u.name)}
+                            className="rounded border border-ink-700 px-2 py-1 text-xs hover:border-danger-400/40 hover:text-danger-400"
+                          >
+                            Delete
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
