@@ -168,6 +168,63 @@ function reconstructTextFromPage(items: TextItem[]): string {
     .join("\n");
 }
 
+// ── Raw JPEG extractor for scanned PDFs ──────────────────────────────────────
+// Scanned PDFs store each page as a JPEG stream (DCTDecode). When pdfjs can't
+// decode images without a canvas, we fall back to scanning the raw bytes.
+function extractJpegsFromBuffer(buf: Buffer): Buffer[] {
+  const jpegs: Buffer[] = [];
+  let i = 0;
+
+  while (i < buf.length - 3) {
+    // JPEG SOI = FF D8, must be followed by FF (next marker byte)
+    if (buf[i] !== 0xFF || buf[i + 1] !== 0xD8 || buf[i + 2] !== 0xFF) { i++; continue; }
+
+    const start = i;
+    let pos = i + 2;
+    let found = false;
+
+    try {
+      outer: while (pos < buf.length - 1) {
+        if (buf[pos] !== 0xFF) break;
+        const marker = buf[pos + 1];
+        pos += 2;
+
+        if (marker === 0xD9) { // EOI
+          if (pos - start >= 10_000) jpegs.push(buf.slice(start, pos));
+          found = true;
+          break;
+        }
+        if (marker >= 0xD0 && marker <= 0xD7) continue; // RST — no length
+        if (marker === 0xD8) break; // nested SOI — bail
+
+        if (pos + 2 > buf.length) break;
+        const segLen = buf.readUInt16BE(pos);
+        if (segLen < 2) break;
+
+        if (marker === 0xDA) { // SOS — scan data follows
+          pos += segLen;
+          while (pos < buf.length - 1) {
+            if (buf[pos] === 0xFF) {
+              const next = buf[pos + 1];
+              if (next === 0x00) { pos += 2; continue; } // stuffed byte
+              if (next >= 0xD0 && next <= 0xD7) { pos += 2; continue; } // RST
+              continue outer; // real marker — outer loop will handle it
+            }
+            pos++;
+          }
+          break;
+        } else {
+          pos += segLen;
+        }
+      }
+    } catch { /* malformed segment — skip */ }
+
+    i = found ? pos : start + 1;
+  }
+
+  return jpegs;
+}
+
 // ── main PDF converter ────────────────────────────────────────────────────────
 async function convertPdfToMarkdown(
   buffer: Buffer,
@@ -264,27 +321,44 @@ async function convertPdfToMarkdown(
   const warnings: string[] = [];
 
   // ── OCR fallback for image-heavy PDFs ────────────────────────────────────
-  if (isSparse && embeddedImages.length > 0 && getAiContext) {
+  if (isSparse && getAiContext) {
     const ai = await getAiContext().catch(() => null);
     if (ai?.apiKey) {
       const ocrParts: string[] = [];
+
+      // Path A: pdfjs gave us decoded pixel data (works for inline images)
       for (const img of embeddedImages.slice(0, 12)) {
         try {
-          const pngBuf = encodeAsPng(img.width, img.height, img.data, img.kind);
-          // Skip tiny images (icons, decorations) — less than ~50×50
           if (img.width < 50 || img.height < 50) continue;
+          const pngBuf = encodeAsPng(img.width, img.height, img.data, img.kind);
           const extracted = await extractTextFromImage(userId, {
             bytes: pngBuf,
             contentType: "image/png",
-            label: `PDF embedded image ${ocrParts.length + 1}`
+            label: `PDF image ${ocrParts.length + 1}`
           }, ai);
           if (extracted.text?.trim()) ocrParts.push(extracted.text.trim());
         } catch { /* skip */ }
       }
+
+      // Path B: scanned PDFs store pages as raw JPEG streams — extract directly
+      if (ocrParts.length === 0) {
+        const rawJpegs = extractJpegsFromBuffer(buffer);
+        for (const jpegBuf of rawJpegs.slice(0, 12)) {
+          try {
+            const extracted = await extractTextFromImage(userId, {
+              bytes: jpegBuf,
+              contentType: "image/jpeg",
+              label: `PDF scan ${ocrParts.length + 1}`
+            }, ai);
+            if (extracted.text?.trim()) ocrParts.push(extracted.text.trim());
+          } catch { /* skip */ }
+        }
+      }
+
       if (ocrParts.length > 0) {
         return {
           markdown: ocrParts.join("\n\n"),
-          warnings: [`Content extracted via OCR from ${ocrParts.length} embedded image(s) in the PDF.`]
+          warnings: [`Content extracted via OCR from ${ocrParts.length} scanned page(s) in the PDF.`]
         };
       }
     }
