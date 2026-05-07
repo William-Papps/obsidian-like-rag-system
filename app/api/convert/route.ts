@@ -258,11 +258,11 @@ async function convertPdfToMarkdown(
     const page = await doc.getPage(pageNum);
 
     // ── Text extraction ──────────────────────────────────────────────────
-    const textContent = await page.getTextContent();
+    const textContent = await page.getTextContent({ includeMarkedContent: true });
     const pageText = reconstructTextFromPage(textContent.items as TextItem[]);
     pageTexts.push(pageText);
 
-    // ── Embedded image extraction (for sparse-text PDFs) ─────────────────
+    // ── Inline image extraction (for simple embedded images) ─────────────
     try {
       const OPS = pdfjs.OPS;
       const opList = await page.getOperatorList();
@@ -270,43 +270,18 @@ async function convertPdfToMarkdown(
       const argsList: unknown[][] = opList.argsArray;
 
       for (let i = 0; i < fns.length; i++) {
-        const fn = fns[i];
-
-        // Inline images carry their pixel data directly in the operator args
-        if (fn === OPS.paintInlineImageXObject) {
+        if (fns[i] === OPS.paintInlineImageXObject) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const imgData = (argsList[i] as any[])[0];
-          if (imgData?.data && imgData.width > 10 && imgData.height > 10) {
+          if (imgData?.data && imgData.width > 50 && imgData.height > 50) {
             embeddedImages.push({ width: imgData.width, height: imgData.height, data: imgData.data, kind: imgData.kind ?? 2 });
           }
         }
-
-        // XObject images are referenced by name; look them up from page.objs
-        if (fn === OPS.paintImageXObject) {
-          const name = (argsList[i] as string[])[0];
-          if (name) {
-            await new Promise<void>((resolve) => {
-              try {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                page.objs.get(name, (imgData: any) => {
-                  if (imgData?.data && imgData.width > 10 && imgData.height > 10) {
-                    embeddedImages.push({ width: imgData.width, height: imgData.height, data: imgData.data, kind: imgData.kind ?? 2 });
-                  }
-                  resolve();
-                });
-              } catch {
-                resolve();
-              }
-            });
-          }
-        }
       }
-    } catch { /* Image extraction is best-effort */ }
+    } catch { /* best-effort */ }
 
     await page.cleanup();
   }
-
-  try { await doc.cleanup?.(); } catch { /* ignore */ }
 
   // ── Assess text quality ───────────────────────────────────────────────────
   const fullText = pageTexts
@@ -320,55 +295,90 @@ async function convertPdfToMarkdown(
 
   const warnings: string[] = [];
 
-  // ── OCR fallback for image-heavy PDFs ────────────────────────────────────
+  // ── OCR fallback for image-heavy / scanned PDFs ───────────────────────────
   if (isSparse && getAiContext) {
     const ai = await getAiContext().catch(() => null);
     if (ai?.apiKey) {
       const ocrParts: string[] = [];
 
-      // Path A: pdfjs gave us decoded pixel data (works for inline images)
+      // Path A: pdfjs decoded inline pixel data
       for (const img of embeddedImages.slice(0, 12)) {
         try {
-          if (img.width < 50 || img.height < 50) continue;
           const pngBuf = encodeAsPng(img.width, img.height, img.data, img.kind);
           const extracted = await extractTextFromImage(userId, {
-            bytes: pngBuf,
-            contentType: "image/png",
-            label: `PDF image ${ocrParts.length + 1}`
+            bytes: pngBuf, contentType: "image/png", label: `PDF image ${ocrParts.length + 1}`
           }, ai);
           if (extracted.text?.trim()) ocrParts.push(extracted.text.trim());
         } catch { /* skip */ }
       }
 
-      // Path B: scanned PDFs store pages as raw JPEG streams — extract directly
+      // Path B: raw JPEG stream extraction (DCTDecode-encoded pages)
       if (ocrParts.length === 0) {
         const rawJpegs = extractJpegsFromBuffer(buffer);
         for (const jpegBuf of rawJpegs.slice(0, 12)) {
           try {
             const extracted = await extractTextFromImage(userId, {
-              bytes: jpegBuf,
-              contentType: "image/jpeg",
-              label: `PDF scan ${ocrParts.length + 1}`
+              bytes: jpegBuf, contentType: "image/jpeg", label: `PDF scan ${ocrParts.length + 1}`
             }, ai);
             if (extracted.text?.trim()) ocrParts.push(extracted.text.trim());
           } catch { /* skip */ }
         }
       }
 
+      // Path C: canvas rendering — handles JPEG2000, CCITT, vector PDFs with
+      // protected text, and any format pdfjs can display but not extract as text.
+      if (ocrParts.length === 0) {
+        try {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { createCanvas } = await import("@napi-rs/canvas") as any;
+          const scale = 1.5; // ~108 DPI, good balance of quality vs speed
+          const maxPages = Math.min(numPages, 10);
+
+          for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
+            try {
+              const page = await doc.getPage(pageNum);
+              const viewport = page.getViewport({ scale });
+              const width = Math.ceil(viewport.width);
+              const height = Math.ceil(viewport.height);
+              const canvas = createCanvas(width, height);
+              const ctx = canvas.getContext("2d");
+
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const canvasFactory = {
+                create: (w: number, h: number) => { const c = createCanvas(w, h); return { canvas: c, context: c.getContext("2d") }; },
+                reset: (cc: any, w: number, h: number) => { cc.canvas.width = w; cc.canvas.height = h; },
+                destroy: (_cc: any) => {},
+              };
+
+              await page.render({ canvasContext: ctx, viewport, canvasFactory }).promise;
+              await page.cleanup();
+
+              const pngBuf: Buffer = canvas.toBuffer("image/png");
+              const extracted = await extractTextFromImage(userId, {
+                bytes: pngBuf, contentType: "image/png", label: `PDF page ${pageNum}`
+              }, ai);
+              if (extracted.text?.trim()) ocrParts.push(extracted.text.trim());
+            } catch { /* skip individual page errors */ }
+          }
+        } catch { /* @napi-rs/canvas not available or rendering failed */ }
+      }
+
       if (ocrParts.length > 0) {
+        try { await doc.cleanup?.(); } catch { /* ignore */ }
         return {
           markdown: ocrParts.join("\n\n"),
-          warnings: [`Content extracted via OCR from ${ocrParts.length} scanned page(s) in the PDF.`]
+          warnings: [`Content extracted via OCR from ${ocrParts.length} page(s) in the PDF.`]
         };
       }
     }
   }
 
+  try { await doc.cleanup?.(); } catch { /* ignore */ }
+
   if (isSparse) {
     warnings.push(
-      "This PDF appears to contain mainly charts or images with little text layer. " +
-      "For best results, export individual pages as PNG/JPG images and upload them — " +
-      "the OCR feature will extract chart labels, captions, and surrounding text."
+      "This PDF appears to contain mainly images with little text layer. " +
+      "For best results, export individual pages as PNG/JPG images and upload them."
     );
   }
 
