@@ -611,9 +611,11 @@ export function Workspace() {
       body: JSON.stringify({ title, folderId, workspaceId: activeWorkspaceId })
     });
     const note = (await response.json()) as Note;
-    await refresh();
+    // Add the note immediately so the editor opens without waiting for refresh
+    setData((d) => d ? { ...d, notes: [...d.notes, note] } : d);
     selectNote(note.id);
     notify("Note created", "success");
+    void refresh();
   }
 
   function createNote(folderId: string | null = contextFolderId()) {
