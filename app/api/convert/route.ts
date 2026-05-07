@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deflateSync } from "zlib";
+import path from "path";
+import { pathToFileURL } from "url";
 import mammoth from "mammoth";
 import { withAuthenticatedUser } from "@/lib/auth";
 import { extractTextFromImage } from "@/lib/import/vision";
@@ -175,7 +177,10 @@ async function convertPdfToMarkdown(
   // Dynamic import — pdfjs-dist legacy ESM build works in Node.js
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs" as string) as any;
-  pdfjs.GlobalWorkerOptions.workerSrc = "";
+  // v5 requires a non-empty workerSrc even for in-process (fake) worker mode
+  pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(
+    path.resolve(process.cwd(), "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs")
+  ).href;
 
   const loadingTask = pdfjs.getDocument({
     data: new Uint8Array(buffer),
