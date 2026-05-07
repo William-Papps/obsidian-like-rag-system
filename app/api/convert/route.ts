@@ -62,18 +62,11 @@ async function convertPdfToMarkdown(
     path.resolve(process.cwd(), "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs")
   ).href;
 
-  const pdfjsRoot = pathToFileURL(path.resolve(process.cwd(), "node_modules/pdfjs-dist")).href;
-
   const loadingTask = pdfjs.getDocument({
     data: new Uint8Array(buffer),
     useWorkerFetch: false,
     isEvalSupported: false,
     disableFontFace: true,
-    // Providing cMap + standard font paths lets pdfjs decode non-latin
-    // and custom-encoded text that would otherwise come back as empty strings.
-    cMapUrl: `${pdfjsRoot}/cmaps/`,
-    cMapPacked: true,
-    standardFontDataUrl: `${pdfjsRoot}/standard_fonts/`,
   });
 
   const doc = await loadingTask.promise;
@@ -111,39 +104,38 @@ async function convertPdfToMarkdown(
 
   const warnings: string[] = [];
 
-  // ── Canvas OCR fallback for truly image-based PDFs ────────────────────────
+  // ── Canvas OCR fallback for image-based PDFs ─────────────────────────────
   if (isSparse && getAiContext) {
     const ai = await getAiContext().catch(() => null);
     if (ai?.apiKey) {
       const ocrParts: string[] = [];
+      let canvasError: string | null = null;
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { createCanvas } = await import("@napi-rs/canvas") as any;
-        const scale = 1.5;
         const maxPages = Math.min(numPages, 10);
 
         for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
           try {
             const page = await doc.getPage(pageNum);
-            const viewport = page.getViewport({ scale });
+            const viewport = page.getViewport({ scale: 1.5 });
             const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
             const ctx = canvas.getContext("2d");
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            const canvasFactory = {
-              create: (w: number, h: number) => { const c = createCanvas(w, h); return { canvas: c, context: c.getContext("2d") }; },
-              reset: (cc: any, w: number, h: number) => { cc.canvas.width = w; cc.canvas.height = h; },
-              destroy: (_cc: any) => {},
-            };
-            await page.render({ canvasContext: ctx, viewport, canvasFactory }).promise;
+            await page.render({ canvasContext: ctx, viewport }).promise;
             await page.cleanup();
             const pngBuf: Buffer = canvas.toBuffer("image/png");
             const extracted = await extractTextFromImage(userId, {
               bytes: pngBuf, contentType: "image/png", label: `PDF page ${pageNum}`
             }, ai);
             if (extracted.text?.trim()) ocrParts.push(extracted.text.trim());
-          } catch { /* skip page */ }
+          } catch (pageErr) {
+            console.error(`PDF canvas OCR page ${pageNum} error:`, pageErr);
+          }
         }
-      } catch { /* canvas not available */ }
+      } catch (canvasErr) {
+        canvasError = String(canvasErr);
+        console.error("PDF canvas OCR setup error:", canvasErr);
+      }
 
       if (ocrParts.length > 0) {
         try { await doc.cleanup?.(); } catch { /* ignore */ }
@@ -152,16 +144,30 @@ async function convertPdfToMarkdown(
           warnings: [`Content extracted via OCR from ${ocrParts.length} page(s).`]
         };
       }
+
+      // Canvas OCR ran but got nothing — surface reason if canvas failed to load
+      if (canvasError) {
+        warnings.push("Image-based PDF detected but canvas renderer failed to load. Run: npm install @napi-rs/canvas");
+      }
     }
   }
 
   try { await doc.cleanup?.(); } catch { /* ignore */ }
 
+  // Always return whatever text pdfjs extracted, even if sparse.
+  // Only show the hard error when we truly got zero characters.
   if (!fullText) {
     return {
       markdown: "",
-      warnings: ["No readable text could be extracted from this PDF. Try uploading individual pages as images instead."]
+      warnings: [
+        ...warnings,
+        "No readable text could be extracted. If this is a scanned PDF, try exporting pages as images and uploading them."
+      ]
     };
+  }
+
+  if (isSparse) {
+    warnings.push("Only partial text could be extracted — this PDF may contain image-based pages.");
   }
 
   return { markdown: fullText, warnings };
