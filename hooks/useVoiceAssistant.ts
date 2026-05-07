@@ -16,21 +16,24 @@ export type UseVoiceAssistantOptions = {
 };
 
 // --- wake / stop detection ---
-// "hey eternal" may be mis-heard as several alternatives
 const WAKE_PATTERNS = [
   "hey eternal",
   "hey a turn all",
   "hey turn all",
   "hey attorney",
   "hey internal",
-  "eternal",          // fallback: just the keyword alone
 ];
+
+// Phrases that end a conversation and return to wake-word listening
+const CONVO_END_PHRASES = [
+  "goodbye", "bye", "end conversation", "stop talking",
+  "that's all", "thats all", "i'm done", "im done",
+];
+
 const STOP_PHRASES = ["hey eternal done", "hey eternal stop", "hey eternal finish", "stop dictating", "finish dictating", "done dictating"];
 const CREATE_NOTE_RE = /(?:create|make|new)\s+(?:a\s+)?note\s+called\s+(.+?)(?:\s+in\s+(?:the\s+)?(.+?)\s+folder)?$/i;
 const CREATE_FOLDER_RE = /(?:create|make|new)\s+(?:a\s+)?folder\s+called\s+(.+?)(?:\s+in\s+(?:the\s+)?(.+?)\s+folder)?$/i;
-const QUESTION_RE = /^(?:what(?:'s| is)|who(?:'s| is)|how|when|where|why|tell me|explain|describe|give me)\s+(.+)$/i;
 
-// Errors from which we cannot recover by restarting
 const FATAL_ERRORS = new Set(["not-allowed", "service-not-allowed", "audio-capture"]);
 
 function detectWakeWord(lower: string): { found: boolean; afterWake: string } {
@@ -52,7 +55,19 @@ function matchFolder(hint: string, folders: VoiceFolder[]): VoiceFolder | null {
   );
 }
 
-// Browser speech synthesis fallback
+function checkAvailability(): string | null {
+  if (typeof window === "undefined") return "Not available server-side.";
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const w = window as any;
+  if (!w.SpeechRecognition && !w.webkitSpeechRecognition) {
+    return "Your browser doesn't support speech recognition. Try Chrome or Edge.";
+  }
+  if (window.location.protocol === "http:" && window.location.hostname !== "localhost") {
+    return "Voice assistant requires HTTPS. Open the app over a secure connection.";
+  }
+  return null;
+}
+
 function browserSpeak(text: string): Promise<void> {
   return new Promise((resolve) => {
     window.speechSynthesis.cancel();
@@ -69,19 +84,6 @@ function browserSpeak(text: string): Promise<void> {
   });
 }
 
-function checkAvailability(): string | null {
-  if (typeof window === "undefined") return "Not available server-side.";
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const w = window as any;
-  if (!w.SpeechRecognition && !w.webkitSpeechRecognition) {
-    return "Your browser doesn't support speech recognition. Try Chrome or Edge.";
-  }
-  if (window.location.protocol === "http:" && window.location.hostname !== "localhost") {
-    return "Voice assistant requires HTTPS. Open the app over a secure connection.";
-  }
-  return null;
-}
-
 export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
   const [voiceState, setVoiceState] = useState<VoiceState>("off");
   const [statusText, setStatusText] = useState("");
@@ -94,8 +96,23 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
   const shouldRestartRef = useRef(false);
+  // When true, after speaking we stay in conversation (awake) rather than idle
+  const conversationModeRef = useRef(false);
   const dictationBufferRef = useRef("");
   const dictationPosRef = useRef<number>(0);
+
+  // ── Return to the right listening state after a turn ─────────────────────
+  const returnToListening = useCallback(() => {
+    if (conversationModeRef.current) {
+      setVoiceState("awake");
+      voiceStateRef.current = "awake";
+      setStatusText("Go ahead…");
+    } else {
+      setVoiceState("idle");
+      voiceStateRef.current = "idle";
+      setStatusText("Listening for Hey Eternal…");
+    }
+  }, []);
 
   // ── TTS ─────────────────────────────────────────────────────────────────
   const speak = useCallback(async (text: string) => {
@@ -126,31 +143,23 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
     }
 
     if (voiceStateRef.current === "speaking") {
-      setVoiceState("idle");
-      voiceStateRef.current = "idle";
-      setStatusText("Listening for Hey Eternal…");
+      returnToListening();
     }
-  }, []);
+  }, [returnToListening]);
 
   // ── Editor insertion ─────────────────────────────────────────────────────
-  const insertText = useCallback((text: string, replace = false) => {
+  const insertText = useCallback((text: string) => {
     const view = optionsRef.current.editorViewRef.current;
     if (!view || !text.trim()) return;
-    if (replace) {
-      const from = dictationPosRef.current;
-      const to = view.state.doc.length;
-      view.dispatch({ changes: { from, to, insert: text } });
-    } else {
-      const pos = view.state.selection.main.head;
-      view.dispatch({
-        changes: { from: pos, to: pos, insert: text },
-        selection: { anchor: pos + text.length }
-      });
-      dictationPosRef.current = pos + text.length;
-    }
+    const pos = view.state.selection.main.head;
+    view.dispatch({
+      changes: { from: pos, to: pos, insert: text },
+      selection: { anchor: pos + text.length }
+    });
+    dictationPosRef.current = pos + text.length;
   }, []);
 
-  // ── Command parser ────────────────────────────────────────────────────────
+  // ── Command / question handler ────────────────────────────────────────────
   const handleCommand = useCallback(async (raw: string) => {
     const text = raw.trim().toLowerCase().replace(/^[.,!?]+|[.,!?]+$/g, "");
     const { folders, onCreateNote, onCreateFolder, onAskQuestion } = optionsRef.current;
@@ -174,23 +183,11 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
         } else {
           await speak(`I couldn't find a folder called ${folderHint}. Creating in the current location.`);
         }
-      } else if (folders.length > 0) {
-        const titleWords = title.toLowerCase().split(/\s+/);
-        const suggested = folders.find((f) =>
-          titleWords.some((w) => w.length > 3 && f.name.toLowerCase().includes(w))
-        );
-        if (suggested) {
-          await speak(`Should I put this in the ${suggested.name} folder? Say yes or no.`);
-          pendingFolderSuggestionRef.current = { title, suggested, resolve: onCreateNote };
-          setVoiceState("idle");
-          voiceStateRef.current = "idle";
-          setStatusText("Listening for Hey Eternal…");
-          return;
-        }
       }
 
       await onCreateNote(title, folderId);
-      await speak(`Note "${title}" created${folderConfirm}. Go ahead and dictate. Say Hey Eternal done when you're finished.`);
+      conversationModeRef.current = false; // pause conversation during dictation
+      await speak(`Note "${title}" created${folderConfirm}. Dictate now. Say Hey Eternal done when finished.`);
 
       const view = optionsRef.current.editorViewRef.current;
       dictationPosRef.current = view ? view.state.doc.length : 0;
@@ -213,38 +210,21 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
       }
       onCreateFolder(name, parentId);
       await speak(`Folder ${name} created.`);
-      setVoiceState("idle");
-      voiceStateRef.current = "idle";
-      setStatusText("Listening for Hey Eternal…");
+      returnToListening();
       return;
     }
 
-    // Question → RAG
-    const qMatch = text.match(QUESTION_RE);
-    const isImplicitQuestion = !noteMatch && !folderMatch && text.length > 3 && !qMatch;
-    if (qMatch || isImplicitQuestion) {
-      setStatusText("Thinking…");
-      try {
-        const answer = await onAskQuestion(raw.trim());
-        const short = answer.length > 400 ? answer.slice(0, 400).replace(/\s\S+$/, "") + "…" : answer;
-        await speak(short);
-      } catch {
-        await speak("Sorry, I couldn't get an answer right now.");
-      }
-      return;
+    // Everything else → send to RAG as a question/chat
+    setStatusText("Thinking…");
+    try {
+      const answer = await onAskQuestion(raw.trim());
+      const short = answer.length > 500 ? answer.slice(0, 500).replace(/\s\S+$/, "") + "…" : answer;
+      await speak(short);
+    } catch {
+      await speak("Sorry, I couldn't get an answer right now.");
     }
-
-    await speak("I didn't understand that. Try: create a note called, or ask me a question.");
-    setVoiceState("idle");
-    voiceStateRef.current = "idle";
-    setStatusText("Listening for Hey Eternal…");
-  }, [speak, insertText]);
-
-  const pendingFolderSuggestionRef = useRef<{
-    title: string;
-    suggested: VoiceFolder;
-    resolve: (title: string, folderId: string | null) => Promise<void>;
-  } | null>(null);
+    // speak() calls returnToListening() on its own
+  }, [speak, insertText, returnToListening]);
 
   // ── Transcript handler ────────────────────────────────────────────────────
   const handleTranscript = useCallback(async (transcript: string, isFinal: boolean) => {
@@ -256,9 +236,8 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
       if (STOP_PHRASES.some((p) => lower.includes(p))) {
         setInterimText("");
         await speak("Got it. Note saved.");
-        setVoiceState("idle");
-        voiceStateRef.current = "idle";
-        setStatusText("Listening for Hey Eternal…");
+        // Resume conversation if it was active before dictation started
+        returnToListening();
         return;
       }
       if (isFinal) {
@@ -277,45 +256,51 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
       const { found, afterWake } = detectWakeWord(lower);
       if (!found) return;
 
-      // Handle pending yes/no
-      if (pendingFolderSuggestionRef.current) {
-        const pending = pendingFolderSuggestionRef.current;
-        const isYes = lower.includes("yes") || lower.includes("yeah") || lower.includes("sure");
-        pendingFolderSuggestionRef.current = null;
-        await pending.resolve(pending.title, isYes ? pending.suggested.id : null);
-        await speak(`Note "${pending.title}" created${isYes ? ` in ${pending.suggested.name}` : ""}. Go ahead and dictate. Say Hey Eternal done when you're finished.`);
-        const view = optionsRef.current.editorViewRef.current;
-        dictationPosRef.current = view ? view.state.doc.length : 0;
-        dictationBufferRef.current = "";
-        setVoiceState("dictating");
-        voiceStateRef.current = "dictating";
-        setStatusText("Dictating… say 'Hey Eternal done' to finish");
-        return;
-      }
+      // Start conversation mode
+      conversationModeRef.current = true;
 
       if (afterWake.length > 2) {
-        // Full command in one utterance — use original case from transcript
+        // Full command in the same utterance as wake word
         const wakePattern = WAKE_PATTERNS.find((p) => lower.includes(p)) ?? "hey eternal";
-        const originalIdx = transcript.toLowerCase().indexOf(wakePattern);
-        const afterInOriginal = originalIdx !== -1
-          ? transcript.slice(originalIdx + wakePattern.length).trim()
+        const origIdx = transcript.toLowerCase().indexOf(wakePattern);
+        const afterInOrig = origIdx !== -1
+          ? transcript.slice(origIdx + wakePattern.length).trim()
           : afterWake;
-        void handleCommand(afterInOriginal);
+        void handleCommand(afterInOrig);
       } else {
         setVoiceState("awake");
         voiceStateRef.current = "awake";
-        setStatusText("Listening for command…");
+        setStatusText("Go ahead…");
         await speak("Yes?");
       }
       return;
     }
 
-    // ── AWAKE — received wake word, waiting for command ───────────────────
-    if (state === "awake" && isFinal && transcript.trim().length > 2) {
+    // ── AWAKE — in conversation, waiting for next utterance ───────────────
+    if (state === "awake") {
+      if (!isFinal) {
+        setInterimText(transcript);
+        return;
+      }
+      setInterimText("");
+
+      const words = lower.trim();
+      if (words.length <= 2) return; // too short, ignore noise
+
+      // End conversation on goodbye phrases
+      if (CONVO_END_PHRASES.some((p) => words.includes(p))) {
+        conversationModeRef.current = false;
+        setVoiceState("idle");
+        voiceStateRef.current = "idle";
+        setStatusText("Listening for Hey Eternal…");
+        await speak("Goodbye!");
+        return;
+      }
+
       void handleCommand(transcript.trim());
       return;
     }
-  }, [handleCommand, speak, insertText]);
+  }, [handleCommand, speak, insertText, returnToListening]);
 
   // ── Speech recognition lifecycle ─────────────────────────────────────────
   const startRecognition = useCallback(() => {
@@ -354,7 +339,6 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     rec.onerror = (e: any) => {
       if (FATAL_ERRORS.has(e.error)) {
-        // Non-recoverable — stop the assistant and surface a clear message
         shouldRestartRef.current = false;
         setVoiceState("off");
         voiceStateRef.current = "off";
@@ -368,22 +352,13 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
       // no-speech / network / aborted are transient — let onend restart
     };
 
-    try {
-      rec.start();
-    } catch {
-      // start() can throw synchronously if called too soon after stop()
-    }
+    try { rec.start(); } catch { /* ignore start race */ }
   }, [handleTranscript]);
 
   const enable = useCallback(() => {
     if (voiceStateRef.current !== "off") return;
-
     const problem = checkAvailability();
-    if (problem) {
-      setStatusText(problem);
-      return; // stay "off" — the status text will surface the reason
-    }
-
+    if (problem) { setStatusText(problem); return; }
     shouldRestartRef.current = true;
     setVoiceState("idle");
     voiceStateRef.current = "idle";
@@ -393,6 +368,7 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
 
   const disable = useCallback(() => {
     shouldRestartRef.current = false;
+    conversationModeRef.current = false;
     recognitionRef.current?.stop();
     recognitionRef.current = null;
     window.speechSynthesis?.cancel();
@@ -400,7 +376,6 @@ export function useVoiceAssistant(options: UseVoiceAssistantOptions) {
     voiceStateRef.current = "off";
     setStatusText("");
     setInterimText("");
-    pendingFolderSuggestionRef.current = null;
   }, []);
 
   const toggle = useCallback(() => {

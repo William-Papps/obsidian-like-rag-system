@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { deflateSync } from "zlib";
 import path from "path";
 import { pathToFileURL } from "url";
 import mammoth from "mammoth";
@@ -49,15 +50,133 @@ async function convertDocxToMarkdown(userId: string, buffer: Buffer): Promise<{ 
   }
 }
 
+// ── PNG encoder (no external deps) ───────────────────────────────────────────
+// Pre-build CRC32 lookup table for PNG chunk validation
+const CRC_TABLE = (() => {
+  const t = new Uint32Array(256);
+  for (let i = 0; i < 256; i++) {
+    let c = i;
+    for (let k = 0; k < 8; k++) c = (c & 1) ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    t[i] = c;
+  }
+  return t;
+})();
+
+function crc32(buf: Buffer): number {
+  let crc = 0xFFFFFFFF;
+  for (let i = 0; i < buf.length; i++) crc = CRC_TABLE[(crc ^ buf[i]) & 0xFF]! ^ (crc >>> 8);
+  return (crc ^ 0xFFFFFFFF) >>> 0;
+}
+
+function pngChunk(type: string, data: Buffer): Buffer {
+  const len = Buffer.allocUnsafe(4);
+  len.writeUInt32BE(data.length, 0);
+  const typeBytes = Buffer.from(type, "ascii");
+  const crcInput = Buffer.concat([typeBytes, data]);
+  const crc = Buffer.allocUnsafe(4);
+  crc.writeUInt32BE(crc32(crcInput), 0);
+  return Buffer.concat([len, typeBytes, data, crc]);
+}
+
+// Encode raw pixel data (as returned by pdfjs-dist) to a PNG buffer.
+// kind: 1=GRAYSCALE_1BPP, 2=RGB_24BPP, 3=RGBA_32BPP (pdfjs OPS.ImageKind)
+function encodeAsPng(width: number, height: number, data: Uint8ClampedArray | Uint8Array, kind: number): Buffer {
+  // Normalise to RGBA
+  const rgba = new Uint8Array(width * height * 4);
+  const src = data instanceof Uint8ClampedArray ? data : new Uint8ClampedArray(data.buffer, data.byteOffset, data.byteLength);
+  if (kind === 3) {
+    // Already RGBA
+    rgba.set(src.slice(0, width * height * 4));
+  } else if (kind === 2) {
+    // RGB → RGBA
+    for (let i = 0; i < width * height; i++) {
+      rgba[i * 4] = src[i * 3] ?? 0;
+      rgba[i * 4 + 1] = src[i * 3 + 1] ?? 0;
+      rgba[i * 4 + 2] = src[i * 3 + 2] ?? 0;
+      rgba[i * 4 + 3] = 255;
+    }
+  } else {
+    // Grayscale or 1bpp → RGBA
+    for (let i = 0; i < width * height; i++) {
+      const v = src[i] ?? 0;
+      rgba[i * 4] = rgba[i * 4 + 1] = rgba[i * 4 + 2] = v;
+      rgba[i * 4 + 3] = 255;
+    }
+  }
+
+  // Build raw scanlines with filter byte 0 (None)
+  const raw = Buffer.allocUnsafe(height * (1 + width * 4));
+  for (let y = 0; y < height; y++) {
+    raw[y * (width * 4 + 1)] = 0;
+    for (let x = 0; x < width * 4; x++) {
+      raw[y * (width * 4 + 1) + 1 + x] = rgba[y * width * 4 + x] ?? 0;
+    }
+  }
+
+  const ihdrData = Buffer.allocUnsafe(13);
+  ihdrData.writeUInt32BE(width, 0);
+  ihdrData.writeUInt32BE(height, 4);
+  ihdrData[8] = 8;  // bit depth
+  ihdrData[9] = 6;  // colour type: RGBA
+  ihdrData[10] = ihdrData[11] = ihdrData[12] = 0;
+
+  return Buffer.concat([
+    Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), // PNG signature
+    pngChunk("IHDR", ihdrData),
+    pngChunk("IDAT", deflateSync(raw, { level: 6 })),
+    pngChunk("IEND", Buffer.alloc(0))
+  ]);
+}
+
+// ── pdfjs text reconstruction ─────────────────────────────────────────────────
+type TextItem = {
+  str: string;
+  transform: number[]; // [a, b, c, d, tx, ty]
+  width?: number;
+  hasEOL?: boolean;
+};
+
+function reconstructTextFromPage(items: TextItem[]): string {
+  if (items.length === 0) return "";
+
+  // Estimate average font height from transform[0] (scale x ≈ font size)
+  const avgSize = items.reduce((s, it) => s + Math.abs(it.transform[0] ?? 12), 0) / items.length;
+  const lineGap = Math.max(avgSize * 0.4, 3);
+
+  // Group items into lines by y-coordinate
+  const lines: Array<{ y: number; items: TextItem[] }> = [];
+  for (const item of items) {
+    if (!item.str.trim() && !item.hasEOL) continue;
+    const y = item.transform[5] ?? 0;
+    const line = lines.find((l) => Math.abs(l.y - y) <= lineGap);
+    if (line) {
+      line.items.push(item);
+    } else {
+      lines.push({ y, items: [item] });
+    }
+  }
+
+  // Sort lines top-to-bottom (PDF y-axis is bottom-up, higher y = higher on page)
+  lines.sort((a, b) => b.y - a.y);
+
+  return lines
+    .map((line) => {
+      line.items.sort((a, b) => (a.transform[4] ?? 0) - (b.transform[4] ?? 0));
+      return line.items.map((it) => it.str).join(" ").trim();
+    })
+    .filter(Boolean)
+    .join("\n");
+}
+
 // ── main PDF converter ────────────────────────────────────────────────────────
 async function convertPdfToMarkdown(
   buffer: Buffer,
   userId: string,
   getAiContext: (() => Promise<AiContext>) | null
 ): Promise<{ markdown: string; warnings: string[] }> {
+  // Dynamic import — pdfjs-dist legacy ESM build works in Node.js
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs" as string) as any;
-  // v5 requires a real workerSrc even in fake-worker (in-process) mode
   pdfjs.GlobalWorkerOptions.workerSrc = pathToFileURL(
     path.resolve(process.cwd(), "node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs")
   ).href;
@@ -67,34 +186,73 @@ async function convertPdfToMarkdown(
     useWorkerFetch: false,
     isEvalSupported: false,
     disableFontFace: true,
+    cMapUrl: undefined,
+    standardFontDataUrl: undefined,
   });
 
   const doc = await loadingTask.promise;
   const numPages: number = doc.numPages;
   const pageTexts: string[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const embeddedImages: Array<{ width: number; height: number; data: Uint8ClampedArray; kind: number }> = [];
 
   for (let pageNum = 1; pageNum <= numPages; pageNum++) {
     const page = await doc.getPage(pageNum);
-    const textContent = await page.getTextContent({ includeMarkedContent: true });
 
-    // Flat extraction — just concatenate items in order.
-    // pdfjs returns them roughly in reading order; hasEOL marks real line breaks.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pageText = (textContent.items as any[])
-      .filter((item) => typeof item.str === "string")
-      .map((item) => (item.hasEOL ? item.str + "\n" : item.str))
-      .join("")
-      .replace(/\n{3,}/g, "\n\n")
-      .trim();
-
+    // ── Text extraction ──────────────────────────────────────────────────
+    const textContent = await page.getTextContent();
+    const pageText = reconstructTextFromPage(textContent.items as TextItem[]);
     pageTexts.push(pageText);
+
+    // ── Embedded image extraction (for sparse-text PDFs) ─────────────────
+    try {
+      const OPS = pdfjs.OPS;
+      const opList = await page.getOperatorList();
+      const fns: number[] = opList.fnArray;
+      const argsList: unknown[][] = opList.argsArray;
+
+      for (let i = 0; i < fns.length; i++) {
+        const fn = fns[i];
+
+        // Inline images carry their pixel data directly in the operator args
+        if (fn === OPS.paintInlineImageXObject) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const imgData = (argsList[i] as any[])[0];
+          if (imgData?.data && imgData.width > 10 && imgData.height > 10) {
+            embeddedImages.push({ width: imgData.width, height: imgData.height, data: imgData.data, kind: imgData.kind ?? 2 });
+          }
+        }
+
+        // XObject images are referenced by name; look them up from page.objs
+        if (fn === OPS.paintImageXObject) {
+          const name = (argsList[i] as string[])[0];
+          if (name) {
+            await new Promise<void>((resolve) => {
+              try {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                page.objs.get(name, (imgData: any) => {
+                  if (imgData?.data && imgData.width > 10 && imgData.height > 10) {
+                    embeddedImages.push({ width: imgData.width, height: imgData.height, data: imgData.data, kind: imgData.kind ?? 2 });
+                  }
+                  resolve();
+                });
+              } catch {
+                resolve();
+              }
+            });
+          }
+        }
+      }
+    } catch { /* Image extraction is best-effort */ }
+
     await page.cleanup();
   }
 
+  try { await doc.cleanup?.(); } catch { /* ignore */ }
+
   // ── Assess text quality ───────────────────────────────────────────────────
   const fullText = pageTexts
-    .map((t, i) => (t.trim() ? (i > 0 ? `\n---\n\n${t}` : t) : ""))
-    .filter(Boolean)
+    .map((t, i) => (t.trim() ? (i > 0 ? `\n---\n\n${t}` : t) : (i > 0 ? `\n---\n\n*(Page ${i + 1} — no text layer)*` : `*(Page ${i + 1} — no text layer)*`)))
     .join("\n")
     .trim();
 
@@ -104,70 +262,47 @@ async function convertPdfToMarkdown(
 
   const warnings: string[] = [];
 
-  // ── Canvas OCR fallback for image-based PDFs ─────────────────────────────
-  if (isSparse && getAiContext) {
+  // ── OCR fallback for image-heavy PDFs ────────────────────────────────────
+  if (isSparse && embeddedImages.length > 0 && getAiContext) {
     const ai = await getAiContext().catch(() => null);
     if (ai?.apiKey) {
       const ocrParts: string[] = [];
-      let canvasError: string | null = null;
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { createCanvas } = await import("@napi-rs/canvas") as any;
-        const maxPages = Math.min(numPages, 10);
-
-        for (let pageNum = 1; pageNum <= maxPages; pageNum++) {
-          try {
-            const page = await doc.getPage(pageNum);
-            const viewport = page.getViewport({ scale: 1.5 });
-            const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
-            const ctx = canvas.getContext("2d");
-            await page.render({ canvasContext: ctx, viewport }).promise;
-            await page.cleanup();
-            const pngBuf: Buffer = canvas.toBuffer("image/png");
-            const extracted = await extractTextFromImage(userId, {
-              bytes: pngBuf, contentType: "image/png", label: `PDF page ${pageNum}`
-            }, ai);
-            if (extracted.text?.trim()) ocrParts.push(extracted.text.trim());
-          } catch (pageErr) {
-            console.error(`PDF canvas OCR page ${pageNum} error:`, pageErr);
-          }
-        }
-      } catch (canvasErr) {
-        canvasError = String(canvasErr);
-        console.error("PDF canvas OCR setup error:", canvasErr);
+      for (const img of embeddedImages.slice(0, 12)) {
+        try {
+          const pngBuf = encodeAsPng(img.width, img.height, img.data, img.kind);
+          // Skip tiny images (icons, decorations) — less than ~50×50
+          if (img.width < 50 || img.height < 50) continue;
+          const extracted = await extractTextFromImage(userId, {
+            bytes: pngBuf,
+            contentType: "image/png",
+            label: `PDF embedded image ${ocrParts.length + 1}`
+          }, ai);
+          if (extracted.text?.trim()) ocrParts.push(extracted.text.trim());
+        } catch { /* skip */ }
       }
-
       if (ocrParts.length > 0) {
-        try { await doc.cleanup?.(); } catch { /* ignore */ }
         return {
           markdown: ocrParts.join("\n\n"),
-          warnings: [`Content extracted via OCR from ${ocrParts.length} page(s).`]
+          warnings: [`Content extracted via OCR from ${ocrParts.length} embedded image(s) in the PDF.`]
         };
-      }
-
-      // Canvas OCR ran but got nothing — surface reason if canvas failed to load
-      if (canvasError) {
-        warnings.push("Image-based PDF detected but canvas renderer failed to load. Run: npm install @napi-rs/canvas");
       }
     }
   }
 
-  try { await doc.cleanup?.(); } catch { /* ignore */ }
-
-  // Always return whatever text pdfjs extracted, even if sparse.
-  // Only show the hard error when we truly got zero characters.
-  if (!fullText) {
-    return {
-      markdown: "",
-      warnings: [
-        ...warnings,
-        "No readable text could be extracted. If this is a scanned PDF, try exporting pages as images and uploading them."
-      ]
-    };
+  if (isSparse) {
+    warnings.push(
+      "This PDF appears to contain mainly charts or images with little text layer. " +
+      "For best results, export individual pages as PNG/JPG images and upload them — " +
+      "the OCR feature will extract chart labels, captions, and surrounding text."
+    );
   }
 
-  if (isSparse) {
-    warnings.push("Only partial text could be extracted — this PDF may contain image-based pages.");
+  if (!fullText.replace(/\*(Page \d+ — no text layer)\*/g, "").trim()) {
+    if (warnings.length) return { markdown: "", warnings };
+    return {
+      markdown: "",
+      warnings: ["No readable text could be extracted from this PDF. Try uploading individual pages as images instead."]
+    };
   }
 
   return { markdown: fullText, warnings };
