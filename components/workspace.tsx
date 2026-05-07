@@ -611,9 +611,15 @@ export function Workspace() {
       body: JSON.stringify({ title, folderId, workspaceId: activeWorkspaceId })
     });
     const note = (await response.json()) as Note;
-    // Add the note immediately so the editor opens without waiting for refresh
+    // Add the note to local state, select it, and seed the editor all in one batch
+    // so the editor switches content immediately without waiting for the effect chain.
     setData((d) => d ? { ...d, notes: [...d.notes, note] } : d);
     selectNote(note.id);
+    const md = note.markdownContent ?? "";
+    draftMarkdownRef.current = md;
+    setDraftMarkdown(md);
+    setEditorSeed(md);
+    setDraftTitle(note.title);
     notify("Note created", "success");
     void refresh();
   }
