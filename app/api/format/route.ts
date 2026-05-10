@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withAuthenticatedUser } from "@/lib/auth";
-import { QuotaExceededError, resolveAiContext } from "@/lib/services/ai-access";
+import { resolveAiContext } from "@/lib/services/ai-access";
 
 export const dynamic = "force-dynamic";
 
@@ -41,9 +41,6 @@ export async function POST(request: Request) {
       const markdown = response.choices[0]?.message.content?.trim() || fallback;
       return NextResponse.json({ markdown, mode: "ai" });
     } catch (error) {
-      if (error instanceof QuotaExceededError) {
-        return NextResponse.json({ error: error.message }, { status: 402 });
-      }
       return NextResponse.json({ error: error instanceof Error ? error.message : "Formatting failed" }, { status: 400 });
     }
   });

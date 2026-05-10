@@ -3,16 +3,21 @@ import type { AiContext } from "@/lib/types";
 
 const LOCAL_DIMS = 256;
 
+function makeEmbedClient(context?: AiContext): OpenAI | null {
+  if (context?.ollamaBaseUrl) {
+    return new OpenAI({ baseURL: `${context.ollamaBaseUrl}/v1`, apiKey: "ollama" });
+  }
+  return context?.apiKey ? new OpenAI({ apiKey: context.apiKey }) : null;
+}
+
 export async function embedText(
   userId: string,
   text: string,
   model: string,
   context?: AiContext
 ): Promise<{ vector: number[]; provider: "openai" | "local" }> {
-  const apiKey = context?.apiKey ?? null;
-  if (!apiKey) return { vector: localEmbedding(text), provider: "local" };
-
-  const client = new OpenAI({ apiKey });
+  const client = makeEmbedClient(context);
+  if (!client) return { vector: localEmbedding(text), provider: "local" };
   const response = await client.embeddings.create({ model, input: text });
   return { vector: response.data[0].embedding, provider: "openai" };
 }
@@ -25,11 +30,10 @@ export async function embedBatch(
   context?: AiContext
 ): Promise<Array<{ vector: number[]; provider: "openai" | "local" }>> {
   if (texts.length === 0) return [];
-  const apiKey = context?.apiKey ?? null;
-  if (!apiKey) {
+  const client = makeEmbedClient(context);
+  if (!client) {
     return texts.map((text) => ({ vector: localEmbedding(text), provider: "local" as const }));
   }
-  const client = new OpenAI({ apiKey });
   const response = await client.embeddings.create({ model, input: texts });
   return response.data.map((item) => ({ vector: item.embedding, provider: "openai" as const }));
 }

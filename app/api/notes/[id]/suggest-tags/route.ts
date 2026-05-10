@@ -3,7 +3,7 @@ import OpenAI from "openai";
 import { withAuthenticatedUser } from "@/lib/auth";
 import { getNote } from "@/lib/services/notes";
 import { listTags } from "@/lib/services/tags";
-import { resolveAiContext, QuotaExceededError } from "@/lib/services/ai-access";
+import { resolveAiContext } from "@/lib/services/ai-access";
 
 export const dynamic = "force-dynamic";
 
@@ -46,7 +46,6 @@ export async function POST(_: Request, { params }: { params: Promise<{ id: strin
 
       return NextResponse.json({ suggested, existingTags });
     } catch (error) {
-      if (error instanceof QuotaExceededError) return NextResponse.json({ error: error.message }, { status: 402 });
       return NextResponse.json({ error: "Failed to suggest tags" }, { status: 500 });
     }
   });

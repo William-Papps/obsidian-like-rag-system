@@ -69,11 +69,11 @@ export function AccountPage({
 
   const aiStatus = useMemo(() => {
     if (settings.maskedKey) return "Personal key active. AI runs on your own provider account and does not consume hosted quota.";
-    if (billing.subscription.plan !== "free" && settings.hostedKeyAvailable && billing.hostedAccessGranted) return `Hosted AI active on the ${billing.subscription.plan} plan.`;
-    if (billing.subscription.plan !== "free" && settings.hostedKeyAvailable && !billing.hostedAccessGranted) {
+    if (settings.hostedKeyAvailable && billing.hostedAccessGranted) return `Hosted AI active on the ${billing.subscription.plan} plan.`;
+    if (settings.hostedKeyAvailable && !billing.hostedAccessGranted) {
       return "Hosted plan selected, but server-key usage is pending owner approval for this account.";
     }
-    return "Notes remain free. Without a personal key or hosted plan, AI falls back to local behavior where available.";
+    return "AI runs via local Ollama if configured on this server, otherwise notes-only mode.";
   }, [billing.hostedAccessGranted, billing.subscription.plan, settings.hostedKeyAvailable, settings.maskedKey]);
 
   function pushNotice(message: string, tone: NonNullable<Notice>["tone"]) {
@@ -307,7 +307,7 @@ export function AccountPage({
             <div className="relative mt-3 flex items-center gap-1.5">
               <div className="h-1.5 w-1.5 rounded-full bg-success-400" />
               <span className="text-xs text-ink-500">
-                {billing.subscription.plan === "free" ? "Personal plan" : `${billing.subscription.plan} plan`}
+                {billing.subscription.plan === "free" ? "Free plan" : `${billing.subscription.plan} plan`}
               </span>
             </div>
           </div>
@@ -581,7 +581,7 @@ export function AccountPage({
                     <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
                       <div className="space-y-4">
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <MetricCard label="Current plan" value={billing.subscription.plan === "free" ? "Personal (Free)" : "Pro ($12/mo)"} accent />
+                          <MetricCard label="Current plan" value={billing.subscription.plan === "free" ? "Free" : "Pro"} accent />
                           <MetricCard label="Status" value={formatBillingStatus(billing.subscription.status)} />
                         </div>
 
@@ -611,8 +611,8 @@ export function AccountPage({
                             onChange={(event) => setHostedPlan(event.target.value as typeof hostedPlan)}
                             className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
                           >
-                            <option value="free">Personal — Bring your own key (Free)</option>
-                            <option value="starter">Pro — Hosted AI ($12/mo)</option>
+                            <option value="free">Free — Local AI + bring your own key</option>
+                            <option value="starter">Pro — Higher limits + hosted AI</option>
                           </select>
                         </Field>
 
@@ -630,10 +630,6 @@ export function AccountPage({
                           </div>
                         ) : null}
 
-                        <div className="rounded-xl border border-amber-400/25 bg-amber-400/8 p-4 text-sm leading-6 text-amber-300">
-                          Online payments are coming soon. To upgrade to Pro, contact support and we will activate your account manually.
-                        </div>
-
                         <PrimaryButton onClick={saveBilling} disabled={savingBilling || !billingEmail.trim()} loading={savingBilling} icon={<Save className="h-4 w-4" />}>
                           {savingBilling ? "Saving..." : "Save billing setup"}
                         </PrimaryButton>
@@ -641,18 +637,18 @@ export function AccountPage({
 
                       <div className="space-y-3">
                         <PlanCard
-                          title="Personal"
-                          price="Free"
+                          title="Free"
+                          price="Always free"
                           active={hostedPlan === "free"}
-                          description="Full access to all features. Bring your own OpenAI API key."
-                          bullets={["Unlimited documents", "All AI tools (BYOK)", "Team workspaces", "Version history"]}
+                          description="Full notes experience with local AI powered by Ollama."
+                          bullets={["Unlimited documents & workspaces", "Local AI via Ollama (no API key needed)", "100 Ask queries/mo", "50 Quizzes & Flashcards/mo", "20 OCR scans/mo", "Bring your own key for unlimited"]}
                         />
                         <PlanCard
                           title="Pro"
-                          price="$12/mo"
+                          price="Higher limits"
                           active={hostedPlan === "starter" || hostedPlan === "pro"}
-                          description="Everything in Personal plus hosted AI — no API key needed."
-                          bullets={["500 Ask queries/mo", "200 Knowledge Checks/mo", "200 Training Cards/mo", "100 Briefings/mo", "50 OCR scans/mo"]}
+                          description="Everything in Free with higher quotas and hosted AI access."
+                          bullets={["1500 Ask queries/mo", "600 Quizzes & Flashcards/mo", "200 OCR scans/mo", "Hosted AI (no local setup needed)"]}
                           highlight
                         />
                       </div>
@@ -661,41 +657,35 @@ export function AccountPage({
 
                   <GlassPanel>
                     <SectionHeading
-                      eyebrow="Usage"
-                      title="Hosted AI quota"
+                      eyebrow="Features"
+                      title="What's included"
                       icon={<BarChart3 className="h-5 w-5" />}
-                      description="BYOK does not consume hosted usage. These counters apply only when AI runs on the server-managed key."
+                      description="Pro features are available to users on the Pro plan or with a personal API key."
                     />
-                    <div className="mt-6 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                      {settings.usage.map((item, i) => (
-                        <motion.div
-                          key={item.feature}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.05 }}
-                          className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4"
-                        >
-                          <div className="flex items-center justify-between gap-2">
-                            <div className="text-xs font-semibold uppercase tracking-[0.14em] text-accent-400">{item.feature}</div>
-                            <div className="text-[11px] text-ink-500">
-                              {item.limit === null ? "Disabled" : `${item.used} / ${item.limit}`}
-                            </div>
+                    <div className="mt-6 grid gap-2 sm:grid-cols-2">
+                      {[
+                        { label: "Notes & documents", free: true },
+                        { label: "Ask (RAG queries)", free: true },
+                        { label: "Knowledge indexing", free: true },
+                        { label: "Voice assistant", free: true },
+                        { label: "Team workspaces", free: true },
+                        { label: "Text / PDF / DOCX import", free: true },
+                        { label: "Image OCR import", free: false },
+                        { label: "Quiz generation", free: false },
+                        { label: "Flashcard generation", free: false },
+                        { label: "Note summaries", free: false },
+                      ].map((feat) => {
+                        const userIsPro = billing.subscription.plan !== "free" || !!settings.maskedKey;
+                        const unlocked = feat.free || userIsPro;
+                        return (
+                          <div key={feat.label} className={`flex items-center justify-between rounded-lg border px-3 py-2 ${unlocked ? "border-white/[0.08] bg-white/[0.02]" : "border-white/[0.04] bg-transparent opacity-50"}`}>
+                            <span className="text-sm text-ink-300">{feat.label}</span>
+                            <span className={`text-[11px] font-semibold uppercase tracking-wide ${feat.free ? "text-success-400" : "text-accent-400"}`}>
+                              {feat.free ? "Free" : "Pro"}
+                            </span>
                           </div>
-                          {item.limit !== null && (
-                            <div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.06]">
-                              <motion.div
-                                className="h-full rounded-full bg-gradient-to-r from-accent-600 to-accent-400"
-                                initial={{ width: 0 }}
-                                animate={{ width: `${Math.min(100, (item.used / item.limit) * 100)}%` }}
-                                transition={{ delay: 0.1 + i * 0.05, duration: 0.6, ease: "easeOut" }}
-                              />
-                            </div>
-                          )}
-                          <div className="mt-2 text-base font-semibold text-ink-100">
-                            {item.limit === null ? "Unavailable" : `${item.remaining} remaining`}
-                          </div>
-                        </motion.div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </GlassPanel>
                 </>

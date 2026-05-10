@@ -1,10 +1,16 @@
 import OpenAI from "openai";
 import { z } from "zod";
-import type { AnswerResult, RetrievedChunk } from "@/lib/types";
+import type { AiContext, AnswerResult, RetrievedChunk } from "@/lib/types";
 import { resolveAiContext } from "@/lib/services/ai-access";
 import { retrieveChunks } from "@/lib/rag/retrieval";
 import { retrieveMultiPass, type RetrievalMeta } from "@/lib/rag/retrieval";
 import { recordChunkEvents } from "@/lib/services/chunk-feedback";
+
+function makeClient(ai: AiContext): OpenAI | null {
+  if (ai.ollamaBaseUrl) return new OpenAI({ baseURL: `${ai.ollamaBaseUrl}/v1`, apiKey: "ollama" });
+  if (ai.apiKey) return new OpenAI({ apiKey: ai.apiKey });
+  return null;
+}
 
 export type AskStreamEvent =
   | { type: "citations"; data: RetrievedChunk[]; meta?: RetrievalMeta }
@@ -39,13 +45,12 @@ export async function streamAnswerFromNotes(
       return;
     }
 
-    if (!ai.apiKey) {
+    const client = makeClient(ai);
+    if (!client) {
       send({ type: "chunk", data: "Add an OpenAI key in Settings to generate answers. Your best sources are shown below." });
       send({ type: "done" });
       return;
     }
-
-    const client = new OpenAI({ apiKey: ai.apiKey });
 
     // Prepend a low-confidence caveat in the system prompt when retrieval is weak.
     const confidenceCaveat = meta.lowConfidence
@@ -145,7 +150,8 @@ export async function answerFromNotes(
     };
   }
 
-  if (!ai.apiKey) {
+  const client = makeClient(ai);
+  if (!client) {
     return {
       answer: "Add an OpenAI key in Settings to generate answers. Your best sources are shown below.",
       citations,
@@ -153,7 +159,6 @@ export async function answerFromNotes(
     };
   }
 
-  const client = new OpenAI({ apiKey: ai.apiKey });
   const response = await client.chat.completions.create({
     model: ai.settings.answerModel,
     temperature: 0.1,
@@ -202,7 +207,8 @@ export async function explainFromNotes(
 ): Promise<AnswerResult> {
   const ai = await resolveAiContext(userId, "ask");
 
-  if (!ai.apiKey) {
+  const client = makeClient(ai);
+  if (!client) {
     return {
       answer: "No OpenAI key is configured for paraphrasing. Add a hosted or personal key, then try again.",
       citations: [],
@@ -210,7 +216,6 @@ export async function explainFromNotes(
     };
   }
 
-  const client = new OpenAI({ apiKey: ai.apiKey });
   const response = await client.chat.completions.create({
     model: ai.settings.answerModel,
     temperature: 0.3,

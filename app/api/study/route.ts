@@ -3,7 +3,7 @@ import { z } from "zod";
 import { withAuthenticatedUser } from "@/lib/auth";
 import { extractiveSummary, generateFlashcards, generateQuiz } from "@/lib/rag/study";
 import { resolveScopeTitle } from "@/lib/rag/retrieval";
-import { QuotaExceededError } from "@/lib/services/ai-access";
+import { ProPlanRequiredError, requireProAccess } from "@/lib/services/ai-access";
 import { recordStudyActivity } from "@/lib/services/study-history";
 
 export const dynamic = "force-dynamic";
@@ -16,6 +16,7 @@ const schema = z.object({
 export async function POST(request: Request) {
   return withAuthenticatedUser(async (user) => {
     try {
+      await requireProAccess(user.id);
       const body = schema.parse(await request.json());
       const scope = body.scope ?? {};
       const scopeLabel = await resolveScopeTitle(user.id, scope);
@@ -33,7 +34,7 @@ export async function POST(request: Request) {
       if (result[0]) await recordStudyActivity(user.id, "summary_generated", { scopeLabel, noteTitle: result[0].source.noteTitle });
       return NextResponse.json(result);
     } catch (error) {
-      if (error instanceof QuotaExceededError) {
+      if (error instanceof ProPlanRequiredError) {
         return NextResponse.json({ error: error.message }, { status: 402 });
       }
       throw error;

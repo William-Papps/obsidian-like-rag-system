@@ -163,9 +163,10 @@ export type AiUsage = {
 };
 
 export type AiContext = {
-  mode: "user" | "hosted" | "local";
+  mode: "user" | "hosted" | "local" | "ollama";
   apiKey: string | null;
   projectId: string | null;
+  ollamaBaseUrl?: string;
   settings: ProviderSettings;
 };
 

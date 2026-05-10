@@ -1,18 +1,25 @@
 import type { AiContext, AiFeature } from "@/lib/types";
 import { userCanUseHostedAi } from "@/lib/services/billing";
-import { QuotaExceededError, consumeQuota, peekQuota } from "@/lib/services/quotas";
+import { dbGet } from "@/lib/db";
 import { getProviderSettings, hostedAiAvailable, hostedProjectId, readHostedApiKey, readUserApiKey } from "@/lib/services/settings";
 
-export { QuotaExceededError };
+export class ProPlanRequiredError extends Error {
+  constructor() {
+    super("This feature requires a Pro plan. Upgrade in Account settings.");
+    this.name = "ProPlanRequiredError";
+  }
+}
 
-export async function checkHostedQuota(userId: string, feature: AiFeature): Promise<void> {
+// Throws ProPlanRequiredError if the user cannot access Pro-only features.
+// BYOK users (personal API key) always pass — they pay their own AI costs.
+// Owners and admins always pass. Everyone else needs hostedPlan !== "free".
+export async function requireProAccess(userId: string): Promise<void> {
   if (readUserApiKey(userId)) return;
-  const hostedKey = (await hostedAiAvailable()) ? readHostedApiKey() : null;
-  if (!hostedKey) return;
+  const row = await dbGet<{ role: string }>("select role from users where id = ?", [userId]);
+  if (row?.role === "owner" || row?.role === "admin") return;
   const settings = await getProviderSettings(userId);
-  if (settings.hostedPlan === "free") return;
-  if (!(await userCanUseHostedAi(userId))) return;
-  await peekQuota(userId, settings.hostedPlan, feature);
+  if (settings.hostedPlan !== "free") return;
+  throw new ProPlanRequiredError();
 }
 
 export async function resolveAiContext(userId: string, feature: AiFeature): Promise<AiContext> {
@@ -29,13 +36,28 @@ export async function resolveAiContext(userId: string, feature: AiFeature): Prom
   }
 
   const hostedApiKey = (await hostedAiAvailable()) ? readHostedApiKey() : null;
-  if (hostedApiKey && settings.hostedPlan !== "free" && (await userCanUseHostedAi(userId))) {
-    await consumeQuota(userId, settings.hostedPlan, feature);
+  if (hostedApiKey && (await userCanUseHostedAi(userId))) {
     return {
       mode: "hosted",
       apiKey: hostedApiKey,
       projectId: hostedProjectId(),
       settings
+    };
+  }
+
+  const ollamaUrl = process.env.OLLAMA_BASE_URL;
+  if (ollamaUrl) {
+    return {
+      mode: "ollama",
+      apiKey: null,
+      projectId: null,
+      ollamaBaseUrl: ollamaUrl,
+      settings: {
+        ...settings,
+        embeddingModel: "nomic-embed-text",
+        answerModel: "llama3.2",
+        visionModel: "moondream"
+      }
     };
   }
 

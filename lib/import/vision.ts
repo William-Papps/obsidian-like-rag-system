@@ -8,7 +8,14 @@ export async function extractTextFromImage(
   context?: AiContext
 ): Promise<{ text: string | null; warning?: string }> {
   const ai = context ?? (await resolveAiContext(userId, "ocr"));
-  if (!ai.apiKey) {
+
+  const client = ai.ollamaBaseUrl
+    ? new OpenAI({ baseURL: `${ai.ollamaBaseUrl}/v1`, apiKey: "ollama" })
+    : ai.apiKey
+      ? new OpenAI({ apiKey: ai.apiKey })
+      : null;
+
+  if (!client) {
     return { text: null, warning: `Skipped ${input.label}: configure an OpenAI API key to extract text from images.` };
   }
 
@@ -16,8 +23,6 @@ export async function extractTextFromImage(
   if (!model) {
     return { text: null, warning: `Skipped ${input.label}: configure a vision-capable model in Settings.` };
   }
-
-  const client = new OpenAI({ apiKey: ai.apiKey });
   const dataUrl = `data:${input.contentType};base64,${input.bytes.toString("base64")}`;
   const response = await client.chat.completions.create({
     model,

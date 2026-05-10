@@ -5,7 +5,7 @@ import { pathToFileURL } from "url";
 import mammoth from "mammoth";
 import { withAuthenticatedUser } from "@/lib/auth";
 import { extractTextFromImage } from "@/lib/import/vision";
-import { QuotaExceededError, checkHostedQuota, resolveAiContext } from "@/lib/services/ai-access";
+import { ProPlanRequiredError, requireProAccess, resolveAiContext } from "@/lib/services/ai-access";
 import type { AiContext } from "@/lib/types";
 
 type MammothMarkdownAdapter = {
@@ -341,7 +341,6 @@ export async function POST(request: NextRequest) {
           if (file.size > 20 * 1024 * 1024) {
             return NextResponse.json({ error: "DOCX file too large (max 20 MB)" }, { status: 400 });
           }
-          await checkHostedQuota(user.id, "ocr");
           const result = await convertDocxToMarkdown(user.id, buffer);
           markdown = result.markdown;
           warnings.push(...result.warnings);
@@ -360,7 +359,7 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
         } else if (file.type.startsWith("image/") || /\.(png|jpg|jpeg|webp|gif|bmp|tif|tiff)$/i.test(fileName)) {
-          await checkHostedQuota(user.id, "ocr");
+          await requireProAccess(user.id);
           const ai = await resolveAiContext(user.id, "ocr");
           const extracted = await extractTextFromImage(user.id, {
             bytes: buffer,
@@ -410,7 +409,7 @@ export async function POST(request: NextRequest) {
         warnings
       });
     } catch (error) {
-      if (error instanceof QuotaExceededError) {
+      if (error instanceof ProPlanRequiredError) {
         return NextResponse.json({ error: error.message }, { status: 402 });
       }
       console.error("Conversion error:", error);

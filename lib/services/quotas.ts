@@ -4,28 +4,28 @@ import { id, now } from "@/lib/utils";
 
 export const PLAN_LIMITS: Record<HostedPlan, Record<AiFeature, number | null>> = {
   free: {
-    ask: null,
-    quiz: null,
-    flashcards: null,
-    summary: null,
-    ocr: null,
-    index: null
+    ask: 100,
+    quiz: 50,
+    flashcards: 50,
+    summary: 50,
+    ocr: 20,
+    index: 100
   },
   starter: {
-    ask: 200,
-    quiz: 100,
-    flashcards: 100,
-    summary: 100,
-    ocr: 50,
-    index: 75
+    ask: 500,
+    quiz: 200,
+    flashcards: 200,
+    summary: 200,
+    ocr: 75,
+    index: 300
   },
   pro: {
-    ask: 600,
-    quiz: 300,
-    flashcards: 300,
-    summary: 300,
-    ocr: 150,
-    index: 200
+    ask: 1500,
+    quiz: 600,
+    flashcards: 600,
+    summary: 600,
+    ocr: 200,
+    index: 1000
   }
 };
 
@@ -75,16 +75,14 @@ export async function getUsageSummary(userId: string, plan: HostedPlan): Promise
 export async function peekQuota(userId: string, plan: HostedPlan, feature: AiFeature) {
   if (await isOwnerOrAdmin(userId)) return;
   const limit = PLAN_LIMITS[plan][feature];
-  if (typeof limit !== "number") {
-    throw new QuotaExceededError(feature, "Hosted AI is not enabled for this account.");
-  }
+  if (typeof limit !== "number") return; // unlimited
   const period = currentUsagePeriod();
   const current = await dbGet<{ count: number }>(
     "select count from ai_usage where user_id = ? and period = ? and feature = ?",
     [userId, period, feature]
   );
   if ((current?.count ?? 0) >= limit) {
-    throw new QuotaExceededError(feature, `Your hosted AI quota for ${feature} is exhausted this month.`);
+    throw new QuotaExceededError(feature, `Your monthly quota for ${feature} is exhausted. Upgrade your plan for more.`);
   }
 }
 
@@ -93,16 +91,15 @@ export async function consumeQuota(userId: string, plan: HostedPlan, feature: Ai
   const limit = PLAN_LIMITS[plan][feature];
 
   if (!privileged) {
-    if (typeof limit !== "number") {
-      throw new QuotaExceededError(feature, "Hosted AI is not enabled for this account.");
-    }
-    const period = currentUsagePeriod();
-    const current = await dbGet<{ id: string; count: number }>(
-      "select id, count from ai_usage where user_id = ? and period = ? and feature = ?",
-      [userId, period, feature]
-    );
-    if ((current?.count ?? 0) >= limit) {
-      throw new QuotaExceededError(feature, `Your hosted AI quota for ${feature} is exhausted this month.`);
+    if (typeof limit === "number") {
+      const period = currentUsagePeriod();
+      const current = await dbGet<{ id: string; count: number }>(
+        "select id, count from ai_usage where user_id = ? and period = ? and feature = ?",
+        [userId, period, feature]
+      );
+      if ((current?.count ?? 0) >= limit) {
+        throw new QuotaExceededError(feature, `Your monthly quota for ${feature} is exhausted. Upgrade your plan for more.`);
+      }
     }
   }
 

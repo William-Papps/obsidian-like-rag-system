@@ -1,7 +1,6 @@
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
 import { streamAnswerFromNotes } from "@/lib/rag/answer";
-import { QuotaExceededError } from "@/lib/services/ai-access";
 import { resolveScopeTitle } from "@/lib/rag/retrieval";
 import { recordStudyActivity } from "@/lib/services/study-history";
 
@@ -40,12 +39,8 @@ export async function POST(request: Request) {
         });
       } catch (err) {
         const enc = new TextEncoder();
-        if (err instanceof QuotaExceededError) {
-          controller.enqueue(enc.encode(`data: ${JSON.stringify({ type: "error", data: err.message })}\n\n`));
-        } else {
-          console.error("[ask] stream failed", err);
-          controller.enqueue(enc.encode(`data: ${JSON.stringify({ type: "error", data: "Ask request failed" })}\n\n`));
-        }
+        console.error("[ask] stream failed", err);
+        controller.enqueue(enc.encode(`data: ${JSON.stringify({ type: "error", data: "Ask request failed" })}\n\n`));
       } finally {
         controller.close();
       }
