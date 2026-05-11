@@ -3,7 +3,7 @@ import { withAuthenticatedUser } from "@/lib/auth";
 import { listFolders } from "@/lib/services/folders";
 import { createNote, listNotes } from "@/lib/services/notes";
 import { getProviderSettings } from "@/lib/services/settings";
-import { getIndexStatus } from "@/lib/rag/indexing";
+import { getIndexStatus, reindexNotes } from "@/lib/rag/indexing";
 import { listUserWorkspaces } from "@/lib/services/workspaces";
 import { listDocuments } from "@/lib/services/documents";
 import { dbAll } from "@/lib/db";
@@ -30,10 +30,9 @@ export async function GET() {
 
     let notes = notesRaw;
     if (notes.length === 0) {
-      notes = [
-        await createNote(user.id, {
-          title: "Welcome to EternalNotes",
-          markdownContent: `# Welcome to EternalNotes
+      const welcomeNote = await createNote(user.id, {
+        title: "Welcome to EternalNotes",
+        markdownContent: `# Welcome to EternalNotes
 
 This is your AI-powered knowledge base. Add documents, index them, and query them with natural language.
 
@@ -48,8 +47,9 @@ The AI answers only from documents you have added and indexed. If the answer isn
 3. Click Reindex to make documents queryable
 4. Use the Ask, Briefing, and Knowledge Check tools on the right
 `
-        })
-      ];
+      });
+      notes = [welcomeNote];
+      reindexNotes(user.id, { noteId: welcomeNote.id }).catch(console.error);
     }
     const noteTags: Record<string, string[]> = {};
     for (const row of tagRows) {
