@@ -249,7 +249,6 @@ export function Workspace() {
     catch { return "dark"; }
   });
 
-  // Keep editorViewRef in sync so the voice assistant can always access it
   editorViewRef.current = editorView;
 
 

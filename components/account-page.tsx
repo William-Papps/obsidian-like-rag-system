@@ -575,7 +575,7 @@ export function AccountPage({
                       eyebrow="Billing"
                       title="Plan & billing setup"
                       icon={<CreditCard className="h-5 w-5" />}
-                      description="Manage your plan. Online payments are coming soon — contact support to upgrade to Pro."
+                      description="View your current plan and billing information."
                     />
 
                     <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
@@ -667,7 +667,6 @@ export function AccountPage({
                         { label: "Notes & documents", free: true },
                         { label: "Ask (RAG queries)", free: true },
                         { label: "Knowledge indexing", free: true },
-                        { label: "Voice assistant", free: true },
                         { label: "Team workspaces", free: true },
                         { label: "Text / PDF / DOCX import", free: true },
                         { label: "Image OCR import", free: false },
