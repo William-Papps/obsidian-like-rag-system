@@ -244,3 +244,15 @@ export type Flashcard = {
   answer: string;
   source: RetrievedChunk;
 };
+
+export type FeedbackCategory = "bug" | "feature" | "general";
+
+export type UserFeedback = {
+  id: string;
+  userId: string;
+  name: string;
+  email: string;
+  category: FeedbackCategory;
+  message: string;
+  createdAt: string;
+};

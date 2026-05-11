@@ -193,6 +193,7 @@ export function Workspace() {
   const editorCursorRef = useRef(0);
   const [cursorInTable, setCursorInTable] = useState(false);
   const [importModalOpen, setImportModalOpen] = useState(false);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [commandQuery, setCommandQuery] = useState("");
   const [inputDialog, setInputDialog] = useState<InputDialogState>(null);
@@ -1745,6 +1746,7 @@ export function Workspace() {
         onReindex={reindexAll}
         reindexing={reindexingAll}
         onImport={() => setImportModalOpen(true)}
+        onFeedback={() => setFeedbackOpen(true)}
         onNewFolder={() => createFolder()}
         onNewNote={() => createNote()}
         onAccount={() => {
@@ -2621,6 +2623,12 @@ export function Workspace() {
         onImport={importDocument}
         notify={notify}
       />
+      {feedbackOpen ? (
+        <FeedbackModal
+          onClose={() => setFeedbackOpen(false)}
+          onSent={() => { setFeedbackOpen(false); notify("Feedback sent — thank you!", "success"); }}
+        />
+      ) : null}
       <CommandPalette
         open={commandOpen}
         query={commandQuery}
@@ -2821,6 +2829,7 @@ function SideRail(props: {
   onReindex: () => void | Promise<void>;
   reindexing: boolean;
   onImport: () => void;
+  onFeedback: () => void;
   onNewNote: () => void;
   onNewFolder: () => void;
   onAccount: () => void;
@@ -2945,6 +2954,27 @@ function SideRail(props: {
           <RailIconButton label="Import document" onClick={props.onImport}>
             <Upload className="h-4 w-4" />
           </RailIconButton>
+          <RailIconButton label="Send feedback" onClick={props.onFeedback}>
+            <MessageSquareText className="h-4 w-4" />
+          </RailIconButton>
+          <div className="group relative flex justify-center">
+            <a
+              href="https://discord.gg/9YHgyNvy9k"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-ink-400 transition-colors hover:bg-ink-800/60 hover:text-[#5865F2] ${expanded ? "w-full" : "justify-center"}`}
+            >
+              <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.462-.62.874-1.275 1.226-1.963.021-.04.001-.088-.041-.104a13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
+              </svg>
+              {expanded ? <span>Discord community</span> : null}
+            </a>
+            {!expanded ? (
+              <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 rounded-md bg-ink-800 px-2 py-1 text-xs font-medium text-ink-100 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 whitespace-nowrap">
+                Discord community
+              </div>
+            ) : null}
+          </div>
           <RailIconButton label="Account" onClick={props.onAccount}>
             <Settings className="h-4 w-4" />
           </RailIconButton>
@@ -5207,6 +5237,116 @@ function CommandPalette({
           <span className="mr-3">↑↓ navigate</span>
           <span className="mr-3">↵ open</span>
           <span>Esc close</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function FeedbackModal({ onClose, onSent }: { onClose: () => void; onSent: () => void }) {
+  const [category, setCategory] = useState<"bug" | "feature" | "general">("general");
+  const [message, setMessage] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit() {
+    if (!message.trim()) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ category, message: message.trim() })
+      });
+      if (!res.ok) throw new Error("Failed to send");
+      onSent();
+    } catch {
+      setError("Could not send feedback. Please try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-lg rounded-2xl border border-ink-700 bg-ink-900 shadow-panel">
+        <div className="flex items-center justify-between border-b border-ink-700/80 px-5 py-4">
+          <div>
+            <div className="text-lg font-semibold text-ink-100">Send feedback</div>
+            <div className="mt-0.5 text-xs text-ink-500">Help us improve — your message goes directly to the team.</div>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-500 hover:bg-ink-800 hover:text-ink-200">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="space-y-4 px-5 py-4">
+          <div>
+            <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-ink-500">Category</span>
+            <div className="flex gap-2">
+              {(["general", "feature", "bug"] as const).map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setCategory(cat)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    category === cat
+                      ? cat === "bug" ? "border-danger-400/50 bg-danger-400/15 text-danger-300"
+                        : cat === "feature" ? "border-accent-500/50 bg-accent-500/15 text-accent-300"
+                        : "border-ink-500/50 bg-ink-700 text-ink-200"
+                      : "border-ink-700 text-ink-500 hover:border-ink-600 hover:text-ink-300"
+                  }`}
+                >
+                  {cat === "bug" ? "Bug report" : cat === "feature" ? "Feature request" : "General"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-ink-500">Message</span>
+            <textarea
+              autoFocus
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder={
+                category === "bug" ? "Describe what happened and how to reproduce it…"
+                : category === "feature" ? "Describe the feature and the problem it would solve…"
+                : "Share your thoughts…"
+              }
+              rows={5}
+              className="control-soft w-full resize-none rounded-lg px-3 py-2.5 text-sm text-ink-100 outline-none placeholder:text-ink-500"
+            />
+            <div className="mt-1 text-right text-xs text-ink-600">{message.length}/2000</div>
+          </div>
+          {error ? <div className="rounded-lg border border-danger-400/30 bg-danger-400/10 px-3 py-2 text-xs text-danger-400">{error}</div> : null}
+        </div>
+        <div className="flex items-center justify-between border-t border-ink-700/80 px-5 py-4">
+          <a
+            href="https://discord.gg/9YHgyNvy9k"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-xs text-ink-500 hover:text-[#5865F2] transition-colors"
+          >
+            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.462-.62.874-1.275 1.226-1.963.021-.04.001-.088-.041-.104a13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
+            </svg>
+            Chat on Discord
+          </a>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              disabled={busy}
+              className="rounded-lg border border-ink-700/80 px-4 py-2 text-sm font-medium text-ink-300 hover:bg-ink-800 disabled:opacity-60"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => void submit()}
+              disabled={busy || !message.trim() || message.length > 2000}
+              className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-ink-100 hover:bg-accent-400 disabled:opacity-60"
+            >
+              {busy ? "Sending…" : "Send feedback"}
+            </button>
+          </div>
         </div>
       </div>
     </div>

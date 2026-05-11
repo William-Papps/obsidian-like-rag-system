@@ -487,6 +487,15 @@ function migrate(database: Database.Database) {
       updated_at text not null
     );
     create index if not exists idx_documents_user on documents(user_id);
+
+    create table if not exists user_feedback (
+      id text primary key,
+      user_id text not null references users(id) on delete cascade,
+      category text not null default 'general',
+      message text not null,
+      created_at text not null
+    );
+    create index if not exists idx_user_feedback_created on user_feedback(created_at desc);
   `);
 }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
-import type { AdminUserSummary, AuditLog, RuntimeSettings } from "@/lib/types";
+import type { AdminUserSummary, AuditLog, RuntimeSettings, UserFeedback } from "@/lib/types";
 
 type UsageRow = { period: string; feature: string; total: number };
 type PerUserRow = { user_id: string; name: string; email: string; feature: string; count: number };
@@ -22,6 +22,7 @@ export default function AdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [actionBusy, setActionBusy] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<UserFeedback[]>([]);
 
   const load = useCallback(async () => {
     const res = await fetch("/api/admin");
@@ -29,6 +30,11 @@ export default function AdminPage() {
     if (res.status === 403) { setError("Admin access required."); return; }
     if (!res.ok) { setError("Failed to load admin data."); return; }
     setData(await res.json() as AdminPayload);
+    const fbRes = await fetch("/api/feedback");
+    if (fbRes.ok) {
+      const fbData = await fbRes.json() as { feedback: UserFeedback[] };
+      setFeedback(fbData.feedback);
+    }
   }, []);
 
   useEffect(() => { void load(); }, [load]);
@@ -385,6 +391,35 @@ export default function AdminPage() {
                   {log.metadataJson ? <div className="mt-0.5 truncate text-xs text-ink-500">{log.metadataJson}</div> : null}
                 </div>
                 <div className="shrink-0 text-xs text-ink-500">{log.createdAt.slice(0, 16).replace("T", " ")}</div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* User Feedback */}
+        <section>
+          <div className="mb-4 flex items-baseline justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-widest text-ink-400">User feedback</h2>
+            <span className="text-xs text-ink-500">{feedback.length} submission{feedback.length !== 1 ? "s" : ""}</span>
+          </div>
+          <div className="divide-y divide-ink-800 rounded-2xl border border-ink-700 bg-ink-900">
+            {feedback.length === 0 ? (
+              <div className="px-5 py-4 text-sm text-ink-400">No feedback submitted yet.</div>
+            ) : feedback.map((item) => (
+              <div key={item.id} className="px-5 py-4">
+                <div className="mb-1 flex items-center gap-3">
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${
+                    item.category === "bug" ? "bg-danger-400/15 text-danger-400" :
+                    item.category === "feature" ? "bg-accent-500/15 text-accent-300" :
+                    "bg-ink-700 text-ink-300"
+                  }`}>
+                    {item.category === "bug" ? "Bug report" : item.category === "feature" ? "Feature request" : "General"}
+                  </span>
+                  <span className="text-xs font-medium text-ink-200">{item.name}</span>
+                  <span className="text-xs text-ink-500">{item.email}</span>
+                  <span className="ml-auto text-xs text-ink-500">{item.createdAt.slice(0, 16).replace("T", " ")}</span>
+                </div>
+                <p className="text-sm text-ink-300 whitespace-pre-wrap">{item.message}</p>
               </div>
             ))}
           </div>
