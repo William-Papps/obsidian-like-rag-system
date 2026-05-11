@@ -2612,6 +2612,29 @@ export function Workspace() {
                   <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-accent-400" />
                   <div className="text-sm text-ink-400">Setting up your sample workspace…</div>
                 </div>
+              ) : data.notes.length === 0 && onboardingChoice === "empty" ? (
+                <div className="relative w-full max-w-md text-center">
+                  <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-500/10 blur-[80px]" />
+                  <div className="relative mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-500/30 bg-accent-500/15 shadow-glow">
+                    <Sparkles className="h-6 w-6 text-accent-400" />
+                  </div>
+                  <div className="relative text-xl font-bold tracking-tight text-ink-100">Your workspace is ready</div>
+                  <div className="relative mt-2 text-sm leading-6 text-ink-500">Add notes on any topic. Once you have some, use the Knowledge Tools panel to ask questions about them.</div>
+                  <button
+                    onClick={() => createNote()}
+                    className="relative mt-5 inline-flex items-center gap-2 rounded-xl bg-accent-500 px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-colors hover:bg-accent-400"
+                  >
+                    <FilePlus className="h-4 w-4" />
+                    Create your first note
+                  </button>
+                  <button
+                    onClick={() => { setRightOpen(true); setTab("ask"); }}
+                    className="relative mt-3 flex w-full items-center justify-center gap-1.5 text-sm text-ink-500 transition-colors hover:text-ink-300"
+                  >
+                    <MessageSquareText className="h-3.5 w-3.5" />
+                    Preview the Knowledge Tools panel
+                  </button>
+                </div>
               ) : (
                 <div className="relative w-full max-w-md text-center">
                   <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-500/10 blur-[80px]" />
