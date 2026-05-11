@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { withAuthenticatedUser } from "@/lib/auth";
 import { listFolders } from "@/lib/services/folders";
-import { createNote, listNotes } from "@/lib/services/notes";
+import { listNotes } from "@/lib/services/notes";
 import { getProviderSettings } from "@/lib/services/settings";
-import { getIndexStatus, reindexNotes } from "@/lib/rag/indexing";
+import { getIndexStatus } from "@/lib/rag/indexing";
+import { seedDemoNotes } from "@/lib/services/demo-notes";
 import { listUserWorkspaces } from "@/lib/services/workspaces";
 import { listDocuments } from "@/lib/services/documents";
 import { dbAll } from "@/lib/db";
@@ -29,30 +30,19 @@ export async function GET() {
     ]);
 
     let notes = notesRaw;
+    let freshTagRows = tagRows;
     if (notes.length === 0) {
-      const welcomeNote = await createNote(user.id, {
-        title: "Welcome to EternalNotes",
-        markdownContent: `# Welcome to EternalNotes
-
-This is your AI-powered knowledge base. Add documents, index them, and query them with natural language.
-
-## How grounding works
-
-The AI answers only from documents you have added and indexed. If the answer isn't in your knowledge base, it will say so.
-
-## Getting started
-
-1. Create a project folder for your team or topic
-2. Add documents — paste text, import files, or write directly
-3. Click Reindex to make documents queryable
-4. Use the Ask, Briefing, and Knowledge Check tools on the right
-`
-      });
-      notes = [welcomeNote];
-      reindexNotes(user.id, { noteId: welcomeNote.id }).catch(console.error);
+      notes = await seedDemoNotes(user.id);
+      freshTagRows = await dbAll<{ note_id: string; tag_name: string }>(
+        `select nt.note_id, t.name as tag_name
+         from note_tags nt
+         join tags t on t.id = nt.tag_id
+         where t.user_id = ?`,
+        [user.id]
+      );
     }
     const noteTags: Record<string, string[]> = {};
-    for (const row of tagRows) {
+    for (const row of freshTagRows) {
       if (!noteTags[row.note_id]) noteTags[row.note_id] = [];
       noteTags[row.note_id].push(row.tag_name);
     }
