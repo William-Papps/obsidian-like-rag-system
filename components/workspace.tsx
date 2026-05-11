@@ -39,8 +39,6 @@ import {
   Loader2,
   LogOut,
   Maximize2,
-  Mic2,
-  MicOff,
   MessageSquareText,
   Minimize2,
   MoreVertical,
@@ -71,7 +69,6 @@ import { Component, type CSSProperties, type KeyboardEvent, type MouseEvent, typ
 import { MarkdownPreview } from "@/components/markdown";
 import { DocumentImportModal } from "@/components/document-import-modal";
 import type { AnswerResult, Flashcard, Folder as FolderType, Note, NoteShare, NoteSharePermission, ProviderSettings, QuizEvaluation, QuizQuestion, WorkspaceWithMembers } from "@/lib/types";
-import { useVoiceAssistant } from "@/hooks/useVoiceAssistant";
 
 class PanelErrorBoundary extends Component<{ children: ReactNode; label: string }, { error: Error | null }> {
   constructor(props: { children: ReactNode; label: string }) {
@@ -251,42 +248,6 @@ export function Workspace() {
   // Keep editorViewRef in sync so the voice assistant can always access it
   editorViewRef.current = editorView;
 
-  const voiceAskQuestion = useCallback(async (question: string): Promise<string> => {
-    const res = await fetch("/api/ask", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ question, scope: {} })
-    });
-    if (!res.ok || !res.body) throw new Error("Ask failed");
-    const reader = res.body.getReader();
-    const decoder = new TextDecoder();
-    let buf = "";
-    let answer = "";
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      buf += decoder.decode(value, { stream: true });
-      const parts = buf.split("\n\n");
-      buf = parts.pop() ?? "";
-      for (const part of parts) {
-        const line = part.startsWith("data: ") ? part.slice(6) : part;
-        if (!line.trim()) continue;
-        try {
-          const ev = JSON.parse(line) as { type: string; data?: unknown };
-          if (ev.type === "chunk") answer += ev.data as string;
-        } catch { /* skip */ }
-      }
-    }
-    return answer.trim();
-  }, []);
-
-  const { voiceState, statusText: voiceStatusText, interimText: voiceInterimText, toggle: toggleVoice } = useVoiceAssistant({
-    folders: (data?.folders ?? []).map((f) => ({ id: f.id, name: f.name, parentId: f.parentId ?? null })),
-    editorViewRef,
-    onCreateNote: async (title, folderId) => { await createNoteWithTitle(title, folderId); },
-    onCreateFolder: (name, parentId) => { void createFolderWithName(name, parentId); },
-    onAskQuestion: voiceAskQuestion,
-  });
 
   const notify = useCallback((message: string, tone: Toast["tone"] = "info") => {
     const next = { id: Date.now(), tone, message };
@@ -2123,21 +2084,6 @@ export function Workspace() {
                     ))}
                   </select>
                   <SaveBadge saving={saving} stale={data.indexStatus.staleNotes > 0} />
-                  <IconButton
-                    label={voiceState === "off" ? "Enable voice assistant" : "Disable voice assistant"}
-                    onClick={toggleVoice}
-                  >
-                    {voiceState === "off" ? (
-                      <MicOff className="h-4 w-4" />
-                    ) : (
-                      <Mic2 className={`h-4 w-4 ${
-                        voiceState === "dictating" ? "text-emerald-400 animate-pulse" :
-                        voiceState === "awake" || voiceState === "processing" ? "text-accent-400 animate-pulse" :
-                        voiceState === "speaking" ? "text-amber-400" :
-                        "text-accent-300"
-                      }`} />
-                    )}
-                  </IconButton>
                   <IconButton label="Export as Markdown" onClick={exportActiveNote}>
                     <Download className="h-4 w-4" />
                   </IconButton>
@@ -2480,19 +2426,6 @@ export function Workspace() {
                   <span>{wordCount.toLocaleString()} words</span>
                   <span>{readingMinutes} min read</span>
                   <span>{draftMarkdown.length.toLocaleString()} chars</span>
-                  {(voiceState !== "off" || voiceStatusText) && (
-                    <span className={`ml-auto flex items-center gap-1.5 ${
-                      voiceState === "dictating" ? "text-emerald-400" :
-                      voiceState === "processing" || voiceState === "awake" ? "text-accent-400" :
-                      voiceState === "speaking" ? "text-amber-400" :
-                      voiceState === "off" ? "text-red-400" : "text-ink-500"
-                    }`}>
-                      <Mic2 className="h-3 w-3" />
-                      {voiceInterimText
-                        ? <span className="italic opacity-70">{voiceInterimText}</span>
-                        : voiceStatusText}
-                    </span>
-                  )}
                 </div>
               )}
             </>
