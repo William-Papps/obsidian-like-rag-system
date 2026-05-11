@@ -2219,7 +2219,7 @@ export function Workspace() {
                       </option>
                     ))}
                   </select>
-                  <SaveBadge saving={saving} stale={data.indexStatus.staleNotes > 0} />
+                  <SaveBadge saving={saving} stale={data.indexStatus.staleNotes > 0} preparing={reindexingAll} onPrepare={reindexAll} />
                   <IconButton label="Export as Markdown" onClick={exportActiveNote}>
                     <Download className="h-4 w-4" />
                   </IconButton>
@@ -2727,6 +2727,9 @@ export function Workspace() {
               onHide={() => setRightOpen(false)}
               sampleWorkspace={onboardingChoice === "sample"}
               indexingNotes={onboardingChoice === "sample" && data.indexStatus.staleNotes > 0}
+              notesNeedPrep={onboardingChoice === "empty" && data.notes.length > 0 && data.indexStatus.staleNotes > 0}
+              onPrepareNotes={reindexAll}
+              preparingNotes={reindexingAll}
             />
         </div>
       </div>
@@ -3338,6 +3341,9 @@ function AssistantPanel(props: {
   onHide: () => void;
   sampleWorkspace?: boolean;
   indexingNotes?: boolean;
+  notesNeedPrep?: boolean;
+  onPrepareNotes?: () => void;
+  preparingNotes?: boolean;
 }) {
   const tabs: Array<[Tab, string, string, React.ReactNode]> = [
     ["ask", "Ask", "Ask", <MessageSquareText className="h-4 w-4" key="ask" />],
@@ -3391,7 +3397,7 @@ function AssistantPanel(props: {
       <div className="min-h-0 overflow-auto p-4">
         <PanelErrorBoundary label={props.tab}>
           <div key={props.tab} className="animate-[fadeIn_220ms_ease-out]">
-            {props.tab === "ask" ? <AskTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} sampleWorkspace={props.sampleWorkspace} indexingNotes={props.indexingNotes} /> : null}
+            {props.tab === "ask" ? <AskTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} sampleWorkspace={props.sampleWorkspace} indexingNotes={props.indexingNotes} notesNeedPrep={props.notesNeedPrep} onPrepareNotes={props.onPrepareNotes} preparingNotes={props.preparingNotes} /> : null}
             {props.tab === "find" ? <FindTool onOpenNote={props.onOpenNote} /> : null}
             {props.tab === "quiz" ? (
               <QuizTool
@@ -3636,12 +3642,18 @@ function AskTool({
   onOpenNote,
   sampleWorkspace,
   indexingNotes,
+  notesNeedPrep,
+  onPrepareNotes,
+  preparingNotes,
 }: {
   scope: Scope;
   notify: (message: string, tone?: Toast["tone"]) => void;
   onOpenNote: (source: SourceRef) => void;
   sampleWorkspace?: boolean;
   indexingNotes?: boolean;
+  notesNeedPrep?: boolean;
+  onPrepareNotes?: () => void;
+  preparingNotes?: boolean;
 }) {
   const [question, setQuestion] = useState("");
   const [citations, setCitations] = useState<AnswerResult["citations"]>([]);
@@ -3752,6 +3764,30 @@ function AskTool({
             <div className="mt-1 text-xs leading-5 text-amber-300/80">AI answers become available once your notes finish loading — usually about a minute.</div>
           </div>
         </div>
+      ) : notesNeedPrep ? (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3">
+          {preparingNotes
+            ? <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-amber-400" />
+            : <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />}
+          <div className="flex-1">
+            <div className="text-sm font-medium text-amber-200">
+              {preparingNotes ? "Preparing your notes…" : "Your notes aren't searchable by AI yet"}
+            </div>
+            <div className="mt-1 text-xs leading-5 text-amber-300/80">
+              {preparingNotes
+                ? "This takes about a minute. Ask will become available when done."
+                : "Preparing them makes AI answers possible. Takes about a minute."}
+            </div>
+            {!preparingNotes && onPrepareNotes ? (
+              <button
+                onClick={onPrepareNotes}
+                className="mt-2 rounded-lg border border-amber-400/30 bg-amber-400/10 px-3 py-1 text-xs font-semibold text-amber-300 transition-colors hover:bg-amber-400/20"
+              >
+                Prepare notes
+              </button>
+            ) : null}
+          </div>
+        </div>
       ) : null}
       <div className="relative">
         <textarea
@@ -3782,8 +3818,8 @@ function AskTool({
           </div>
         ) : null}
       </div>
-      <button onClick={ask} disabled={busy || !question.trim() || Boolean(indexingNotes)} className="primary-action w-full">
-        {busy ? "Asking..." : indexingNotes ? "Notes loading…" : "Ask"}
+      <button onClick={ask} disabled={busy || !question.trim() || Boolean(indexingNotes) || Boolean(preparingNotes)} className="primary-action w-full">
+        {busy ? "Asking..." : indexingNotes ? "Notes loading…" : preparingNotes ? "Preparing…" : "Ask"}
       </button>
       {sampleWorkspace && !indexingNotes && recentQueries.length === 0 && !question.trim() && !showResult && !busy ? (
         <div className="space-y-2">
@@ -6153,17 +6189,21 @@ function Pill({ icon, label, accent = false }: { icon: React.ReactNode; label: s
   );
 }
 
-function SaveBadge({ saving, stale }: { saving: boolean; stale: boolean }) {
-  return (
-    <span
-      className={`hidden h-8 items-center gap-1.5 rounded-full border px-2.5 text-xs sm:inline-flex ${
-        stale ? "border-amber-400/25 bg-amber-400/10 text-amber-400" : "border-success-400/20 bg-success-400/10 text-success-400"
-      }`}
-    >
-      {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Circle className="h-2.5 w-2.5 fill-current" />}
-      {saving ? "Saving" : stale ? "Needs reindex" : "Indexed"}
-    </span>
-  );
+function SaveBadge({ saving, stale, preparing, onPrepare }: { saving: boolean; stale: boolean; preparing?: boolean; onPrepare?: () => void }) {
+  const busy = saving || preparing;
+  const cls = `hidden h-8 items-center gap-1.5 rounded-full border px-2.5 text-xs sm:inline-flex ${
+    stale ? "border-amber-400/25 bg-amber-400/10 text-amber-400" : "border-success-400/20 bg-success-400/10 text-success-400"
+  }`;
+  const icon = busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Circle className="h-2.5 w-2.5 fill-current" />;
+  const label = saving ? "Saving" : preparing ? "Preparing…" : stale ? "Prepare for AI" : "Indexed";
+  if (stale && !busy && onPrepare) {
+    return (
+      <button onClick={onPrepare} title="Make notes searchable by AI" className={cls}>
+        {icon}{label}
+      </button>
+    );
+  }
+  return <span className={cls}>{icon}{label}</span>;
 }
 
 function IndexBadge({ status, busy }: { status: Bootstrap["indexStatus"]; busy: boolean }) {
