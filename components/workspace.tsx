@@ -2962,16 +2962,24 @@ function SideRail(props: {
               href="https://discord.gg/9YHgyNvy9k"
               target="_blank"
               rel="noopener noreferrer"
-              className={`flex items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm font-medium text-ink-400 transition-colors hover:bg-ink-800/60 hover:text-[#5865F2] ${expanded ? "w-full" : "justify-center"}`}
+              aria-label="Discord community"
+              className="grid h-11 w-11 place-items-center rounded-full border border-ink-800/70 bg-white/[0.02] text-ink-200 transition-colors hover:border-[#5865F2]/40 hover:bg-[#5865F2]/10 hover:text-[#5865F2]"
             >
-              <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="currentColor">
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.462-.62.874-1.275 1.226-1.963.021-.04.001-.088-.041-.104a13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
               </svg>
-              {expanded ? <span>Discord community</span> : null}
             </a>
-            {!expanded ? (
-              <div className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 rounded-md bg-ink-800 px-2 py-1 text-xs font-medium text-ink-100 opacity-0 shadow-lg transition-opacity group-hover:opacity-100 whitespace-nowrap">
-                Discord community
+            <div className="pointer-events-none absolute left-[56px] top-1/2 z-50 hidden -translate-y-1/2 whitespace-nowrap sm:block">
+              <div className="relative translate-x-[-6px] opacity-0 transition-all duration-150 ease-out group-hover:translate-x-0 group-hover:opacity-100">
+                <div className="absolute -left-1 top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 border border-ink-700/80 bg-ink-925" />
+                <div className="rounded-xl border border-ink-700/80 bg-ink-925 px-3 py-1.5 text-xs font-semibold text-ink-100 shadow-panel">
+                  Discord community
+                </div>
+              </div>
+            </div>
+            {expanded ? (
+              <div className="ml-3 hidden min-w-0 flex-1 items-center sm:flex">
+                <span className="truncate text-sm font-medium text-ink-200">Discord community</span>
               </div>
             ) : null}
           </div>
