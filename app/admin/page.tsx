@@ -158,7 +158,6 @@ export default function AdminPage() {
           <div className="divide-y divide-ink-800 rounded-2xl border border-ink-700 bg-ink-900">
             {([
               ["selfSignupEnabled", "Self-signup", "Allow new users to register accounts"],
-              ["hostedAiEnabled", "Hosted AI", "Enable the server-side OpenAI key for non-API-key users"],
               ["emailVerificationEnabled", "Email verification", "Require email verification before users can sign in"]
             ] as [keyof RuntimeSettings, string, string][]).map(([key, label, desc]) => (
               <div key={key} className="flex items-center justify-between px-5 py-4">
@@ -181,8 +180,8 @@ export default function AdminPage() {
         {/* Feature Usage Stats */}
         <section>
           <div className="mb-4 flex items-baseline justify-between">
-            <h2 className="text-sm font-semibold uppercase tracking-widest text-ink-400">Feature usage (hosted AI calls)</h2>
-            <span className="text-xs text-ink-500">Last 6 months — hosted-key users only</span>
+            <h2 className="text-sm font-semibold uppercase tracking-widest text-ink-400">Feature usage</h2>
+            <span className="text-xs text-ink-500">Last 6 months</span>
           </div>
 
           {/* Monthly breakdown table */}
@@ -282,7 +281,7 @@ export default function AdminPage() {
             </div>
           ) : (
             <div className="mt-3 rounded-xl border border-ink-700/60 bg-ink-900/50 px-4 py-3 text-sm text-ink-500">
-              No hosted-AI usage recorded this month. Usage is only tracked when users consume the server-side key.
+              No usage recorded this month.
             </div>
           )}
         </section>
@@ -294,7 +293,7 @@ export default function AdminPage() {
             <table className="w-full text-sm">
               <thead className="border-b border-ink-700 bg-ink-850/60">
                 <tr>
-                  {["Name / Email", "Role", "Plan", "Status", "Notes", "Verified", "Joined", "Actions"].map((h) => (
+                  {["Name / Email", "Role", "Notes", "Verified", "Joined", "Actions"].map((h) => (
                     <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-ink-400">{h}</th>
                   ))}
                 </tr>
@@ -307,9 +306,6 @@ export default function AdminPage() {
                       <td className="px-4 py-3">
                         <div className="font-medium">{u.name}</div>
                         <div className="text-xs text-ink-400">{u.email}</div>
-                        {u.hostedAccessGrantedAt ? (
-                          <div className="mt-0.5 text-[10px] text-accent-400">Hosted access granted</div>
-                        ) : null}
                       </td>
                       <td className="px-4 py-3">
                         <select
@@ -323,19 +319,6 @@ export default function AdminPage() {
                           <option value="owner">owner</option>
                         </select>
                       </td>
-                      <td className="px-4 py-3">
-                        <select
-                          value={u.hostedPlan}
-                          disabled={!!actionBusy}
-                          onChange={(e) => void userAction(u.id, { hostedPlan: e.target.value })}
-                          className="rounded bg-ink-800 px-2 py-1 text-xs"
-                        >
-                          <option value="free">free</option>
-                          <option value="starter">starter</option>
-                          <option value="pro">pro</option>
-                        </select>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-ink-400">{u.subscriptionStatus}</td>
                       <td className="px-4 py-3 text-xs tabular-nums text-ink-400">
                         {nc ? (
                           <span>{nc.noteCount.toLocaleString()} <span className="text-ink-600">/ {nc.chunkCount.toLocaleString()} chunks</span></span>
