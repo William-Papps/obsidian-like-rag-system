@@ -40,7 +40,8 @@ export async function POST(request: Request) {
       } catch (err) {
         const enc = new TextEncoder();
         console.error("[ask] stream failed", err);
-        controller.enqueue(enc.encode(`data: ${JSON.stringify({ type: "error", data: "Ask request failed" })}\n\n`));
+        const message = err instanceof Error ? err.message : "Ask request failed";
+        controller.enqueue(enc.encode(`data: ${JSON.stringify({ type: "error", data: message })}\n\n`));
       } finally {
         controller.close();
       }

@@ -63,7 +63,7 @@ function LandingPage() {
             </span>
           </h1>
           <p className="mx-auto mb-10 max-w-2xl text-lg leading-relaxed text-ink-400">
-            Add your reports, SOPs, and research. Index them once. Then ask questions in plain English and get grounded answers with exact citations — no hallucinations, no guessing.
+            Add your reports, SOPs, and research. Index them once. Then ask questions in plain English and get grounded answers with exact citations - no hallucinations, no guessing.
           </p>
           <div className="flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
             <Link
@@ -146,7 +146,7 @@ function LandingPage() {
             {
               icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
               title: "Import anything",
-              description: "Paste text, upload PDFs, Word docs, and more. EternalNotes extracts and indexes the content automatically."
+              description: "Paste text, upload PDFs, Word docs, and more. EternalNotes extracts the text and helps you index it for grounded Q&A."
             },
             {
               icon: "M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z",
@@ -260,11 +260,11 @@ function LandingPage() {
             </div>
             <ul className="mb-8 flex-1 space-y-3">
               {[
-                "500 Ask queries / month",
-                "200 Knowledge Checks / month",
-                "200 Training Cards / month",
-                "100 Briefings / month",
-                "50 OCR scans / month",
+                "1500 Ask queries / month",
+                "600 Knowledge Checks / month",
+                "600 Training Cards / month",
+                "600 Briefings / month",
+                "200 OCR scans / month",
                 "Team workspaces"
               ].map((item) => (
                 <li key={item} className="flex items-center gap-2.5 text-sm text-ink-300">
@@ -320,8 +320,8 @@ function LandingPage() {
             </div>
             <span className="text-sm font-semibold text-ink-300">EternalNotes</span>
           </div>
-          <div className="text-xs text-ink-600">© {new Date().getFullYear()} EternalNotes. All rights reserved.</div>
-          <Link href="/auth" className="text-sm font-medium text-ink-400 hover:text-ink-100">Sign in →</Link>
+          <div className="text-xs text-ink-600">(c) {new Date().getFullYear()} EternalNotes. All rights reserved.</div>
+          <Link href="/auth" className="text-sm font-medium text-ink-400 hover:text-ink-100">Sign in -&gt;</Link>
         </div>
       </footer>
 

@@ -4,6 +4,7 @@ import { listNotes } from "@/lib/services/notes";
 import { resolveAiContext } from "@/lib/services/ai-access";
 import { chunkNote } from "@/lib/rag/chunking";
 import { embedBatch } from "@/lib/rag/embeddings";
+import { consumeQuota } from "@/lib/services/quotas";
 import { id, now, sha256 } from "@/lib/utils";
 import type { Note } from "@/lib/types";
 
@@ -11,7 +12,9 @@ export async function reindexNotes(userId: string, scope?: { noteId?: string; fo
   const ai = await resolveAiContext(userId, "index");
   await purgeOrphanedChunks(userId);
   const folderIds = scope?.folderId ? await listDescendantFolderIds(userId, scope.folderId) : [];
-  const notes = (await listNotes(userId)).filter((note) => {
+  const notes = (await listNotes(userId))
+    .filter((note) => note.userId === userId && !note.workspaceId)
+    .filter((note) => {
     if (scope?.noteId) return note.id === scope.noteId;
     if (scope?.folderId !== undefined) return scope.folderId === null ? note.folderId === null : Boolean(note.folderId && folderIds.includes(note.folderId));
     return true;
@@ -37,11 +40,11 @@ export async function reindexNotes(userId: string, scope?: { noteId?: string; fo
 
 export async function getIndexStatus(userId: string) {
   const [notes, chunks, stale] = await Promise.all([
-    dbGet<{ count: number }>("select count(*) as count from notes where user_id = ?", [userId]),
+    dbGet<{ count: number }>("select count(*) as count from notes where user_id = ? and workspace_id is null", [userId]),
     dbGet<{ count: number }>("select count(*) as count from chunks where user_id = ?", [userId]),
     dbGet<{ count: number }>(
-      "select count(*) as count from notes n where n.user_id = ? and not exists (select 1 from chunks c where c.note_id = n.id and c.content_hash = n.content_hash)",
-      [userId]
+      "select count(*) as count from notes n where n.user_id = ? and n.workspace_id is null and not exists (select 1 from chunks c where c.note_id = n.id and c.content_hash = n.content_hash and c.user_id = ?)",
+      [userId, userId]
     )
   ]);
   return { notes: notes?.count ?? 0, chunks: chunks?.count ?? 0, staleNotes: stale?.count ?? 0 };
@@ -78,6 +81,9 @@ async function indexNoteIncremental(
 
   // Embed only chunks not covered by the cache (async — must happen outside the transaction).
   const needEmbed = newTexts.map((_, i) => i).filter((i) => !embeddingCache.has(newHashes[i]));
+  if (needEmbed.length > 0 && ai.mode === "hosted") {
+    await consumeQuota(userId, ai.settings.hostedPlan, "index");
+  }
   const newEmbeddings = needEmbed.length > 0
     ? await embedBatch(userId, needEmbed.map((i) => newTexts[i]), ai.settings.embeddingModel, ai)
     : [];

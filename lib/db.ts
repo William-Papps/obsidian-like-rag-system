@@ -48,6 +48,14 @@ export async function dbGet<T extends Record<string, unknown>>(
   return row ?? null;
 }
 
+export function dbGetSync<T extends Record<string, unknown>>(
+  statement: string,
+  params: DbValue[] = []
+): T | null {
+  const row = getDb().prepare(statement).get(...params) as T | undefined;
+  return row ?? null;
+}
+
 export async function dbAll<T extends Record<string, unknown>>(
   statement: string,
   params: DbValue[] = []

@@ -5,6 +5,7 @@ import { resolveAiContext } from "@/lib/services/ai-access";
 import { retrieveChunks } from "@/lib/rag/retrieval";
 import { retrieveMultiPass, type RetrievalMeta } from "@/lib/rag/retrieval";
 import { recordChunkEvents } from "@/lib/services/chunk-feedback";
+import { consumeQuota } from "@/lib/services/quotas";
 
 function makeClient(ai: AiContext): OpenAI | null {
   if (ai.ollamaBaseUrl) return new OpenAI({ baseURL: `${ai.ollamaBaseUrl}/v1`, apiKey: "ollama" });
@@ -45,7 +46,14 @@ export async function streamAnswerFromNotes(
       return;
     }
 
-    const client = makeClient(ai);
+    const judged = await answerFromCitations(userId, ai, question, citations, meta);
+    for (let i = 0; i < judged.answer.length; i += 120) {
+      send({ type: "chunk", data: judged.answer.slice(i, i + 120) });
+    }
+    send({ type: "done" });
+    return;
+
+    /* const client = makeClient(ai);
     if (!client) {
       send({ type: "chunk", data: "Add an OpenAI key in Settings to generate answers. Your best sources are shown below." });
       send({ type: "done" });
@@ -81,7 +89,7 @@ export async function streamAnswerFromNotes(
       if (token) send({ type: "chunk", data: token });
     }
 
-    send({ type: "done" });
+    send({ type: "done" }); */
   } catch (err) {
     send({ type: "error", data: err instanceof Error ? err.message : "Stream failed" });
     controller.close();
@@ -159,6 +167,10 @@ export async function answerFromNotes(
     };
   }
 
+  if (ai.mode === "hosted") {
+    await consumeQuota(userId, ai.settings.hostedPlan, "ask");
+  }
+
   const useJsonFormat = !ai.ollamaBaseUrl;
   const response = await client.chat.completions.create({
     model: ai.settings.answerModel,
@@ -218,6 +230,10 @@ export async function explainFromNotes(
     };
   }
 
+  if (ai.mode === "hosted") {
+    await consumeQuota(userId, ai.settings.hostedPlan, "ask");
+  }
+
   const response = await client.chat.completions.create({
     model: ai.settings.answerModel,
     temperature: 0.3,
@@ -244,4 +260,79 @@ export async function explainFromNotes(
 
 function formatCitations(citations: RetrievedChunk[]) {
   return citations.map((citation, index) => `[${index + 1}] ${citation.noteTitle}\n${citation.excerpt}`).join("\n\n");
+}
+
+async function answerFromCitations(
+  userId: string,
+  ai: AiContext,
+  question: string,
+  citations: RetrievedChunk[],
+  meta: RetrievalMeta
+): Promise<AnswerResult> {
+  if (meta.resultCount === 0 || meta.topScore < 0.08) {
+    return {
+      answer: "Not found in the knowledge base. Add or index documents that directly support this question, then try again.",
+      citations,
+      unsupported: true
+    };
+  }
+
+  const client = makeClient(ai);
+  if (!client) {
+    return {
+      answer: "Add an OpenAI key in Settings to generate answers. Your best sources are shown below.",
+      citations,
+      unsupported: true
+    };
+  }
+
+  if (ai.mode === "hosted") {
+    await consumeQuota(userId, ai.settings.hostedPlan, "ask");
+  }
+
+  const confidenceCaveat = meta.lowConfidence
+    ? "NOTE: The retrieved excerpts have low similarity to the question. If the excerpts do not contain enough evidence, set supported=false.\n\n"
+    : "";
+
+  const useJsonFormat = !ai.ollamaBaseUrl;
+  const response = await client.chat.completions.create({
+    model: ai.settings.answerModel,
+    temperature: 0.1,
+    ...(useJsonFormat ? { response_format: { type: "json_object" as const } } : {}),
+    messages: [
+      {
+        role: "system",
+        content:
+          confidenceCaveat +
+          "You answer ONLY from the provided note excerpts. Do not use outside knowledge. Do not guess. " +
+          "Write 2-4 bullet points as short, clear, complete sentences. Cite sources inline like [1]. " +
+          "If the excerpts do not contain enough evidence, set supported=false. " +
+          "When supported=true, include evidence quotes copied verbatim (exact substrings) from the excerpts. " +
+          'Return ONLY JSON: {"supported":boolean,"points":string[],"evidence":Array<{source:number,quote:string}>}.'
+      },
+      { role: "user", content: `Question: ${question}\n\nNote excerpts:\n${formatCitations(citations)}` }
+    ]
+  });
+
+  const raw = response.choices[0]?.message.content?.trim() || "";
+  let judged: z.infer<typeof answerSchema>;
+  try {
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    judged = answerSchema.parse(JSON.parse(jsonMatch ? jsonMatch[0] : raw));
+  } catch {
+    return { answer: "Not found in the knowledge base.", citations, unsupported: true };
+  }
+
+  const points = judged.supported && judged.points?.length ? judged.points : [];
+  const valid = points.length > 0 && evidenceLooksValid(citations, judged.evidence);
+
+  if (!valid) {
+    return { answer: "Not found in the knowledge base.", citations, unsupported: true };
+  }
+
+  return {
+    answer: points.map((p) => `- ${p}`).join("\n"),
+    citations,
+    unsupported: false
+  };
 }

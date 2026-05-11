@@ -18,7 +18,9 @@ export async function requireProAccess(userId: string): Promise<void> {
   const row = await dbGet<{ role: string }>("select role from users where id = ?", [userId]);
   if (row?.role === "owner" || row?.role === "admin") return;
   const settings = await getProviderSettings(userId);
-  if (settings.hostedPlan !== "free") return;
+  if (settings.hostedPlan === "free") throw new ProPlanRequiredError();
+  const allowed = await userCanUseHostedAi(userId);
+  if (allowed && (await hostedAiAvailable())) return;
   throw new ProPlanRequiredError();
 }
 

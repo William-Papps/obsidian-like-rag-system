@@ -1,6 +1,7 @@
 import OpenAI from "openai";
 import type { AiContext } from "@/lib/types";
 import { resolveAiContext } from "@/lib/services/ai-access";
+import { consumeQuota } from "@/lib/services/quotas";
 
 export async function extractTextFromImage(
   userId: string,
@@ -17,6 +18,10 @@ export async function extractTextFromImage(
 
   if (!client) {
     return { text: null, warning: `Skipped ${input.label}: configure an OpenAI API key to extract text from images.` };
+  }
+
+  if (ai.mode === "hosted") {
+    await consumeQuota(userId, ai.settings.hostedPlan, "ocr");
   }
 
   const model = ai.settings.visionModel || ai.settings.answerModel;

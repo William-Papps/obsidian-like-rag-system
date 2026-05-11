@@ -11,8 +11,7 @@ const schema = z.object({
   projectId: z.string().nullable().optional(),
   embeddingModel: z.string().min(1),
   answerModel: z.string().min(1),
-  visionModel: z.string().nullable().optional(),
-  hostedPlan: z.enum(["free", "starter", "pro"]).optional()
+  visionModel: z.string().nullable().optional()
 });
 
 export async function GET() {

@@ -154,7 +154,9 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
   }
 
   async function submitReset() {
-    if (newPassword.length < 8) { setError("Password must be at least 8 characters."); return; }
+    if (newPassword.length < 12) { setError("Password must be at least 12 characters."); return; }
+    if (!/[A-Z]/.test(newPassword)) { setError("Password must contain at least one uppercase letter."); return; }
+    if (!/[0-9]/.test(newPassword)) { setError("Password must contain at least one number."); return; }
     setBusy(true);
     reset();
     try {
@@ -216,7 +218,7 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
                 <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500" placeholder="you@example.com" autoComplete="email" type="email" />
               </Field>
               <Field icon={<LockKeyhole className="h-4 w-4" />} label="Password">
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500" placeholder="At least 8 characters" autoComplete={mode === "login" ? "current-password" : "new-password"} onKeyDown={(e) => e.key === "Enter" && void submit()} />
+                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500" placeholder="12+ chars, 1 uppercase, 1 number" autoComplete={mode === "login" ? "current-password" : "new-password"} onKeyDown={(e) => e.key === "Enter" && void submit()} />
               </Field>
             </div>
             {info ? <InfoBanner>{info}</InfoBanner> : null}
@@ -272,12 +274,12 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
           <>
             <div className="space-y-3">
               <Field icon={<LockKeyhole className="h-4 w-4" />} label="New password">
-                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500" placeholder="At least 8 characters" autoComplete="new-password" onKeyDown={(e) => e.key === "Enter" && void submitReset()} />
+                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500" placeholder="12+ chars, 1 uppercase, 1 number" autoComplete="new-password" onKeyDown={(e) => e.key === "Enter" && void submitReset()} />
               </Field>
             </div>
             {info ? <InfoBanner>{info}</InfoBanner> : null}
             {retryAfter > 0 ? <RateLimitBanner seconds={retryAfter} /> : error ? <ErrorBanner>{error}</ErrorBanner> : null}
-            <button type="button" onClick={() => void submitReset()} disabled={busy || retryAfter > 0 || newPassword.length < 8} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-accent-400 disabled:opacity-60">
+            <button type="button" onClick={() => void submitReset()} disabled={busy || retryAfter > 0 || newPassword.length < 12} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-accent-400 disabled:opacity-60">
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Set new password
             </button>

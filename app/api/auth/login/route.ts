@@ -14,6 +14,7 @@ export async function POST(request: Request) {
   try {
     await enforceRateLimit(`auth:login:${clientIp(request)}`, 10, 1000 * 60 * 10);
     const body = schema.parse(await request.json());
+    await enforceRateLimit(`auth:login_email:${body.email.trim().toLowerCase()}`, 10, 1000 * 60 * 10);
     const { user, session } = await loginUser(body);
     const response = NextResponse.json({ user });
     response.headers.set("cache-control", "no-store");

@@ -14,8 +14,8 @@ export function sha256(input: string) {
 
 export function maskApiKey(key: string) {
   const trimmed = key.trim();
-  if (trimmed.length < 12) return "••••";
-  return `${trimmed.slice(0, 7)}…${trimmed.slice(-4)}`;
+  if (trimmed.length < 12) return "****";
+  return `${trimmed.slice(0, 7)}...${trimmed.slice(-4)}`;
 }
 
 export function toCamelRecord<T extends Record<string, unknown>>(row: T) {
@@ -28,5 +28,5 @@ export function toCamelRecord<T extends Record<string, unknown>>(row: T) {
 
 export function truncate(input: string, max = 260) {
   const compact = input.replace(/\s+/g, " ").trim();
-  return compact.length <= max ? compact : `${compact.slice(0, max - 1).trim()}…`;
+  return compact.length <= max ? compact : `${compact.slice(0, max - 3).trim()}...`;
 }

@@ -32,7 +32,15 @@ export async function enforceRateLimit(key: string, maxAttempts: number, windowM
 }
 
 export function clientIp(request: Request) {
+  const trustProxy = (process.env.TRUST_PROXY ?? "false").toLowerCase() === "true";
+  if (!trustProxy) return "local";
+
   const forwarded = request.headers.get("x-forwarded-for");
-  if (forwarded) return forwarded.split(",")[0].trim();
-  return request.headers.get("x-real-ip")?.trim() || "local";
+  if (forwarded) {
+    const first = forwarded.split(",")[0]?.trim();
+    if (first && /^[0-9a-fA-F:.]+$/.test(first)) return first;
+  }
+  const real = request.headers.get("x-real-ip")?.trim();
+  if (real && /^[0-9a-fA-F:.]+$/.test(real)) return real;
+  return "local";
 }

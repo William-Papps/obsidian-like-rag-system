@@ -20,6 +20,7 @@ export async function POST(request: Request) {
   try {
     await enforceRateLimit(`auth:register:${clientIp(request)}`, 6, 1000 * 60 * 30);
     const body = schema.parse(await request.json());
+    await enforceRateLimit(`auth:register_email:${body.email.trim().toLowerCase()}`, 6, 1000 * 60 * 30);
     const { session, ...result } = await registerUser(body);
     const response = NextResponse.json(result, { status: 201 });
     response.headers.set("cache-control", "no-store");

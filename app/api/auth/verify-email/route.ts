@@ -14,6 +14,7 @@ export async function POST(request: Request) {
   try {
     await enforceRateLimit(`auth:verify-email:${clientIp(request)}`, 12, 1000 * 60 * 15);
     const body = schema.parse(await request.json());
+    await enforceRateLimit(`auth:verify-email_email:${body.email.trim().toLowerCase()}`, 12, 1000 * 60 * 15);
     const { session, ...result } = await verifyEmailCode(body);
     const response = NextResponse.json(result);
     response.headers.set("cache-control", "no-store");

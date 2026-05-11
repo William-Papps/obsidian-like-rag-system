@@ -15,11 +15,11 @@ export async function embedText(
   text: string,
   model: string,
   context?: AiContext
-): Promise<{ vector: number[]; provider: "openai" | "local" }> {
+): Promise<{ vector: number[]; provider: "openai" | "ollama" | "local" }> {
   const client = makeEmbedClient(context);
   if (!client) return { vector: localEmbedding(text), provider: "local" };
   const response = await client.embeddings.create({ model, input: text });
-  return { vector: response.data[0].embedding, provider: "openai" };
+  return { vector: response.data[0].embedding, provider: context?.ollamaBaseUrl ? "ollama" : "openai" };
 }
 
 // Single OpenAI call for all chunks in a note instead of N sequential calls.
@@ -28,14 +28,15 @@ export async function embedBatch(
   texts: string[],
   model: string,
   context?: AiContext
-): Promise<Array<{ vector: number[]; provider: "openai" | "local" }>> {
+): Promise<Array<{ vector: number[]; provider: "openai" | "ollama" | "local" }>> {
   if (texts.length === 0) return [];
   const client = makeEmbedClient(context);
   if (!client) {
     return texts.map((text) => ({ vector: localEmbedding(text), provider: "local" as const }));
   }
   const response = await client.embeddings.create({ model, input: texts });
-  return response.data.map((item) => ({ vector: item.embedding, provider: "openai" as const }));
+  const provider = context?.ollamaBaseUrl ? ("ollama" as const) : ("openai" as const);
+  return response.data.map((item) => ({ vector: item.embedding, provider }));
 }
 
 export function localEmbedding(text: string): number[] {

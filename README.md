@@ -22,7 +22,7 @@ The app is local-first for development, but the schema and service boundaries ar
 - User-scoped database tables with real account ownership.
 - Provider settings UI with masked OpenAI key display.
 - Local API key storage under `data/secrets`, ignored by git.
-- Free notes workspace for all users, with BYOK or hosted AI plan selection in Settings.
+- Free notes workspace for all users, with BYOK in Account settings or an optional hosted AI plan in Account/Billing (when enabled by the instance owner).
 - Hosted AI monthly usage tracking for ask, quiz, flashcards, summary, OCR, and indexing.
 - Billing scaffolding for future Stripe integration: billing profile, subscription state, and plan lifecycle records.
 - Encrypted-at-rest personal API key storage using a local encryption secret.
@@ -96,7 +96,7 @@ For local testing without email delivery:
 
 Notes remain free without any AI key. Users can then either:
 
-- enter their own OpenAI key in Settings for BYOK AI
+- enter their own OpenAI key in Account settings for BYOK AI
 - use a hosted AI plan if the server has `HOSTED_OPENAI_API_KEY` configured
 
 ## Home Server Deployment
@@ -123,6 +123,7 @@ EMAIL_FROM=
 EMAIL_REPLY_TO=
 EMAIL_VERIFICATION_DEV_MODE=false
 EMAIL_VERIFICATION_REQUIRED=false
+TRUST_PROXY=false
 OPENAI_API_KEY=
 OPENAI_PROJECT_ID=
 HOSTED_OPENAI_API_KEY=
@@ -163,12 +164,12 @@ Email verification notes:
 
 ## Recommended Settings
 
-For the full feature set, configure these in Settings:
+For the full feature set, configure these in Account settings:
 
 - `answer model`: used for grounded answers and study prompt generation
 - `embedding model`: used for indexing and retrieval
 - `vision model`: used for OCR on screenshots and embedded DOCX images
-- `hosted AI plan`: `free`, `starter`, or `pro`
+- Hosted plan selection is managed under Account/Billing (if the instance supports hosted AI).
 
 Without an API key:
 
@@ -379,6 +380,7 @@ Implemented now:
 - email verification required before first login
 - rate limiting on login, registration, and password change
 - rate limiting on email verification and resend routes
+- reverse-proxy header trust for rate limiting is configurable via `TRUST_PROXY` (enable only behind a trusted proxy)
 - API routes do not return full API keys
 - Settings UI masks stored keys
 - personal API keys are encrypted at rest before being written to local secret files

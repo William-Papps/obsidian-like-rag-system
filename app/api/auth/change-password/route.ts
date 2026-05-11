@@ -36,6 +36,7 @@ export async function POST(request: Request) {
   return withAuthenticatedUser(async (user) => {
     try {
       const body = schema.parse(await request.json());
+      await enforceRateLimit(`auth:change-password:user:${user.id}`, 8, 1000 * 60 * 10);
       await changePassword(user.id, body);
       return NextResponse.json({ ok: true });
     } catch (error) {

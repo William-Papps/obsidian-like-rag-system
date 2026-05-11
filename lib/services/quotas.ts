@@ -1,4 +1,4 @@
-import { dbGet, dbRun } from "@/lib/db";
+import { dbGet, dbRun, dbGetSync, dbRunSync, dbTransaction } from "@/lib/db";
 import type { AiFeature, AiUsage, HostedPlan } from "@/lib/types";
 import { id, now } from "@/lib/utils";
 
@@ -90,31 +90,38 @@ export async function consumeQuota(userId: string, plan: HostedPlan, feature: Ai
   const privileged = await isOwnerOrAdmin(userId);
   const limit = PLAN_LIMITS[plan][feature];
 
-  if (!privileged) {
-    if (typeof limit === "number") {
-      const period = currentUsagePeriod();
-      const current = await dbGet<{ id: string; count: number }>(
+  const period = currentUsagePeriod();
+
+  // Always record usage for visibility in the admin dashboard, even for privileged users.
+  // Use a write transaction to avoid concurrent read/modify/write races.
+  if (!privileged && typeof limit === "number") {
+    dbTransaction(() => {
+      const current = dbGetSync<{ id: string; count: number }>(
         "select id, count from ai_usage where user_id = ? and period = ? and feature = ?",
         [userId, period, feature]
       );
-      if ((current?.count ?? 0) >= limit) {
+      const used = current?.count ?? 0;
+      if (used >= limit) {
         throw new QuotaExceededError(feature, `Your monthly quota for ${feature} is exhausted. Upgrade your plan for more.`);
       }
-    }
+      if (current) {
+        dbRunSync("update ai_usage set count = count + 1, updated_at = ? where id = ?", [now(), current.id]);
+      } else {
+        dbRunSync(
+          "insert into ai_usage (id, user_id, period, feature, count, created_at, updated_at) values (?, ?, ?, ?, 1, ?, ?)",
+          [id(), userId, period, feature, now(), now()]
+        );
+      }
+    });
+    return;
   }
 
-  // Always record usage for visibility in the admin dashboard, even for privileged users.
-  const period = currentUsagePeriod();
-  const current = await dbGet<{ id: string; count: number }>(
-    "select id, count from ai_usage where user_id = ? and period = ? and feature = ?",
-    [userId, period, feature]
+  await dbRun(
+    `insert into ai_usage (id, user_id, period, feature, count, created_at, updated_at)
+     values (?, ?, ?, ?, 1, ?, ?)
+     on conflict(user_id, period, feature) do update set
+       count = count + 1,
+       updated_at = excluded.updated_at`,
+    [id(), userId, period, feature, now(), now()]
   );
-  if (current) {
-    await dbRun("update ai_usage set count = count + 1, updated_at = ? where id = ?", [now(), current.id]);
-  } else {
-    await dbRun(
-      "insert into ai_usage (id, user_id, period, feature, count, created_at, updated_at) values (?, ?, ?, ?, 1, ?, ?)",
-      [id(), userId, period, feature, now(), now()]
-    );
-  }
 }

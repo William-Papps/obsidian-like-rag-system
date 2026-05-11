@@ -11,6 +11,7 @@ export async function POST(request: Request) {
   try {
     await enforceRateLimit(`auth:forgot-password:${clientIp(request)}`, 5, 1000 * 60 * 30);
     const body = schema.parse(await request.json());
+    await enforceRateLimit(`auth:forgot-password_email:${body.email.trim().toLowerCase()}`, 5, 1000 * 60 * 30);
     const origin = request.headers.get("origin") || request.headers.get("x-forwarded-proto")
       ? `${request.headers.get("x-forwarded-proto") || "https"}://${request.headers.get("host")}`
       : "http://localhost:3000";

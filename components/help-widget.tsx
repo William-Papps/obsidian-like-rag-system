@@ -8,19 +8,19 @@ type Message = { from: "user" | "bot"; text: string };
 const FAQS: { q: string; a: string }[] = [
   {
     q: "What is EternalNotes?",
-    a: "EternalNotes is an AI-powered knowledge base for teams. You add your documents, index them, and then ask questions in plain English — every answer is grounded in your content with exact citations."
+    a: "EternalNotes is a self-hosted knowledge base. You add documents, index them, then ask questions in plain English. Answers are grounded in your content with citations."
   },
   {
     q: "How does the AI work?",
-    a: "Your documents are broken into chunks and embedded using OpenAI's embedding models. When you ask a question, the most relevant chunks are retrieved and an LLM generates an answer sourced only from those chunks — no hallucinations."
+    a: "Documents are split into chunks and embedded using your configured provider (OpenAI/Ollama) or a local fallback when no key is set. When you ask a question, the most relevant chunks are retrieved and the model answers only from those excerpts."
   },
   {
     q: "Is my data private?",
-    a: "Yes. EternalNotes is self-hosted — your documents live on your own server and never get sent to any third party except your chosen AI provider (OpenAI) for indexing and querying."
+    a: "Yes. EternalNotes is self-hosted: your documents live on your own server. Content is only sent to your configured AI provider when you use AI features."
   },
   {
     q: "How do team workspaces work?",
-    a: "Create a workspace, invite colleagues by email, and everyone can read and query the same shared documents. Each person keeps their own personal space too."
+    a: "Create a workspace and invite colleagues by email so everyone can read and edit shared notes. Ask/Index applies to personal notes unless workspace indexing is enabled in your build."
   },
   {
     q: "What file types can I import?",
@@ -28,7 +28,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "How much does it cost?",
-    a: "EternalNotes itself is free to use. You'll need an OpenAI API key for AI features — typical usage costs a few cents per month for a small team."
+    a: "EternalNotes itself is free to use. AI features require either your own API key (BYOK) or a hosted plan configured by the instance owner."
   },
   {
     q: "How do I get started?",
@@ -36,11 +36,11 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Do I need technical skills to set this up?",
-    a: "No. Sign up, paste in your OpenAI API key in settings, and you're ready. No server configuration or code required for end users."
+    a: "For end users, not much: sign up and (if needed) add your API key in Account settings. Server setup is handled by whoever is running the instance."
   }
 ];
 
-const GREETING = "Hi there 👋 I'm here to help. Pick a question below or type your own.";
+const GREETING = "Hi! I'm here to help. Pick a question below or type your own.";
 
 function findAnswer(input: string): string {
   const lower = input.toLowerCase();
@@ -48,7 +48,7 @@ function findAnswer(input: string): string {
     faq.q.toLowerCase().split(" ").filter((w) => w.length > 3).some((word) => lower.includes(word))
   );
   if (match) return match.a;
-  return "Good question! For anything not covered here, email us or sign up and use the in-app help. We're happy to help you get set up.";
+  return "Good question! If it's not covered here, contact your instance owner/admin for help.";
 }
 
 export function HelpWidget() {
@@ -93,7 +93,7 @@ export function HelpWidget() {
                 <div className="text-sm font-semibold text-ink-100">Help</div>
                 <div className="flex items-center gap-1 text-[10px] text-ink-500">
                   <span className="inline-block h-1.5 w-1.5 rounded-full bg-success-400" />
-                  Always online
+                  Self-serve help
                 </div>
               </div>
             </div>
@@ -146,7 +146,7 @@ export function HelpWidget() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKey}
-                placeholder="Ask a question…"
+                placeholder="Ask a question..."
                 className="flex-1 bg-transparent text-sm text-ink-100 placeholder-ink-600 outline-none"
               />
               <button

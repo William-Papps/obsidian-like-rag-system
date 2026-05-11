@@ -2,6 +2,7 @@ import fs from "fs";
 import path from "path";
 import { dbAll, dbGet, dbRun } from "@/lib/db";
 import type { Note, NoteSharePermission } from "@/lib/types";
+import { isWorkspaceMember } from "@/lib/services/workspaces";
 import { id, now, sha256, toCamelRecord } from "@/lib/utils";
 
 function imagesDir() {
@@ -51,6 +52,16 @@ export async function getNote(userId: string, noteId: string, workspaceId?: stri
     const row = await dbGet("select * from notes where id = ? and workspace_id = ?", [noteId, workspaceId]);
     return row ? (toCamelRecord(row) as Note) : null;
   }
+
+  const direct = await dbGet("select * from notes where id = ?", [noteId]);
+  if (direct) {
+    const note = toCamelRecord(direct) as Note;
+    if (note.workspaceId) {
+      const member = await isWorkspaceMember(String(note.workspaceId), userId);
+      return member ? note : null;
+    }
+  }
+
   // Check ownership first
   const owned = await dbGet("select * from notes where id = ? and user_id = ? and workspace_id is null", [noteId, userId]);
   if (owned) return toCamelRecord(owned) as Note;
@@ -60,7 +71,7 @@ export async function getNote(userId: string, noteId: string, workspaceId?: stri
     [noteId, userId]
   );
   if (!shareRow) return null;
-  const row = await dbGet("select * from notes where id = ?", [noteId]);
+  const row = direct ?? (await dbGet("select * from notes where id = ?", [noteId]));
   return row ? { ...(toCamelRecord(row) as Note), sharePermission: shareRow.permission as NoteSharePermission } : null;
 }
 
@@ -105,19 +116,23 @@ export async function updateNote(
   noteId: string,
   input: Partial<Pick<Note, "title" | "folderId" | "markdownContent" | "sortOrder" | "department" | "effectiveDate" | "docStatus" | "docType">>
 ): Promise<Note | null> {
-  // Owner check first, then share-edit check
-  let existing = await dbGet("select * from notes where id = ? and user_id = ?", [noteId, userId])
-    .then((r) => r ? toCamelRecord(r) as Note : null);
-  if (!existing) {
+  const row = await dbGet("select * from notes where id = ?", [noteId]);
+  if (!row) return null;
+
+  const existing = toCamelRecord(row) as Note;
+  const isWorkspaceNote = Boolean(existing.workspaceId);
+  const isOwner = existing.userId === userId;
+
+  if (isWorkspaceNote) {
+    if (!(await isWorkspaceMember(String(existing.workspaceId), userId))) return null;
+  } else if (!isOwner) {
     const shareRow = await dbGet<{ permission: string }>(
       "select permission from note_shares where note_id = ? and shared_with_user_id = ?",
       [noteId, userId]
     );
     if (shareRow?.permission !== "edit") return null;
-    const row = await dbGet("select * from notes where id = ?", [noteId]);
-    existing = row ? toCamelRecord(row) as Note : null;
   }
-  if (!existing) return null;
+
   const nextContent = input.markdownContent ?? existing.markdownContent;
   const nextHash = sha256(nextContent);
 
@@ -126,7 +141,7 @@ export async function updateNote(
   if (contentChanged) {
     await dbRun(
       "insert into note_versions (id, note_id, user_id, title, markdown_content, created_at) values (?, ?, ?, ?, ?, ?)",
-      [id(), noteId, userId, existing.title, existing.markdownContent, now()]
+      [id(), noteId, existing.userId, existing.title, existing.markdownContent, now()]
     );
     await dbRun(
       `delete from note_versions where note_id = ? and id not in (
@@ -149,10 +164,23 @@ export async function updateNote(
     docType: input.docType !== undefined ? input.docType : existing.docType,
     updatedAt: now()
   };
-  await dbRun(
-    "update notes set folder_id = ?, title = ?, markdown_content = ?, content_hash = ?, sort_order = ?, department = ?, effective_date = ?, doc_status = ?, doc_type = ?, updated_at = ? where id = ? and user_id = ?",
-    [next.folderId, next.title, next.markdownContent, next.contentHash, next.sortOrder ?? null, next.department ?? null, next.effectiveDate ?? null, next.docStatus ?? null, next.docType ?? null, next.updatedAt, noteId, userId]
-  );
+
+  if (isWorkspaceNote) {
+    await dbRun(
+      "update notes set folder_id = ?, title = ?, markdown_content = ?, content_hash = ?, sort_order = ?, department = ?, effective_date = ?, doc_status = ?, doc_type = ?, updated_at = ? where id = ? and workspace_id = ?",
+      [next.folderId, next.title, next.markdownContent, next.contentHash, next.sortOrder ?? null, next.department ?? null, next.effectiveDate ?? null, next.docStatus ?? null, next.docType ?? null, next.updatedAt, noteId, String(existing.workspaceId)]
+    );
+  } else if (isOwner) {
+    await dbRun(
+      "update notes set folder_id = ?, title = ?, markdown_content = ?, content_hash = ?, sort_order = ?, department = ?, effective_date = ?, doc_status = ?, doc_type = ?, updated_at = ? where id = ? and user_id = ? and workspace_id is null",
+      [next.folderId, next.title, next.markdownContent, next.contentHash, next.sortOrder ?? null, next.department ?? null, next.effectiveDate ?? null, next.docStatus ?? null, next.docType ?? null, next.updatedAt, noteId, userId]
+    );
+  } else {
+    await dbRun(
+      "update notes set folder_id = ?, title = ?, markdown_content = ?, content_hash = ?, sort_order = ?, department = ?, effective_date = ?, doc_status = ?, doc_type = ?, updated_at = ? where id = ? and workspace_id is null",
+      [next.folderId, next.title, next.markdownContent, next.contentHash, next.sortOrder ?? null, next.department ?? null, next.effectiveDate ?? null, next.docStatus ?? null, next.docType ?? null, next.updatedAt, noteId]
+    );
+  }
 
   return next;
 }
@@ -177,24 +205,47 @@ export async function restoreNoteVersion(userId: string, noteId: string, version
 }
 
 export async function deleteNote(userId: string, noteId: string) {
-  const note = await getNote(userId, noteId);
-  if (note) {
-    const imageIds = [...note.markdownContent.matchAll(/\/api\/images\/([a-zA-Z0-9_-]+)/g)].map((m) => m[1]);
-    if (imageIds.length > 0) {
-      const rows = await dbAll<{ id: string; filename: string }>(
-        `select id, filename from images where user_id = ? and id in (${imageIds.map(() => "?").join(",")})`,
-        [userId, ...imageIds]
+  const row = await dbGet("select * from notes where id = ?", [noteId]);
+  if (!row) return;
+
+  const note = toCamelRecord(row) as Note;
+
+  if (note.workspaceId) {
+    const workspaceId = String(note.workspaceId);
+    const member = await isWorkspaceMember(workspaceId, userId);
+    if (!member) return;
+    if (note.userId !== userId) {
+      const roleRow = await dbGet<{ role: string }>(
+        "select role from workspace_members where workspace_id = ? and user_id = ?",
+        [workspaceId, userId]
       );
-      const dir = imagesDir();
-      for (const row of rows) {
-        const filePath = path.join(dir, row.filename);
-        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-        await dbRun("delete from images where id = ? and user_id = ?", [row.id, userId]);
-      }
+      if (roleRow?.role !== "owner") return;
+    }
+  } else if (note.userId !== userId) {
+    // Personal notes can only be deleted by the owner.
+    return;
+  }
+
+  const imageIds = [...note.markdownContent.matchAll(/\/api\/images\/([a-zA-Z0-9_-]+)/g)].map((m) => m[1]);
+  if (imageIds.length > 0) {
+    const rows = await dbAll<{ id: string; filename: string }>(
+      `select id, filename from images where user_id = ? and id in (${imageIds.map(() => "?").join(",")})`,
+      [note.userId, ...imageIds]
+    );
+    const dir = imagesDir();
+    for (const row of rows) {
+      const filePath = path.join(dir, row.filename);
+      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      await dbRun("delete from images where id = ? and user_id = ?", [row.id, note.userId]);
     }
   }
-  await dbRun("delete from chunks where user_id = ? and note_id = ?", [userId, noteId]);
-  await dbRun("delete from notes where id = ? and user_id = ?", [noteId, userId]);
+
+  await dbRun("delete from chunks where user_id = ? and note_id = ?", [note.userId, noteId]);
+  if (note.workspaceId) {
+    await dbRun("delete from notes where id = ? and workspace_id = ?", [noteId, String(note.workspaceId)]);
+  } else {
+    await dbRun("delete from notes where id = ? and user_id = ? and workspace_id is null", [noteId, userId]);
+  }
 }
 
 export async function exactSearch(userId: string, query: string) {

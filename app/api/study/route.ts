@@ -5,6 +5,7 @@ import { extractiveSummary, generateFlashcards, generateQuiz } from "@/lib/rag/s
 import { resolveScopeTitle } from "@/lib/rag/retrieval";
 import { ProPlanRequiredError, requireProAccess } from "@/lib/services/ai-access";
 import { recordStudyActivity } from "@/lib/services/study-history";
+import { QuotaExceededError } from "@/lib/services/quotas";
 
 export const dynamic = "force-dynamic";
 
@@ -36,6 +37,9 @@ export async function POST(request: Request) {
     } catch (error) {
       if (error instanceof ProPlanRequiredError) {
         return NextResponse.json({ error: error.message }, { status: 402 });
+      }
+      if (error instanceof QuotaExceededError) {
+        return NextResponse.json({ error: error.message, feature: error.feature }, { status: 429 });
       }
       throw error;
     }

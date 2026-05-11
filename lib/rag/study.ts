@@ -4,6 +4,7 @@ import { dbAll } from "@/lib/db";
 import { listDescendantFolderIds } from "@/lib/services/folders";
 import { retrieveChunks } from "@/lib/rag/retrieval";
 import { resolveAiContext } from "@/lib/services/ai-access";
+import { consumeQuota } from "@/lib/services/quotas";
 
 export async function extractiveSummary(userId: string, scope: { noteId?: string; folderId?: string | null }) {
   const ai = await resolveAiContext(userId, "summary");
@@ -136,6 +137,10 @@ function makeStudyClient(ai: AiContext): OpenAI | null {
 async function buildStudyPrompt(ai: AiContext, source: RetrievedChunk, answer: string, mode: "quiz" | "flashcard") {
   const client = makeStudyClient(ai);
   if (!client) return fallbackPrompt(source, answer, mode);
+
+  if (ai.mode === "hosted") {
+    await consumeQuota(ai.settings.userId, ai.settings.hostedPlan, mode === "quiz" ? "quiz" : "flashcards");
+  }
 
   try {
     const useJsonFormat = !ai.ollamaBaseUrl;
