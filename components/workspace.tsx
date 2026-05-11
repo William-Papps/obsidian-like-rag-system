@@ -1805,9 +1805,9 @@ export function Workspace() {
           className="grid flex-1 overflow-hidden transition-[grid-template-columns] duration-300 ease-premium"
           style={{ ...workspaceGridStyle, height: isMobile ? "calc(100vh - 56px)" : "100vh" }}
         >
-        <aside className={`panel-shell relative min-h-0 overflow-hidden border-r transition-opacity duration-200 ${leftOpen && !zenMode ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "vault" ? "hidden" : ""}`}>
-          <div className="border-b border-white/[0.06] bg-ink-950/40 px-3 py-2.5">
-            {/* Breadcrumb: Workspace › Folder  +  actions */}
+        <aside className={`panel-shell relative flex min-h-0 flex-col overflow-hidden border-r transition-opacity duration-200 ${leftOpen && !zenMode ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "vault" ? "hidden" : ""}`}>
+          <div className="shrink-0 border-b border-white/[0.06] px-3 pb-2.5 pt-2.5">
+            {/* Workspace › Folder breadcrumb + actions */}
             <div className="flex min-w-0 items-center gap-1">
               {activeWorkspace ? <Users className="h-3 w-3 shrink-0 text-accent-400" /> : <BookOpen className="h-3 w-3 shrink-0 text-accent-400" />}
               <select
@@ -1828,27 +1828,25 @@ export function Workspace() {
                 onChange={(event) => { setVaultRootId(event.target.value); setCollapsedFolders({}); setLeftOpen(true); }}
                 className="min-w-0 flex-1 cursor-pointer bg-transparent text-xs text-ink-400 outline-none hover:text-ink-200"
               >
-                <option value="__all__">All documents</option>
+                <option value="__all__">All notes</option>
                 {topLevelFolders.map((folder) => (
                   <option key={folder.id} value={folder.id}>{folder.name}</option>
                 ))}
               </select>
               <div className="ml-1 flex shrink-0 items-center gap-0.5">
-                <IconButton label="New note" onClick={() => createNote()}>
+                <button title="New note" aria-label="New note" onClick={() => createNote()} className="grid h-6 w-6 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
                   <FilePlus className="h-3.5 w-3.5" />
-                </IconButton>
-                <IconButton label="New folder" onClick={() => createFolder()}>
+                </button>
+                <button title="New folder" aria-label="New folder" onClick={() => createFolder()} className="grid h-6 w-6 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
                   <FolderPlus className="h-3.5 w-3.5" />
-                </IconButton>
-                <IconButton label="Export vault as zip" onClick={() => void exportVaultAsZip()}>
+                </button>
+                <button title="Export vault as zip" aria-label="Export vault as zip" onClick={() => void exportVaultAsZip()} className="grid h-6 w-6 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
                   <Download className="h-3.5 w-3.5" />
-                </IconButton>
+                </button>
               </div>
             </div>
-          </div>
-
-          <div className="border-b border-ink-700/40 px-3 py-2">
-            <div className="flex items-center gap-2 rounded-lg border border-ink-700/50 bg-ink-900/60 px-2.5 py-1.5">
+            {/* Search — inline below breadcrumb */}
+            <div className="mt-2 flex items-center gap-2 rounded-lg border border-ink-700/40 bg-ink-900/50 px-2.5 py-1.5">
               <Search className="h-3.5 w-3.5 shrink-0 text-ink-500" />
               <input
                 type="text"
@@ -1865,7 +1863,7 @@ export function Workspace() {
             </div>
           </div>
 
-          <div className="h-[calc(100%-85px)] overflow-auto px-3 py-4">
+          <div className="min-h-0 flex-1 overflow-auto px-3 py-3">
             {bulkMode && bulkSelectedIds.size > 0 ? (
               <div className="mb-3 flex items-center gap-2 rounded-lg border border-accent-500/25 bg-accent-500/10 px-3 py-2">
                 <span className="flex-1 text-xs font-semibold text-accent-300">{bulkSelectedIds.size} selected</span>
