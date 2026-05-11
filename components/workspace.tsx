@@ -244,6 +244,10 @@ export function Workspace() {
   const [suggestingTags, setSuggestingTags] = useState(false);
   const [suggestedTagsState, setSuggestedTagsState] = useState<{ suggested: string[]; existingTags: { id: string; name: string; color: string }[] } | null>(null);
   const [suggestTagsOpen, setSuggestTagsOpen] = useState(false);
+  const [onboardingChoice, setOnboardingChoice] = useState<"sample" | "empty" | null>(
+    () => readStoredJson("studyos:onboardingChoice", null)
+  );
+  const [seeding, setSeeding] = useState(false);
   const [cmTheme, setCmTheme] = useState<"dark" | "light">(() => {
     try { return JSON.parse(localStorage.getItem("studyos:theme") ?? '"purple"') === "light" ? "light" : "dark"; }
     catch { return "dark"; }
@@ -408,6 +412,10 @@ export function Workspace() {
   useEffect(() => {
     window.localStorage.setItem("studyos:railPinned", JSON.stringify(railPinned));
   }, [railPinned]);
+
+  useEffect(() => {
+    window.localStorage.setItem("studyos:onboardingChoice", JSON.stringify(onboardingChoice));
+  }, [onboardingChoice]);
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
@@ -630,6 +638,23 @@ export function Workspace() {
     setDraftTitle(note.title);
     notify("Note created", "success");
     void refresh();
+  }
+
+  async function handleChoiceSample() {
+    setSeeding(true);
+    try {
+      await fetch("/api/demo/seed", { method: "POST" });
+      setOnboardingChoice("sample");
+      await refresh();
+    } catch {
+      // silently ignore — user can retry
+    } finally {
+      setSeeding(false);
+    }
+  }
+
+  function handleChoiceEmpty() {
+    setOnboardingChoice("empty");
   }
 
   function createNote(folderId: string | null = contextFolderId()) {
@@ -2525,21 +2550,68 @@ export function Workspace() {
             </>
           ) : (
             <div className="row-span-5 grid h-full place-items-center p-8">
-              <div className="relative w-full max-w-md text-center">
-                <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-500/10 blur-[80px]" />
-                <div className="relative mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-500/30 bg-accent-500/15 shadow-glow">
-                  <Sparkles className="h-6 w-6 text-accent-400" />
+              {data.notes.length === 0 && onboardingChoice === null ? (
+                <div className="relative w-full max-w-lg">
+                  <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-500/10 blur-[80px]" />
+                  <div className="relative mb-6 text-center">
+                    <div className="text-xl font-bold tracking-tight text-ink-100">Welcome to EternalNotes</div>
+                    <div className="mt-2 text-sm text-ink-500">How would you like to get started?</div>
+                  </div>
+                  <div className="relative grid grid-cols-2 gap-4">
+                    <button
+                      onClick={() => void handleChoiceSample()}
+                      className="group flex flex-col gap-3 rounded-2xl border border-ink-700/60 bg-ink-900/60 p-6 text-left transition-all hover:border-accent-500/40 hover:bg-accent-500/5"
+                    >
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-accent-500/30 bg-accent-500/15">
+                        <BookOpen className="h-5 w-5 text-accent-400" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-ink-100">Sample workspace</div>
+                        <div className="mt-1 text-xs leading-5 text-ink-500">Explore with 15 pre-written notes. Replace them anytime.</div>
+                      </div>
+                      <div className="mt-auto flex items-center gap-1 text-xs font-medium text-accent-400">
+                        Start here <ChevronRight className="h-3 w-3" />
+                      </div>
+                    </button>
+                    <button
+                      onClick={handleChoiceEmpty}
+                      className="group flex flex-col gap-3 rounded-2xl border border-ink-700/60 bg-ink-900/60 p-6 text-left transition-all hover:border-ink-600 hover:bg-ink-800/40"
+                    >
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-ink-700/40 bg-ink-800/60">
+                        <FilePlus className="h-5 w-5 text-ink-400" />
+                      </div>
+                      <div>
+                        <div className="text-sm font-semibold text-ink-100">Start fresh</div>
+                        <div className="mt-1 text-xs leading-5 text-ink-500">Begin with a blank workspace and add your own notes.</div>
+                      </div>
+                      <div className="mt-auto flex items-center gap-1 text-xs font-medium text-ink-400 group-hover:text-ink-300">
+                        Start empty <ChevronRight className="h-3 w-3" />
+                      </div>
+                    </button>
+                  </div>
                 </div>
-                <div className="relative text-xl font-bold tracking-tight text-ink-100">Start writing</div>
-                <div className="relative mt-2 text-sm leading-6 text-ink-500">Create a document, index it, then ask questions from your knowledge base using the AI tools panel.</div>
-                <button
-                  onClick={() => createNote()}
-                  className="relative mt-5 inline-flex items-center gap-2 rounded-xl bg-accent-500 px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-colors hover:bg-accent-400"
-                >
-                  <FilePlus className="h-4 w-4" />
-                  Create note
-                </button>
-              </div>
+              ) : seeding ? (
+                <div className="text-center">
+                  <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-accent-400" />
+                  <div className="text-sm text-ink-400">Setting up your sample workspace…</div>
+                </div>
+              ) : (
+                <div className="relative w-full max-w-md text-center">
+                  <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-500/10 blur-[80px]" />
+                  <div className="relative mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-500/30 bg-accent-500/15 shadow-glow">
+                    <Sparkles className="h-6 w-6 text-accent-400" />
+                  </div>
+                  <div className="relative text-xl font-bold tracking-tight text-ink-100">Start writing</div>
+                  <div className="relative mt-2 text-sm leading-6 text-ink-500">Create a document, index it, then ask questions from your knowledge base using the AI tools panel.</div>
+                  <button
+                    onClick={() => createNote()}
+                    className="relative mt-5 inline-flex items-center gap-2 rounded-xl bg-accent-500 px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-colors hover:bg-accent-400"
+                  >
+                    <FilePlus className="h-4 w-4" />
+                    Create note
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </section>
