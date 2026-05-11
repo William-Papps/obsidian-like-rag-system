@@ -1804,7 +1804,7 @@ export function Workspace() {
           style={{ ...workspaceGridStyle, height: isMobile ? "calc(100vh - 56px)" : "100vh" }}
         >
         <aside className={`panel-shell relative min-h-0 overflow-hidden border-r transition-opacity duration-200 ${leftOpen && !zenMode ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "vault" ? "hidden" : ""}`}>
-          <div className="border-b border-white/[0.06] bg-ink-950/40 px-3 py-2">
+          <div className="border-b border-white/[0.06] bg-ink-950/40 px-3 py-2.5">
             {/* Breadcrumb: Workspace › Folder  +  actions */}
             <div className="flex min-w-0 items-center gap-1">
               {activeWorkspace ? <Users className="h-3 w-3 shrink-0 text-accent-400" /> : <BookOpen className="h-3 w-3 shrink-0 text-accent-400" />}
@@ -1812,19 +1812,19 @@ export function Workspace() {
                 aria-label="Active workspace"
                 value={activeWorkspaceId ?? "__personal__"}
                 onChange={(event) => void switchWorkspace(event.target.value === "__personal__" ? null : event.target.value)}
-                className="control-soft min-w-0 bg-transparent text-xs font-semibold text-ink-100 outline-none"
+                className="min-w-0 cursor-pointer bg-transparent text-xs font-semibold text-ink-100 outline-none hover:text-accent-200"
               >
                 <option value="__personal__">Personal</option>
                 {(data?.workspaces ?? []).map((ws) => (
                   <option key={ws.id} value={ws.id}>{ws.name}</option>
                 ))}
               </select>
-              <ChevronRight className="h-3 w-3 shrink-0 text-ink-600" />
+              <ChevronRight className="h-3 w-3 shrink-0 text-ink-700" />
               <select
                 aria-label="Workspace root"
                 value={vaultRootId}
                 onChange={(event) => { setVaultRootId(event.target.value); setCollapsedFolders({}); setLeftOpen(true); }}
-                className="control-soft min-w-0 flex-1 bg-transparent text-xs text-ink-400 outline-none"
+                className="min-w-0 flex-1 cursor-pointer bg-transparent text-xs text-ink-400 outline-none hover:text-ink-200"
               >
                 <option value="__all__">All documents</option>
                 {topLevelFolders.map((folder) => (
@@ -4445,7 +4445,8 @@ function StudyPlanTool({ notify }: { notify: (m: string, tone?: Toast["tone"]) =
         {visible.map((item) => (
           <div key={itemKey(item)} className="study-card flex items-start gap-3">
             <div className="flex min-w-0 flex-1 flex-col gap-1">
-              <div className={`text-xs font-semibold uppercase tracking-[0.12em] ${typeColor[item.type]}`}>
+              <div className={`flex items-center gap-1.5 text-xs font-semibold ${typeColor[item.type]}`}>
+                {item.type === "flashcard" ? <Brain className="h-3 w-3" /> : item.type === "quiz" ? <Check className="h-3 w-3" /> : <RotateCw className="h-3 w-3" />}
                 {typeLabel[item.type]}
               </div>
               <div className="truncate text-sm font-medium text-ink-100">{item.title}</div>
@@ -4659,8 +4660,9 @@ function ExamTool({
         <button
           onClick={() => void startExam()}
           disabled={starting}
-          className="w-full rounded-xl bg-accent-500 py-2.5 text-sm font-semibold text-ink-100 transition-opacity hover:opacity-90 disabled:opacity-50"
+          className="primary-action flex w-full items-center justify-center gap-2"
         >
+          {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trophy className="h-4 w-4" />}
           {starting ? "Generating questions…" : "Start Assessment"}
         </button>
       </div>
@@ -4712,9 +4714,9 @@ function ExamTool({
           <button
             onClick={() => void submitAnswer()}
             disabled={submitting || !answer.trim()}
-            className="flex-1 rounded-xl bg-accent-500 py-2.5 text-sm font-semibold text-ink-100 transition-opacity hover:opacity-90 disabled:opacity-50"
+            className="primary-action flex-1"
           >
-            {submitting ? "Submitting…" : question.index === question.total ? "Submit & Finish" : "Next →"}
+            {submitting ? "Submitting…" : question.index === question.total ? "Submit & finish" : "Next →"}
           </button>
           <button
             onClick={() => void finishExam()}
@@ -4747,17 +4749,35 @@ function ExamTool({
             const badgeColor = verdict === "correct" ? "text-emerald-400" : verdict === "partial" ? "text-amber-400" : "text-danger-400";
             return (
               <div key={item.questionId} className={`rounded-xl border bg-ink-900/40 p-3 ${borderColor}`}>
-                <div className="mb-2 flex items-start justify-between gap-2">
-                  <span className="text-xs font-medium text-ink-400">Q{i + 1}</span>
-                  <span className={`text-xs font-semibold uppercase ${badgeColor}`}>{verdict}</span>
+                <div className="mb-2.5 flex items-center justify-between gap-2">
+                  <span className="text-[11px] font-semibold text-ink-500">Q{i + 1}</span>
+                  <span className={`rounded-md border px-2 py-0.5 text-xs font-semibold ${
+                    verdict === "correct"
+                      ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                      : verdict === "partial"
+                        ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
+                        : "border-danger-400/30 bg-danger-400/10 text-danger-400"
+                  }`}>
+                    {verdict === "correct" ? "✓ Correct" : verdict === "partial" ? "~ Partial" : "✗ Incorrect"}
+                  </span>
                 </div>
-                <div className="mb-2 text-sm text-ink-100">{item.question}</div>
-                <div className="mb-1 text-xs text-ink-500">Your answer:</div>
-                <div className="mb-2 text-xs text-ink-300">{item.userAnswer}</div>
-                <div className="mb-1 text-xs text-ink-500">Expected:</div>
-                <div className="mb-2 text-xs text-ink-300">{item.expectedAnswer}</div>
+                <div className="mb-3 text-sm font-medium text-ink-100">{item.question}</div>
+                <div className="space-y-2">
+                  <div>
+                    <div className="mb-0.5 flex items-center gap-1 text-[11px] text-ink-500">
+                      <MessageSquareText className="h-3 w-3" />Your answer
+                    </div>
+                    <div className="text-xs leading-5 text-ink-300">{item.userAnswer}</div>
+                  </div>
+                  <div>
+                    <div className="mb-0.5 flex items-center gap-1 text-[11px] text-ink-500">
+                      <BookOpen className="h-3 w-3" />Expected
+                    </div>
+                    <div className="text-xs leading-5 text-ink-300">{item.expectedAnswer}</div>
+                  </div>
+                </div>
                 {item.advice && verdict !== "correct" ? (
-                  <div className="flex gap-2 rounded-lg bg-ink-800/50 p-2 text-xs text-ink-400">
+                  <div className="mt-2.5 flex gap-2 rounded-lg bg-ink-800/50 p-2 text-xs text-ink-400">
                     <AlertCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-400" />
                     {item.advice}
                   </div>
