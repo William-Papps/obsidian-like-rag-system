@@ -3755,7 +3755,7 @@ function AskTool({
 
   return (
     <div className="space-y-4">
-      <ToolHeader title="Ask your knowledge base" description="Your indexed documents answer the question. Use Paraphrase for a plain-English restatement." />
+      <ToolHeader title="Ask" description="Answers come from your indexed notes. Use Paraphrase for a plain-English restatement." />
       {sampleWorkspace && indexingNotes ? (
         <div className="flex items-start gap-3 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3">
           <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-amber-400" />
@@ -3823,12 +3823,15 @@ function AskTool({
       </button>
       {sampleWorkspace && !indexingNotes && recentQueries.length === 0 && !question.trim() && !showResult && !busy ? (
         <div className="space-y-2">
-          <div className="text-xs text-ink-500">Try a question from your sample notes:</div>
+          <div className="flex items-center gap-1.5 text-xs text-ink-500">
+            <Sparkles className="h-3 w-3" />
+            Try a question from your sample notes
+          </div>
           {SAMPLE_QUESTIONS.map((q) => (
             <button
               key={q}
               onClick={() => setQuestion(q)}
-              className="flex w-full items-start gap-2 rounded-xl border border-ink-700/50 bg-ink-900/40 px-3 py-2.5 text-left text-sm text-ink-300 transition-colors hover:border-accent-500/30 hover:bg-accent-500/5 hover:text-ink-100"
+              className="flex w-full items-start gap-2.5 rounded-xl border border-ink-700/40 bg-ink-900/30 px-3.5 py-3 text-left text-sm text-ink-300 transition-all hover:border-accent-500/30 hover:bg-accent-500/[0.06] hover:text-ink-100"
             >
               <ChevronRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-400" />
               {q}
@@ -3841,7 +3844,10 @@ function AskTool({
         <div className="space-y-4">
           {citations.length > 0 && !done ? (
             <div>
-              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-ink-400">Searching sources…</div>
+              <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-ink-500">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Searching sources…
+              </div>
               <SourceList sources={citations} compact query={question} onOpenNote={onOpenNote} />
             </div>
           ) : null}
@@ -3849,9 +3855,12 @@ function AskTool({
             unsupported ? (
               <div className="rounded-xl border border-ink-700/60 bg-ink-850/60 p-4 text-sm text-ink-400">{displayAnswer}</div>
             ) : (
-              <div className="rounded-xl border border-ink-700/80 bg-ink-850/80 p-4">
-                <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">Answer</div>
-                <div className="space-y-1.5 text-sm leading-6 text-ink-100">
+              <div className="rounded-xl border border-accent-500/20 bg-gradient-to-b from-accent-500/[0.07] to-transparent p-4">
+                <div className="mb-3 flex items-center gap-1.5">
+                  <Sparkles className="h-3.5 w-3.5 text-accent-400" />
+                  <span className="text-xs font-semibold text-accent-300">Answer</span>
+                </div>
+                <div className="space-y-2 text-sm leading-7 text-ink-100">
                   {displayAnswer.split("\n").filter((l) => l.trim()).map((line, i) => (
                     <div key={i}>{line.startsWith("- ") ? line.slice(2) : line}</div>
                   ))}
@@ -3886,7 +3895,10 @@ function AskTool({
 
           {done && citations.length > 0 ? (
             <div>
-              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-ink-400">Best sources</div>
+              <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-ink-400">
+                <BookOpen className="h-3.5 w-3.5" />
+                Sources
+              </div>
               <SourceList sources={citations} compact query={question} onOpenNote={onOpenNote} />
             </div>
           ) : null}
@@ -4801,79 +4813,55 @@ function SourceList({
 }) {
   if (!sources.length) return <div className="surface-soft rounded-xl px-3 py-4 text-sm text-ink-500">{empty}</div>;
   return (
-    <div className={`space-y-2.5 ${compact ? "mt-3" : ""}`}>
+    <div className={`space-y-2 ${compact ? "mt-2" : ""}`}>
       {sources.map((source, index) => (
-        <details key={`${source.chunkId}-${index}`} className="group rounded-xl border border-ink-700/80 bg-ink-850/80 p-3 open:shadow-glow" open={!compact}>
-          <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
-            <div className="min-w-0">
+        <div key={`${source.chunkId}-${index}`} className="rounded-xl border border-ink-700/60 bg-ink-900/60 p-3">
+          <div className="flex items-start gap-2.5">
+            <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-500/15 text-[10px] font-bold text-accent-300">
+              {index + 1}
+            </span>
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5">
                 <span className="truncate text-xs font-semibold text-accent-300">{source.noteTitle}</span>
                 {source.pageNumber != null && (
                   <span className="shrink-0 rounded bg-ink-700/60 px-1.5 py-0.5 text-[10px] font-semibold text-ink-300">
-                    Page {source.pageNumber}
+                    p.{source.pageNumber}
                   </span>
                 )}
               </div>
-              <div className="mt-1 text-[11px] text-ink-500">{sourceContextLabel(source, index)}</div>
+              <p className="mt-1.5 line-clamp-3 text-xs leading-5 text-ink-400">
+                {cleanSourceExcerpt(source.excerpt, query)}
+              </p>
+              <div className="mt-2">
+                {source.documentId ? (
+                  <button
+                    type="button"
+                    onClick={() => window.open(`/api/documents/${source.documentId}/file#page=${source.pageNumber ?? 1}`, '_blank')}
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-accent-400 transition-colors hover:text-accent-200"
+                  >
+                    Open →
+                  </button>
+                ) : source.noteId && onOpenNote ? (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onOpenNote({
+                        noteId: source.noteId!,
+                        noteTitle: source.noteTitle,
+                        excerpt: source.excerpt,
+                        similarity: source.similarity,
+                        view: "preview"
+                      })
+                    }
+                    className="inline-flex items-center gap-1 text-[11px] font-medium text-accent-400 transition-colors hover:text-accent-200"
+                  >
+                    Open →
+                  </button>
+                ) : null}
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <span className="rounded-full border border-ink-700 bg-ink-950/40 px-2 py-0.5 text-[11px] text-ink-300">
-                {Math.round(source.similarity * 100)}%
-              </span>
-              <ChevronDown className="h-3.5 w-3.5 text-ink-500 transition-transform group-open:rotate-180" />
-            </div>
-          </summary>
-          <blockquote className="mt-3 border-l-2 border-accent-400/70 pl-3 text-xs leading-5 text-ink-300">
-            {cleanSourceExcerpt(source.excerpt, query)}
-          </blockquote>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {source.documentId ? (
-              <button
-                type="button"
-                onClick={() => window.open(`/api/documents/${source.documentId}/file#page=${source.pageNumber ?? 1}`, '_blank')}
-                className="inline-flex items-center gap-1.5 rounded-lg border border-ink-700 bg-ink-950/40 px-2.5 py-1.5 text-xs font-medium text-ink-200 transition-colors hover:border-accent-500/40 hover:bg-accent-500/10 hover:text-accent-200 focus:outline-none focus:ring-2 focus:ring-accent-400/40"
-              >
-                <FileText className="h-3.5 w-3.5" />
-                View document{source.pageNumber != null ? ` (p.${source.pageNumber})` : ""}
-              </button>
-            ) : source.noteId && onOpenNote ? (
-              <>
-                <button
-                  type="button"
-                  onClick={() =>
-                    onOpenNote({
-                      noteId: source.noteId!,
-                      noteTitle: source.noteTitle,
-                      excerpt: source.excerpt,
-                      similarity: source.similarity,
-                      view: "write"
-                    })
-                  }
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-ink-700 bg-ink-950/40 px-2.5 py-1.5 text-xs font-medium text-ink-200 transition-colors hover:border-accent-500/40 hover:bg-accent-500/10 hover:text-accent-200 focus:outline-none focus:ring-2 focus:ring-accent-400/40"
-                >
-                  <FileText className="h-3.5 w-3.5" />
-                  Open in editor
-                </button>
-                <button
-                  type="button"
-                  onClick={() =>
-                    onOpenNote({
-                      noteId: source.noteId!,
-                      noteTitle: source.noteTitle,
-                      excerpt: source.excerpt,
-                      similarity: source.similarity,
-                      view: "preview"
-                    })
-                  }
-                  className="inline-flex items-center gap-1.5 rounded-lg border border-ink-700 bg-ink-950/40 px-2.5 py-1.5 text-xs font-medium text-ink-200 transition-colors hover:border-accent-500/40 hover:bg-accent-500/10 hover:text-accent-200 focus:outline-none focus:ring-2 focus:ring-accent-400/40"
-                >
-                  <BookOpen className="h-3.5 w-3.5" />
-                  Open in preview
-                </button>
-              </>
-            ) : null}
           </div>
-        </details>
+        </div>
       ))}
     </div>
   );
