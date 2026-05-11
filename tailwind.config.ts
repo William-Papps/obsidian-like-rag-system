@@ -57,7 +57,11 @@ const config: Config = {
       }
     }
   },
-  plugins: []
+  plugins: [
+    function({ addUtilities }: { addUtilities: (u: Record<string, Record<string, string>>) => void }) {
+      addUtilities({ ".pb-safe": { "padding-bottom": "env(safe-area-inset-bottom, 0px)" } });
+    }
+  ]
 };
 
 export default config;

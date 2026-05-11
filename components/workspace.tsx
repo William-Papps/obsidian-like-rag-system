@@ -2630,7 +2630,7 @@ export function Workspace() {
                   <div className="relative mt-2 text-sm leading-6 text-ink-500">Add notes on any topic. Once you have some, use the Knowledge Tools panel to ask questions about them.</div>
                   <button
                     onClick={() => createNote()}
-                    className="relative mt-5 inline-flex items-center gap-2 rounded-xl bg-accent-500 px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-colors hover:bg-accent-400"
+                    className="primary-action relative mt-5 inline-flex items-center gap-2"
                   >
                     <FilePlus className="h-4 w-4" />
                     Create your first note
@@ -2653,7 +2653,7 @@ export function Workspace() {
                   <div className="relative mt-2 text-sm leading-6 text-ink-500">Create a document, index it, then ask questions from your knowledge base using the AI tools panel.</div>
                   <button
                     onClick={() => createNote()}
-                    className="relative mt-5 inline-flex items-center gap-2 rounded-xl bg-accent-500 px-5 py-2.5 text-sm font-semibold text-white shadow-glow transition-colors hover:bg-accent-400"
+                    className="primary-action relative mt-5 inline-flex items-center gap-2"
                   >
                     <FilePlus className="h-4 w-4" />
                     Create note
@@ -2910,28 +2910,18 @@ export function Workspace() {
       ) : null}
       {toast ? <ToastView toast={toast} /> : null}
       {isMobile ? (
-        <nav className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-ink-700/80 bg-ink-950/95 backdrop-blur-lg">
-          <button
-            onClick={() => setMobileTab("vault")}
-            className={`flex flex-1 flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${mobileTab === "vault" ? "text-accent-300" : "text-ink-500"}`}
-          >
-            <BookOpen className="h-5 w-5" />
-            Docs
-          </button>
-          <button
-            onClick={() => setMobileTab("editor")}
-            className={`flex flex-1 flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${mobileTab === "editor" ? "text-accent-300" : "text-ink-500"}`}
-          >
-            <FileText className="h-5 w-5" />
-            Editor
-          </button>
-          <button
-            onClick={() => { setMobileTab("study"); setRightOpen(true); }}
-            className={`flex flex-1 flex-col items-center gap-1 py-3 text-xs font-medium transition-colors ${mobileTab === "study" ? "text-accent-300" : "text-ink-500"}`}
-          >
-            <Brain className="h-5 w-5" />
-            Tools
-          </button>
+        <nav className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-ink-700/80 bg-ink-950/95 pb-safe backdrop-blur-lg">
+          {([ ["vault", BookOpen, "Docs"], ["editor", FileText, "Editor"], ["study", Brain, "Tools"] ] as const).map(([id, Icon, label]) => (
+            <button
+              key={id}
+              onClick={() => { setMobileTab(id); if (id === "study") setRightOpen(true); }}
+              className={`flex flex-1 flex-col items-center gap-1 pt-3 pb-4 text-xs font-medium transition-colors ${mobileTab === id ? "text-accent-300" : "text-ink-500"}`}
+            >
+              <Icon className="h-5 w-5" />
+              {label}
+              {mobileTab === id ? <span className="h-0.5 w-4 rounded-full bg-accent-400" /> : <span className="h-0.5 w-4" />}
+            </button>
+          ))}
         </nav>
       ) : null}
       </div>
@@ -3069,7 +3059,7 @@ function SideRail(props: {
       <div className={`w-full shrink-0 border-t border-ink-700/70 pt-3 ${expanded ? "px-3" : "px-2"}`}>
         <div className={`flex flex-col gap-1 ${expanded ? "" : "items-center"}`}>
           <RailIconButton
-            label={props.reindexing ? "Reindexing..." : "Reindex"}
+            label={props.reindexing ? "Indexing…" : "Index notes"}
             onClick={() => void props.onReindex()}
             active={props.reindexing}
           >
@@ -4982,7 +4972,7 @@ function FolderRow({
         {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
       </button>
       <button onClick={onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-start gap-2 py-2 text-left text-sm text-ink-200">
-        {collapsed ? <Folder className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" /> : <FolderOpen className="mt-0.5 h-4 w-4 shrink-0 text-blue-400" />}
+        {collapsed ? <Folder className="mt-0.5 h-4 w-4 shrink-0 text-accent-400/70" /> : <FolderOpen className="mt-0.5 h-4 w-4 shrink-0 text-accent-400/70" />}
         <span
           title={folder.name}
           className="min-w-0 flex-1 pr-2 leading-5 text-ink-100 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden group-hover:pr-44"
