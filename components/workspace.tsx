@@ -418,6 +418,12 @@ export function Workspace() {
   }, [onboardingChoice]);
 
   useEffect(() => {
+    if (onboardingChoice !== "sample" || !data || data.indexStatus.staleNotes === 0) return;
+    const id = window.setInterval(() => { void refresh(); }, 8000);
+    return () => window.clearInterval(id);
+  }, [onboardingChoice, data?.indexStatus.staleNotes, refresh]);
+
+  useEffect(() => {
     const onStorage = (e: StorageEvent) => {
       if (e.key !== "studyos:theme") return;
       try {
@@ -2686,6 +2692,7 @@ export function Workspace() {
               onOpenNote={openNoteFromSource}
               onHide={() => setRightOpen(false)}
               sampleWorkspace={onboardingChoice === "sample"}
+              indexingNotes={onboardingChoice === "sample" && data.indexStatus.staleNotes > 0}
             />
         </div>
       </div>
@@ -3296,6 +3303,7 @@ function AssistantPanel(props: {
   onOpenNote: (source: SourceRef) => void;
   onHide: () => void;
   sampleWorkspace?: boolean;
+  indexingNotes?: boolean;
 }) {
   const tabs: Array<[Tab, string, string, React.ReactNode]> = [
     ["ask", "Ask", "Ask", <MessageSquareText className="h-4 w-4" key="ask" />],
@@ -3349,7 +3357,7 @@ function AssistantPanel(props: {
       <div className="min-h-0 overflow-auto p-4">
         <PanelErrorBoundary label={props.tab}>
           <div key={props.tab} className="animate-[fadeIn_220ms_ease-out]">
-            {props.tab === "ask" ? <AskTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} sampleWorkspace={props.sampleWorkspace} /> : null}
+            {props.tab === "ask" ? <AskTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} sampleWorkspace={props.sampleWorkspace} indexingNotes={props.indexingNotes} /> : null}
             {props.tab === "find" ? <FindTool onOpenNote={props.onOpenNote} /> : null}
             {props.tab === "quiz" ? (
               <QuizTool
@@ -3593,11 +3601,13 @@ function AskTool({
   notify,
   onOpenNote,
   sampleWorkspace,
+  indexingNotes,
 }: {
   scope: Scope;
   notify: (message: string, tone?: Toast["tone"]) => void;
   onOpenNote: (source: SourceRef) => void;
   sampleWorkspace?: boolean;
+  indexingNotes?: boolean;
 }) {
   const [question, setQuestion] = useState("");
   const [citations, setCitations] = useState<AnswerResult["citations"]>([]);
@@ -3700,6 +3710,15 @@ function AskTool({
   return (
     <div className="space-y-4">
       <ToolHeader title="Ask your knowledge base" description="Your indexed documents answer the question. Use Paraphrase for a plain-English restatement." />
+      {sampleWorkspace && indexingNotes ? (
+        <div className="flex items-start gap-3 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3">
+          <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-amber-400" />
+          <div>
+            <div className="text-sm font-medium text-amber-200">Your notes are being prepared</div>
+            <div className="mt-1 text-xs leading-5 text-amber-300/80">AI answers become available once your notes finish loading — usually about a minute.</div>
+          </div>
+        </div>
+      ) : null}
       <div className="relative">
         <textarea
           value={question}
@@ -3729,10 +3748,10 @@ function AskTool({
           </div>
         ) : null}
       </div>
-      <button onClick={ask} disabled={busy || !question.trim()} className="primary-action w-full">
-        {busy ? "Asking..." : "Ask"}
+      <button onClick={ask} disabled={busy || !question.trim() || Boolean(indexingNotes)} className="primary-action w-full">
+        {busy ? "Asking..." : indexingNotes ? "Notes loading…" : "Ask"}
       </button>
-      {sampleWorkspace && recentQueries.length === 0 && !question.trim() && !showResult && !busy ? (
+      {sampleWorkspace && !indexingNotes && recentQueries.length === 0 && !question.trim() && !showResult && !busy ? (
         <div className="space-y-2">
           <div className="text-xs text-ink-500">Try a question from your sample notes:</div>
           {SAMPLE_QUESTIONS.map((q) => (
