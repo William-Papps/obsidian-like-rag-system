@@ -2685,6 +2685,7 @@ export function Workspace() {
               notify={notify}
               onOpenNote={openNoteFromSource}
               onHide={() => setRightOpen(false)}
+              sampleWorkspace={onboardingChoice === "sample"}
             />
         </div>
       </div>
@@ -3294,6 +3295,7 @@ function AssistantPanel(props: {
   notify: (message: string, tone?: Toast["tone"]) => void;
   onOpenNote: (source: SourceRef) => void;
   onHide: () => void;
+  sampleWorkspace?: boolean;
 }) {
   const tabs: Array<[Tab, string, string, React.ReactNode]> = [
     ["ask", "Ask", "Ask", <MessageSquareText className="h-4 w-4" key="ask" />],
@@ -3347,7 +3349,7 @@ function AssistantPanel(props: {
       <div className="min-h-0 overflow-auto p-4">
         <PanelErrorBoundary label={props.tab}>
           <div key={props.tab} className="animate-[fadeIn_220ms_ease-out]">
-            {props.tab === "ask" ? <AskTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} /> : null}
+            {props.tab === "ask" ? <AskTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} sampleWorkspace={props.sampleWorkspace} /> : null}
             {props.tab === "find" ? <FindTool onOpenNote={props.onOpenNote} /> : null}
             {props.tab === "quiz" ? (
               <QuizTool
@@ -3580,14 +3582,22 @@ function SearchableScopePicker({
   );
 }
 
+const SAMPLE_QUESTIONS = [
+  "What's the process for handling a P1 production incident?",
+  "What should a new engineer complete in their first 30 days?",
+  "What are the code review standards?",
+];
+
 function AskTool({
   scope,
   notify,
-  onOpenNote
+  onOpenNote,
+  sampleWorkspace,
 }: {
   scope: Scope;
   notify: (message: string, tone?: Toast["tone"]) => void;
   onOpenNote: (source: SourceRef) => void;
+  sampleWorkspace?: boolean;
 }) {
   const [question, setQuestion] = useState("");
   const [citations, setCitations] = useState<AnswerResult["citations"]>([]);
@@ -3722,6 +3732,21 @@ function AskTool({
       <button onClick={ask} disabled={busy || !question.trim()} className="primary-action w-full">
         {busy ? "Asking..." : "Ask"}
       </button>
+      {sampleWorkspace && recentQueries.length === 0 && !question.trim() && !showResult && !busy ? (
+        <div className="space-y-2">
+          <div className="text-xs text-ink-500">Try a question from your sample notes:</div>
+          {SAMPLE_QUESTIONS.map((q) => (
+            <button
+              key={q}
+              onClick={() => setQuestion(q)}
+              className="flex w-full items-start gap-2 rounded-xl border border-ink-700/50 bg-ink-900/40 px-3 py-2.5 text-left text-sm text-ink-300 transition-colors hover:border-accent-500/30 hover:bg-accent-500/5 hover:text-ink-100"
+            >
+              <ChevronRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-400" />
+              {q}
+            </button>
+          ))}
+        </div>
+      ) : null}
       {busy && !showResult ? <SkeletonStack /> : null}
       {showResult ? (
         <div className="space-y-4">
