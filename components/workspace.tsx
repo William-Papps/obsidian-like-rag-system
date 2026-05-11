@@ -163,6 +163,7 @@ const SYMBOL_GROUPS: { label: string; symbols: string[] }[] = [
 export function Workspace() {
   const [data, setData] = useState<Bootstrap | null>(null);
   const dataRef = useRef<Bootstrap | null>(null);
+  const prevStaleNotesRef = useRef<number | null>(null);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const activeNoteRef = useRef<Note | null>(null);
   const [saving, setSaving] = useState(false);
@@ -422,6 +423,16 @@ export function Workspace() {
     const id = window.setInterval(() => { void refresh(); }, 8000);
     return () => window.clearInterval(id);
   }, [onboardingChoice, data?.indexStatus.staleNotes, refresh]);
+
+  useEffect(() => {
+    if (onboardingChoice !== "sample" || !data) return;
+    const prev = prevStaleNotesRef.current;
+    const current = data.indexStatus.staleNotes;
+    prevStaleNotesRef.current = current;
+    if (prev !== null && prev > 0 && current === 0) {
+      notify("Your notes are ready — try asking a question.", "success");
+    }
+  }, [onboardingChoice, data, notify]);
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
