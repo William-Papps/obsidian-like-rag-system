@@ -311,17 +311,34 @@ function LandingPage() {
 
       {/* Footer */}
       <footer className="border-t border-white/[0.06] py-10">
-        <div className="mx-auto max-w-6xl px-6 flex flex-col items-center justify-between gap-4 sm:flex-row">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-accent-500">
-              <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                <path d="M3 3h4v10H3zM9 3h4v4H9zM9 9h4v4H9z" fill="white" fillOpacity="0.9" />
-              </svg>
+        <div className="mx-auto max-w-6xl px-6 space-y-6">
+          <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-accent-500">
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                  <path d="M3 3h4v10H3zM9 3h4v4H9zM9 9h4v4H9z" fill="white" fillOpacity="0.9" />
+                </svg>
+              </div>
+              <span className="text-sm font-semibold text-ink-300">EternalNotes</span>
             </div>
-            <span className="text-sm font-semibold text-ink-300">EternalNotes</span>
+            <div className="text-xs text-ink-600">© {new Date().getFullYear()} EternalNotes. All rights reserved.</div>
+            <Link href="/auth" className="text-sm font-medium text-ink-400 hover:text-ink-100">Sign in →</Link>
           </div>
-          <div className="text-xs text-ink-600">(c) {new Date().getFullYear()} EternalNotes. All rights reserved.</div>
-          <Link href="/auth" className="text-sm font-medium text-ink-400 hover:text-ink-100">Sign in -&gt;</Link>
+          <div className="flex flex-wrap justify-center gap-x-6 gap-y-2">
+            {[
+              { href: "/legal/terms", label: "Terms" },
+              { href: "/legal/privacy", label: "Privacy" },
+              { href: "/legal/cookies", label: "Cookies" },
+              { href: "/legal/acceptable-use", label: "Acceptable Use" },
+              { href: "/legal/ai", label: "AI Disclaimer" },
+              { href: "/legal/refunds", label: "Refunds" },
+              { href: "/legal/contact", label: "Contact" },
+            ].map((l) => (
+              <Link key={l.href} href={l.href} className="text-xs text-ink-600 hover:text-ink-400 transition-colors">
+                {l.label}
+              </Link>
+            ))}
+          </div>
         </div>
       </footer>
 

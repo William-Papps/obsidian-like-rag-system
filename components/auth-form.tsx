@@ -232,6 +232,14 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
                 Forgot password?
               </button>
             ) : null}
+            {mode === "signup" ? (
+              <p className="mt-3 text-center text-xs leading-5 text-ink-500">
+                By creating an account you agree to our{" "}
+                <a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-ink-300">Terms of Service</a>
+                {" "}and{" "}
+                <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-ink-300">Privacy Policy</a>.
+              </p>
+            ) : null}
             {!allowSignup ? <div className="mt-4 text-xs leading-5 text-ink-500">Registration is disabled on this instance. Use an existing account.</div> : null}
           </>
         ) : stage === "verify" ? (

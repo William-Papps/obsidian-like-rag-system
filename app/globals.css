@@ -570,6 +570,97 @@ textarea:focus-visible {
 }
 
 /* ─────────────────────────────────────────────
+   LEGAL PROSE
+   ───────────────────────────────────────────── */
+.prose-legal {
+  color: rgb(var(--ink-300));
+  line-height: 1.75;
+  font-size: 0.9375rem;
+}
+.prose-legal h1 {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: rgb(var(--ink-100));
+  margin-bottom: 0.5rem;
+  line-height: 1.25;
+}
+.prose-legal .meta {
+  font-size: 0.8125rem;
+  color: rgb(var(--ink-500));
+  margin-bottom: 2rem;
+}
+.prose-legal h2 {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: rgb(var(--ink-100));
+  margin-top: 2.25rem;
+  margin-bottom: 0.6rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid rgb(var(--ink-800) / 0.6);
+}
+.prose-legal h3 {
+  font-size: 0.9375rem;
+  font-weight: 600;
+  color: rgb(var(--ink-200));
+  margin-top: 1.25rem;
+  margin-bottom: 0.4rem;
+}
+.prose-legal p {
+  margin-bottom: 1rem;
+}
+.prose-legal ul, .prose-legal ol {
+  padding-left: 1.4rem;
+  margin-bottom: 1rem;
+}
+.prose-legal li {
+  margin-bottom: 0.35rem;
+}
+.prose-legal a {
+  color: rgb(var(--accent-400));
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.prose-legal a:hover {
+  color: rgb(var(--accent-300));
+}
+.prose-legal code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.8125rem;
+  background: rgb(var(--ink-800) / 0.6);
+  border: 1px solid rgb(var(--ink-700) / 0.5);
+  border-radius: 4px;
+  padding: 0.1em 0.4em;
+  color: rgb(var(--ink-200));
+}
+.prose-legal table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1.25rem;
+  font-size: 0.875rem;
+}
+.prose-legal th {
+  text-align: left;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: rgb(var(--ink-400));
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid rgb(var(--ink-700) / 0.8);
+  background: rgb(var(--ink-900) / 0.5);
+}
+.prose-legal td {
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid rgb(var(--ink-800) / 0.5);
+  color: rgb(var(--ink-300));
+  vertical-align: top;
+}
+.prose-legal strong {
+  color: rgb(var(--ink-200));
+  font-weight: 600;
+}
+
+/* ─────────────────────────────────────────────
    ANIMATIONS
    ───────────────────────────────────────────── */
 @keyframes shimmer  { 100% { transform: translateX(100%); } }
