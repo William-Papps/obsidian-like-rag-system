@@ -2399,15 +2399,20 @@ export function Workspace() {
                     ))}
                   </div>
                 ) : null}
-                <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2 overflow-hidden text-xs text-ink-500">
-                  <Pill icon={<Folder className="h-3.5 w-3.5" />} label={noteFolder} />
-                  <Pill icon={<Clock3 className="h-3.5 w-3.5" />} label={`Updated ${new Date(activeNote.updatedAt).toLocaleString()}`} />
-                  <Pill icon={<ShieldCheck className="h-3.5 w-3.5" />} label="Verified source" accent />
+                <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 overflow-hidden text-[11px] text-ink-500">
+                  <span className="flex shrink-0 items-center gap-1">
+                    <Folder className="h-3 w-3 shrink-0" />
+                    <span className="truncate">{noteFolder}</span>
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1">
+                    <Clock3 className="h-3 w-3 shrink-0" />
+                    {new Date(activeNote.updatedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </span>
                   {backlinks.length > 0 ? (
-                    <span className="group relative inline-flex max-w-full items-center gap-1.5 rounded-full border border-ink-700/80 bg-ink-850/70 px-2.5 py-1 text-ink-400 hover:border-accent-500/25 hover:text-accent-300 cursor-pointer">
-                      <Link className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{backlinks.length} backlink{backlinks.length !== 1 ? "s" : ""}</span>
-                      <div className="pointer-events-none absolute left-0 top-full z-30 mt-1 hidden min-w-[180px] rounded-xl border border-ink-700/80 bg-ink-900 p-2 shadow-panel group-hover:block">
+                    <span className="group relative flex shrink-0 cursor-pointer items-center gap-1 hover:text-ink-200">
+                      <Link className="h-3 w-3 shrink-0" />
+                      {backlinks.length} backlink{backlinks.length !== 1 ? "s" : ""}
+                      <div className="pointer-events-none absolute left-0 top-full z-30 mt-1 hidden min-w-[180px] rounded-xl border border-ink-700/80 bg-ink-900 p-2 shadow-panel group-hover:pointer-events-auto group-hover:block">
                         {backlinks.map((bl) => (
                           <button
                             key={bl.id}
@@ -2421,11 +2426,11 @@ export function Workspace() {
                     </span>
                   ) : null}
                   {relatedNotes.length > 0 ? (
-                    <span className="group relative inline-flex max-w-full items-center gap-1.5 rounded-full border border-ink-700/80 bg-ink-850/70 px-2.5 py-1 text-ink-400 hover:border-accent-500/25 hover:text-accent-300 cursor-pointer">
-                      <Sparkles className="h-3.5 w-3.5 shrink-0" />
-                      <span className="truncate">{relatedNotes.length} related</span>
-                      <div className="pointer-events-none absolute left-0 top-full z-30 mt-1 hidden min-w-[200px] rounded-xl border border-ink-700/80 bg-ink-900 p-2 shadow-panel group-hover:block">
-                        <div className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-widest text-ink-500">Related notes</div>
+                    <span className="group relative flex shrink-0 cursor-pointer items-center gap-1 hover:text-ink-200">
+                      <Sparkles className="h-3 w-3 shrink-0" />
+                      {relatedNotes.length} related
+                      <div className="pointer-events-none absolute left-0 top-full z-30 mt-1 hidden min-w-[200px] rounded-xl border border-ink-700/80 bg-ink-900 p-2 shadow-panel group-hover:pointer-events-auto group-hover:block">
+                        <div className="mb-1.5 px-2 text-[10px] font-semibold text-ink-500">Related notes</div>
                         {relatedNotes.map((r) => (
                           <button
                             key={r.noteId}
@@ -2443,15 +2448,18 @@ export function Workspace() {
                   <div className="relative">
                     <button
                       onClick={() => { if (!suggestTagsOpen) void suggestTagsForNote(); else setSuggestTagsOpen(false); }}
-                      className="inline-flex items-center gap-1.5 rounded-full border border-ink-700/80 bg-ink-850/70 px-2.5 py-1 text-ink-400 hover:border-accent-500/25 hover:text-accent-300"
+                      className="flex items-center gap-1 hover:text-ink-200"
                     >
-                      <Tag className="h-3.5 w-3.5 shrink-0" />
-                      <span className="text-xs">{suggestingTags ? "Thinking…" : "Suggest tags"}</span>
+                      <Tag className="h-3 w-3 shrink-0" />
+                      {suggestingTags ? "Thinking…" : "Suggest tags"}
                     </button>
                     {suggestTagsOpen && suggestedTagsState && (
                       <div className="absolute left-0 top-full z-40 mt-1 min-w-[200px] rounded-xl border border-ink-700/80 bg-ink-900 p-3 shadow-panel">
                         <div className="mb-2 flex items-center justify-between">
-                          <span className="text-[10px] font-semibold uppercase tracking-widest text-ink-500">AI suggested tags</span>
+                          <span className="flex items-center gap-1.5 text-[10px] font-semibold text-ink-400">
+                            <Sparkles className="h-3 w-3" />
+                            AI suggested tags
+                          </span>
                           <button onClick={() => setSuggestTagsOpen(false)} className="text-ink-600 hover:text-ink-300"><X className="h-3 w-3" /></button>
                         </div>
                         {suggestedTagsState.suggested.length === 0 ? (
@@ -3755,7 +3763,7 @@ function AskTool({
 
   return (
     <div className="space-y-4">
-      <ToolHeader title="Ask" description="Answers come from your indexed notes. Use Paraphrase for a plain-English restatement." />
+      <ToolHeader title="Ask" description="Answers come from your indexed notes. Use Plain English to simplify any answer." />
       {sampleWorkspace && indexingNotes ? (
         <div className="flex items-start gap-3 rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3">
           <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-amber-400" />
@@ -3804,7 +3812,7 @@ function AskTool({
         />
         {showRecent && recentQueries.length > 0 ? (
           <div className="absolute left-0 right-0 top-full z-30 mt-1 rounded-xl border border-ink-700/80 bg-ink-900 p-1 shadow-panel">
-            <div className="px-2 pb-1 pt-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-500">Recent</div>
+            <div className="px-2 pb-1 pt-1 text-[11px] font-semibold text-ink-500">Recent</div>
             {recentQueries.map((q) => (
               <button
                 key={q}
@@ -3880,15 +3888,18 @@ function AskTool({
           {done && !unsupported ? (
             <div className="flex items-center gap-2">
               <button onClick={explainPlain} disabled={explaining} className="secondary-action">
-                {explaining ? "Paraphrasing..." : "Paraphrase"}
+                {explaining ? "Simplifying…" : "Plain English"}
               </button>
-              <div className="text-xs text-ink-500">Rewrites the answer as a simple example.</div>
+              <div className="text-xs text-ink-500">Rewrites the answer in simpler terms.</div>
             </div>
           ) : null}
 
           {explanation ? (
             <div className="rounded-xl border border-accent-500/20 bg-accent-500/10 p-4 text-sm leading-6 text-ink-100">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">Paraphrase</div>
+              <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-accent-300">
+                <MessageSquareText className="h-3.5 w-3.5" />
+                Plain English
+              </div>
               <div className="whitespace-pre-wrap">{explanation.answer}</div>
             </div>
           ) : null}
@@ -4040,27 +4051,33 @@ function QuizTool({
                 </button>
                 {results[currentIndex] ? (
                   <span
-                    className={`rounded-full border px-2.5 py-1 text-xs font-semibold ${
+                    className={`rounded-lg border px-3 py-1.5 text-sm font-semibold ${
                       results[currentIndex].verdict === "correct"
-                        ? "border-success-400/25 bg-success-400/10 text-success-400"
+                        ? "border-success-400/30 bg-success-400/15 text-success-400"
                         : results[currentIndex].verdict === "partial"
-                          ? "border-amber-400/25 bg-amber-400/10 text-amber-400"
-                          : "border-danger-400/25 bg-danger-400/10 text-danger-400"
+                          ? "border-amber-400/30 bg-amber-400/15 text-amber-400"
+                          : "border-danger-400/30 bg-danger-400/15 text-danger-400"
                     }`}
                   >
-                    {results[currentIndex].verdict === "correct" ? "Correct" : results[currentIndex].verdict === "partial" ? "Close" : "Not yet"}
+                    {results[currentIndex].verdict === "correct" ? "✓ Correct" : results[currentIndex].verdict === "partial" ? "~ Close" : "✗ Not yet"}
                   </span>
                 ) : null}
               </div>
               {results[currentIndex] ? (
                 <div className="mt-3 rounded-lg border border-ink-700/80 bg-ink-950/40 p-3 text-sm leading-6 text-ink-300">
-                  <div className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">Feedback</div>
+                  <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-accent-300">
+                    <MessageSquareText className="h-3.5 w-3.5" />
+                    Feedback
+                  </div>
                   <div>{results[currentIndex].feedback}</div>
                 </div>
               ) : null}
               {results[currentIndex] ? (
                 <div className="mt-3 rounded-lg border border-ink-700/80 bg-ink-950/30 p-3">
-                  <div className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">Source answer</div>
+                  <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-ink-400">
+                    <BookOpen className="h-3.5 w-3.5" />
+                    Source answer
+                  </div>
                   <div className="text-sm leading-6 text-ink-300">{currentItem.answer}</div>
                 </div>
               ) : null}
@@ -4306,7 +4323,10 @@ function SummaryTool({
           {busy ? <SkeletonStack /> : null}
           {items.map((item) => (
             <div key={item.id} className="study-card">
-              <div className="mb-2 text-xs font-semibold uppercase tracking-[0.14em] text-accent-300">{item.label}</div>
+              <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-accent-300">
+                <Sparkles className="h-3.5 w-3.5" />
+                {item.label}
+              </div>
               <blockquote className="border-l-2 border-accent-400/70 pl-3 text-sm leading-6 text-ink-200">{item.text}</blockquote>
               <SourceList sources={[item.source]} compact onOpenNote={onOpenNote} />
             </div>
