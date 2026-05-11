@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { unstable_noStore as noStore } from "next/cache";
 import { AuthForm } from "@/components/auth-form";
+import { CookieBanner } from "@/components/cookie-banner";
 import { getCurrentUserOptional, selfSignupEnabled } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -22,6 +23,7 @@ export default async function AuthPage() {
   return (
     <Suspense>
       <AuthForm allowSignup={allowSignup} />
+      <CookieBanner />
     </Suspense>
   );
 }

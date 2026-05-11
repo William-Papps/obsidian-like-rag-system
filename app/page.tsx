@@ -4,6 +4,7 @@ import { getCurrentUserOptional } from "@/lib/auth";
 import { Workspace } from "@/components/workspace";
 import Link from "next/link";
 import { HelpWidget } from "@/components/help-widget";
+import { CookieBanner } from "@/components/cookie-banner";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -308,6 +309,7 @@ function LandingPage() {
       </section>
 
       <HelpWidget />
+      <CookieBanner />
 
       {/* Footer */}
       <footer className="border-t border-white/[0.06] py-10">

@@ -360,7 +360,19 @@ export default function AdminPage() {
 
         {/* Audit Log */}
         <section>
-          <h2 className="mb-4 text-sm font-semibold uppercase tracking-widest text-ink-400">Recent audit log</h2>
+          <div className="mb-4 flex items-baseline justify-between">
+            <h2 className="text-sm font-semibold uppercase tracking-widest text-ink-400">Recent audit log</h2>
+            <button
+              onClick={async () => {
+                if (!confirm("Delete all audit logs older than 90 days?")) return;
+                await fetch("/api/admin", { method: "DELETE" });
+                await load();
+              }}
+              className="rounded-lg border border-ink-700 px-3 py-1.5 text-xs font-medium text-ink-400 hover:border-amber-400/40 hover:text-amber-400"
+            >
+              Purge logs &gt; 90 days
+            </button>
+          </div>
           <div className="divide-y divide-ink-800 rounded-2xl border border-ink-700 bg-ink-900">
             {logs.length === 0 ? (
               <div className="px-5 py-4 text-sm text-ink-400">No audit events yet.</div>

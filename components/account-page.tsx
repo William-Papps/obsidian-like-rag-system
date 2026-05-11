@@ -55,6 +55,8 @@ export function AccountPage({
   const [savingAdmin, setSavingAdmin] = useState(false);
   const [changingPassword, setChangingPassword] = useState(false);
   const [downloadingBackup, setDownloadingBackup] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState("");
   const [signingOut, setSigningOut] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   const [appTheme, setAppTheme] = useState<AppTheme>(() => {
@@ -177,6 +179,43 @@ export function AccountPage({
       pushNotice(error instanceof Error ? error.message : "Backup export failed", "error");
     } finally {
       setDownloadingBackup(false);
+    }
+  }
+
+  async function exportData() {
+    try {
+      const response = await fetch("/api/account/export");
+      if (!response.ok) throw new Error("Export failed");
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `eternalnotes-export-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      pushNotice(error instanceof Error ? error.message : "Export failed", "error");
+    }
+  }
+
+  async function deleteAccount() {
+    setDeletingAccount(true);
+    try {
+      const res = await fetch("/api/account", {
+        method: "DELETE",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ confirm: deleteConfirm })
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        pushNotice(body.error || "Deletion failed", "error");
+        return;
+      }
+      window.location.href = "/auth";
+    } finally {
+      setDeletingAccount(false);
     }
   }
 
@@ -739,17 +778,54 @@ export function AccountPage({
 
               {/* ─── BACKUP ─── */}
               {section === "backup" && (
-                <GlassPanel>
-                  <SectionHeading eyebrow="Backup" title="Export database snapshot" icon={<Download className="h-5 w-5" />} description="Download the SQLite database so you can restore notes and indexes later." />
-                  <div className="mt-6 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 text-sm leading-6 text-ink-400">
-                    This export includes the database only. Files under <code className="rounded bg-white/[0.06] px-1 py-0.5 text-xs">data/secrets</code> are not included and still need filesystem backup.
-                  </div>
-                  <div className="mt-4">
-                    <PrimaryButton onClick={downloadBackup} disabled={downloadingBackup} loading={downloadingBackup} icon={<Download className="h-4 w-4" />}>
-                      {downloadingBackup ? "Preparing backup..." : "Download database backup"}
-                    </PrimaryButton>
-                  </div>
-                </GlassPanel>
+                <>
+                  <GlassPanel>
+                    <SectionHeading eyebrow="Backup" title="Export database snapshot" icon={<Download className="h-5 w-5" />} description="Download the SQLite database so you can restore notes and indexes later." />
+                    <div className="mt-6 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 text-sm leading-6 text-ink-400">
+                      This export includes the database only. Files under <code className="rounded bg-white/[0.06] px-1 py-0.5 text-xs">data/secrets</code> are not included and still need filesystem backup.
+                    </div>
+                    <div className="mt-4">
+                      <PrimaryButton onClick={downloadBackup} disabled={downloadingBackup} loading={downloadingBackup} icon={<Download className="h-4 w-4" />}>
+                        {downloadingBackup ? "Preparing backup..." : "Download database backup"}
+                      </PrimaryButton>
+                    </div>
+                  </GlassPanel>
+
+                  <GlassPanel>
+                    <SectionHeading eyebrow="Your data" title="Export your notes" icon={<Download className="h-5 w-5" />} description="Download all your notes, folders, and tags as a JSON file." />
+                    <div className="mt-4">
+                      <PrimaryButton onClick={exportData} icon={<Download className="h-4 w-4" />}>
+                        Export my data
+                      </PrimaryButton>
+                    </div>
+                  </GlassPanel>
+
+                  <GlassPanel>
+                    <SectionHeading eyebrow="Danger zone" title="Delete account" icon={<User2 className="h-5 w-5" />} description="Permanently delete your account and all associated data. This cannot be undone." />
+                    <div className="mt-6 space-y-4">
+                      <div className="rounded-xl border border-danger-400/25 bg-danger-400/8 p-4 text-sm leading-6 text-ink-400">
+                        This will immediately delete your account, all your notes, documents, and settings. There is no recovery.
+                      </div>
+                      <Field label={`Type your email to confirm: ${user.email}`}>
+                        <input
+                          value={deleteConfirm}
+                          onChange={(e) => setDeleteConfirm(e.target.value)}
+                          onKeyDown={allowNativeTextShortcuts}
+                          placeholder={user.email}
+                          className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
+                        />
+                      </Field>
+                      <button
+                        onClick={() => void deleteAccount()}
+                        disabled={deletingAccount || deleteConfirm !== user.email}
+                        className="flex items-center gap-2 rounded-xl border border-danger-400/40 bg-danger-400/10 px-4 py-2.5 text-sm font-semibold text-danger-400 transition-colors hover:bg-danger-400/20 disabled:cursor-not-allowed disabled:opacity-40"
+                      >
+                        {deletingAccount ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                        {deletingAccount ? "Deleting…" : "Delete my account"}
+                      </button>
+                    </div>
+                  </GlassPanel>
+                </>
               )}
 
               {/* ─── ADMIN ─── */}
@@ -769,13 +845,6 @@ export function AccountPage({
                         checked={adminData.runtime.selfSignupEnabled}
                         busy={savingAdmin}
                         onChange={(checked) => void saveAdminRuntime({ selfSignupEnabled: checked })}
-                      />
-                      <ToggleCard
-                        label="Hosted AI"
-                        description="Allow users to consume hosted plan quota on the server key."
-                        checked={adminData.runtime.hostedAiEnabled}
-                        busy={savingAdmin}
-                        onChange={(checked) => void saveAdminRuntime({ hostedAiEnabled: checked })}
                       />
                       <ToggleCard
                         label="Email verification"

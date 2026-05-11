@@ -77,3 +77,15 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ runtime });
   });
 }
+
+export async function DELETE() {
+  return withAuthenticatedUser(async (user) => {
+    if (!isAdmin(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - 90);
+    const { dbRun } = await import("@/lib/db");
+    await dbRun("delete from audit_logs where created_at < ?", [cutoff.toISOString()]);
+    await logAudit({ actorUserId: user.id, event: "admin.audit_log.purged", metadata: { olderThanDays: 90 } });
+    return NextResponse.json({ ok: true });
+  });
+}
