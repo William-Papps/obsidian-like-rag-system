@@ -47,12 +47,13 @@ export async function GET() {
       [periods[0]]
     );
 
-    // Note and chunk counts per user.
+    // Note and chunk counts per user (capped to avoid timeout on large datasets).
     const noteCountRows = await dbAll<{ user_id: string; note_count: number; chunk_count: number }>(
       `select n.user_id, count(distinct n.id) as note_count, count(c.id) as chunk_count
        from notes n
        left join chunks c on c.note_id = n.id
-       group by n.user_id`
+       group by n.user_id
+       limit 200`
     );
 
     return NextResponse.json({

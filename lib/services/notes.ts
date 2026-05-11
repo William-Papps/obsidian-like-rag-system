@@ -130,7 +130,7 @@ export async function updateNote(
     );
     await dbRun(
       `delete from note_versions where note_id = ? and id not in (
-         select id from note_versions where note_id = ? order by created_at desc limit 10
+         select id from note_versions where note_id = ? order by created_at desc limit 25
        )`,
       [noteId, noteId]
     );
@@ -161,7 +161,7 @@ export type NoteVersion = { id: string; noteId: string; title: string; createdAt
 
 export async function listNoteVersions(userId: string, noteId: string): Promise<NoteVersion[]> {
   const rows = await dbAll<{ id: string; note_id: string; title: string; created_at: string }>(
-    "select id, note_id, title, created_at from note_versions where note_id = ? and user_id = ? order by created_at desc limit 10",
+    "select id, note_id, title, created_at from note_versions where note_id = ? and user_id = ? order by created_at desc limit 25",
     [noteId, userId]
   );
   return rows.map((r) => ({ id: r.id, noteId: r.note_id, title: r.title, createdAt: r.created_at }));

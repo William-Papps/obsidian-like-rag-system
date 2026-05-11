@@ -1,4 +1,4 @@
-import { dbAll, dbGet, dbRun } from "@/lib/db";
+import { dbAll, dbGet, dbRun, dbRunSync, dbTransaction } from "@/lib/db";
 import { listDescendantFolderIds } from "@/lib/services/folders";
 import { listNotes } from "@/lib/services/notes";
 import { resolveAiContext } from "@/lib/services/ai-access";
@@ -17,7 +17,7 @@ export async function reindexNotes(userId: string, scope?: { noteId?: string; fo
     return true;
   });
 
-  const currentProvider = ai.apiKey ? "openai" : "local";
+  const currentProvider = ai.ollamaBaseUrl ? "ollama" : ai.apiKey ? "openai" : "local";
 
   let indexed = 0;
   for (const note of notes) {
@@ -57,7 +57,7 @@ async function indexNoteIncremental(
 ): Promise<number> {
   const newTexts = chunkNote(note);
   const newHashes = newTexts.map((text) => sha256(text));
-  const currentProvider = ai.apiKey ? "openai" : "local";
+  const currentProvider = ai.ollamaBaseUrl ? "ollama" : ai.apiKey ? "openai" : "local";
 
   // Cache current-provider embeddings by chunk hash before wiping the rows.
   const existing = await dbAll<{
@@ -76,42 +76,45 @@ async function indexNoteIncremental(
     }
   }
 
-  // Wipe all existing chunks for this note — clean slate eliminates constraint conflicts.
-  await dbRun("delete from chunks where user_id = ? and note_id = ?", [userId, note.id]);
-
-  // Embed only chunks not covered by the cache.
+  // Embed only chunks not covered by the cache (async — must happen outside the transaction).
   const needEmbed = newTexts.map((_, i) => i).filter((i) => !embeddingCache.has(newHashes[i]));
   const newEmbeddings = needEmbed.length > 0
     ? await embedBatch(userId, needEmbed.map((i) => newTexts[i]), ai.settings.embeddingModel, ai)
     : [];
 
-  let embedIdx = 0;
-  for (let i = 0; i < newTexts.length; i++) {
-    const chunkHash = newHashes[i];
-    const cached = embeddingCache.get(chunkHash);
-    let vectorBlob: Buffer | Uint8Array;
-    let vectorId: string;
-    let provider: string;
+  // Delete all existing chunks then insert the new set atomically so the note
+  // is never in a partially-indexed state if something fails mid-way.
+  dbTransaction(() => {
+    dbRunSync("delete from chunks where user_id = ? and note_id = ?", [userId, note.id]);
 
-    if (cached) {
-      vectorBlob = cached.vectorBlob;
-      vectorId = cached.vectorId;
-      provider = currentProvider;
-    } else {
-      const embedding = newEmbeddings[embedIdx++];
-      vectorId = `${embedding.provider}:${sha256(`${note.id}:${i}:${note.contentHash}`).slice(0, 24)}`;
-      vectorBlob = new Uint8Array(new Float32Array(embedding.vector).buffer);
-      provider = embedding.provider;
+    let embedIdx = 0;
+    for (let i = 0; i < newTexts.length; i++) {
+      const chunkHash = newHashes[i];
+      const cached = embeddingCache.get(chunkHash);
+      let vectorBlob: Buffer | Uint8Array;
+      let vectorId: string;
+      let provider: string;
+
+      if (cached) {
+        vectorBlob = cached.vectorBlob;
+        vectorId = cached.vectorId;
+        provider = currentProvider;
+      } else {
+        const embedding = newEmbeddings[embedIdx++];
+        vectorId = `${embedding.provider}:${sha256(`${note.id}:${i}:${note.contentHash}`).slice(0, 24)}`;
+        vectorBlob = new Uint8Array(new Float32Array(embedding.vector).buffer);
+        provider = embedding.provider;
+      }
+
+      dbRunSync(
+        `insert into chunks
+           (id, user_id, note_id, chunk_text, chunk_index, content_hash, chunk_content_hash,
+            embedded, vector_id, vector_blob, vector_json, vector_provider, created_at, updated_at)
+         values (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, null, ?, ?, ?)`,
+        [id(), userId, note.id, newTexts[i], i, note.contentHash, chunkHash, vectorId, vectorBlob, provider, now(), now()]
+      );
     }
-
-    await dbRun(
-      `insert into chunks
-         (id, user_id, note_id, chunk_text, chunk_index, content_hash, chunk_content_hash,
-          embedded, vector_id, vector_blob, vector_json, vector_provider, created_at, updated_at)
-       values (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, null, ?, ?, ?)`,
-      [id(), userId, note.id, newTexts[i], i, note.contentHash, chunkHash, vectorId, vectorBlob, provider, now(), now()]
-    );
-  }
+  });
 
   return needEmbed.length;
 }

@@ -166,9 +166,6 @@ export async function loginUser(input: { email: string; password: string }) {
     const verification = await issueEmailVerification({ userId: user.id, email: user.email, name: user.name });
     throw new VerificationRequiredError(user.email, "Verify your email before signing in.", verification.debugCode ?? null);
   }
-  if (!verificationRequired && !user.email_verified_at) {
-    await dbRun("update users set email_verified_at = ?, updated_at = ? where id = ?", [now(), now(), user.id]);
-  }
   const role = effectiveRole(user.email, user.role);
   if (role !== normalizeRole(user.role)) {
     await dbRun("update users set role = ?, updated_at = ? where id = ?", [role, now(), user.id]);
@@ -188,17 +185,13 @@ export async function logoutUser() {
   await clearSessionCookie();
 }
 
-export async function logoutUserWithResponse(request: Request, response: NextResponse) {
-  // Extract token from cookie header - same way it was set (no decoding needed, browser handles cookie storage)
-  const cookieHeader = request.headers.get("cookie") || "";
-  const tokenMatch = cookieHeader.match(/(?:^|; )studyos_session=([^;]+)/);
-  const token = tokenMatch?.[1] || null;
-  
+export async function logoutUserWithResponse(_request: Request, response: NextResponse) {
+  const store = await cookies();
+  const token = store.get(SESSION_COOKIE)?.value;
   if (token) {
-    // Delete session from database using the exact token as stored
     await dbRun("delete from sessions where token_hash = ?", [sessionTokenHash(token)]);
   }
-  
+
   response.cookies.set(SESSION_COOKIE, "", {
     httpOnly: true,
     sameSite: "lax",

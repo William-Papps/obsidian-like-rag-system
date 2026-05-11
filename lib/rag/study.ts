@@ -127,15 +127,22 @@ function bestSentence(source: RetrievedChunk) {
   return sentences[0] || cleanExcerpt(source.excerpt);
 }
 
+function makeStudyClient(ai: AiContext): OpenAI | null {
+  if (ai.ollamaBaseUrl) return new OpenAI({ baseURL: `${ai.ollamaBaseUrl}/v1`, apiKey: "ollama" });
+  if (ai.apiKey) return new OpenAI({ apiKey: ai.apiKey });
+  return null;
+}
+
 async function buildStudyPrompt(ai: AiContext, source: RetrievedChunk, answer: string, mode: "quiz" | "flashcard") {
-  if (!ai.apiKey) return fallbackPrompt(source, answer, mode);
+  const client = makeStudyClient(ai);
+  if (!client) return fallbackPrompt(source, answer, mode);
 
   try {
-    const client = new OpenAI({ apiKey: ai.apiKey });
+    const useJsonFormat = !ai.ollamaBaseUrl;
     const response = await client.chat.completions.create({
       model: ai.settings.answerModel,
       temperature: 0.2,
-      response_format: { type: "json_object" },
+      ...(useJsonFormat ? { response_format: { type: "json_object" as const } } : {}),
       messages: [
         {
           role: "system",
@@ -159,7 +166,9 @@ async function buildStudyPrompt(ai: AiContext, source: RetrievedChunk, answer: s
     const raw = response.choices[0]?.message.content?.trim();
     if (!raw) return fallbackPrompt(source, answer, mode);
 
-    const parsed = JSON.parse(raw) as { prompt?: string };
+    // Extract JSON object from response — handles Ollama wrapping text around the JSON.
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    const parsed = JSON.parse(jsonMatch ? jsonMatch[0] : raw) as { prompt?: string };
     const prompt = parsed.prompt?.trim();
     return prompt ? trimPrompt(prompt) : fallbackPrompt(source, answer, mode);
   } catch {

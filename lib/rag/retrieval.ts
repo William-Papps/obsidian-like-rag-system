@@ -68,6 +68,7 @@ export async function retrieveMultiPass(
 
   const rewritten = rewriteQueryRuleBased(query);
   const keywords = extractKeywords(query);
+  // Deduplicate before embedding to avoid wasting embedding calls on identical variants.
   const variants = dedupeStrings([query, rewritten, keywords]);
 
   const [embedResults, rows, boosts] = await Promise.all([
@@ -157,7 +158,12 @@ async function loadScopeChunkRows(userId: string, scope: ScopeFilter): Promise<C
 }
 
 function decodeVector(row: ChunkRow): number[] {
-  return row.vector_blob
-    ? Array.from(new Float32Array(row.vector_blob.buffer, row.vector_blob.byteOffset, row.vector_blob.byteLength / 4))
-    : JSON.parse(row.vector_json ?? "[]");
+  if (row.vector_blob && row.vector_blob.byteLength > 0) {
+    return Array.from(new Float32Array(row.vector_blob.buffer, row.vector_blob.byteOffset, row.vector_blob.byteLength / 4));
+  }
+  if (row.vector_json) {
+    return JSON.parse(row.vector_json) as number[];
+  }
+  console.warn(`[retrieval] chunk ${(row as { id?: string }).id ?? "unknown"} has no vector — skipping`);
+  return [];
 }

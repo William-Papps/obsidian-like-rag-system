@@ -159,10 +159,11 @@ export async function answerFromNotes(
     };
   }
 
+  const useJsonFormat = !ai.ollamaBaseUrl;
   const response = await client.chat.completions.create({
     model: ai.settings.answerModel,
     temperature: 0.1,
-    response_format: { type: "json_object" },
+    ...(useJsonFormat ? { response_format: { type: "json_object" as const } } : {}),
     messages: [
       {
         role: "system",
@@ -181,7 +182,8 @@ export async function answerFromNotes(
   const raw = response.choices[0]?.message.content?.trim() || "";
   let judged: z.infer<typeof answerSchema>;
   try {
-    judged = answerSchema.parse(JSON.parse(raw));
+    const jsonMatch = raw.match(/\{[\s\S]*\}/);
+    judged = answerSchema.parse(JSON.parse(jsonMatch ? jsonMatch[0] : raw));
   } catch {
     return { answer: "Not found in the knowledge base.", citations, unsupported: true };
   }

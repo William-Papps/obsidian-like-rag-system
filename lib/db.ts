@@ -1,14 +1,10 @@
 import fs from "fs";
 import path from "path";
-import initSqlJs, { type Database, type SqlJsStatic } from "sql.js";
+import Database from "better-sqlite3";
 
 export type DbValue = string | number | null | Uint8Array;
 
-let sql: SqlJsStatic | null = null;
-let db: Database | null = null;
-let dbPath = "";
-let lastMtime = 0;
-let migrated = false;
+let _db: Database.Database | null = null;
 
 function appRoot() {
   return process.env.APP_DIR?.trim() || process.cwd();
@@ -18,87 +14,57 @@ function dataDir() {
   return process.env.DATA_DIR?.trim() || path.join(appRoot(), "data");
 }
 
-export async function getDb() {
+function getDb(): Database.Database {
+  if (_db) return _db;
   const dir = dataDir();
   fs.mkdirSync(dir, { recursive: true });
-  dbPath = path.join(dir, "study.db");
-
-  if (!sql) {
-    sql = await initSqlJs({
-      locateFile: (file) => path.join(appRoot(), "node_modules", "sql.js", "dist", file)
-    });
-  }
-
-  // Reload from disk only when another worker has written since we last loaded.
-  // Eliminates the per-request disk read while still picking up cross-worker writes.
-  const currentMtime = fs.existsSync(dbPath) ? fs.statSync(dbPath).mtimeMs : 0;
-  if (!db || currentMtime !== lastMtime) {
-    db = fs.existsSync(dbPath) ? new sql.Database(fs.readFileSync(dbPath)) : new sql.Database();
-    lastMtime = currentMtime;
-    migrated = false;
-  }
-
-  if (!migrated) {
-    migrate(db);
-    migrated = true;
-    persist();
-  }
-
-  return db;
+  const dbPath = path.join(dir, "study.db");
+  _db = new Database(dbPath);
+  _db.pragma("journal_mode = WAL");
+  _db.pragma("foreign_keys = ON");
+  migrate(_db);
+  return _db;
 }
 
-export async function exportDatabaseBuffer() {
-  const database = await getDb();
-  return Buffer.from(database.export());
+export async function exportDatabaseBuffer(): Promise<Buffer> {
+  const database = getDb();
+  database.pragma("wal_checkpoint(FULL)");
+  return fs.readFileSync(path.join(dataDir(), "study.db"));
 }
 
-export async function dbExec(statement: string) {
-  const database = await getDb();
-  database.exec(statement);
-  persist();
+export async function dbExec(statement: string): Promise<void> {
+  getDb().exec(statement);
 }
 
-export async function dbRun(statement: string, params: DbValue[] = []) {
-  const database = await getDb();
-  database.run(statement, params);
-  persist();
+export async function dbRun(statement: string, params: DbValue[] = []): Promise<void> {
+  getDb().prepare(statement).run(...params);
 }
 
-export async function dbGet<T extends Record<string, unknown>>(statement: string, params: DbValue[] = []) {
-  const database = await getDb();
-  const prepared = database.prepare(statement);
-  try {
-    prepared.bind(params);
-    return prepared.step() ? (prepared.getAsObject() as T) : null;
-  } finally {
-    prepared.free();
-  }
+export async function dbGet<T extends Record<string, unknown>>(
+  statement: string,
+  params: DbValue[] = []
+): Promise<T | null> {
+  const row = getDb().prepare(statement).get(...params) as T | undefined;
+  return row ?? null;
 }
 
-export async function dbAll<T extends Record<string, unknown>>(statement: string, params: DbValue[] = []) {
-  const database = await getDb();
-  const prepared = database.prepare(statement);
-  const rows: T[] = [];
-  try {
-    prepared.bind(params);
-    while (prepared.step()) rows.push(prepared.getAsObject() as T);
-    return rows;
-  } finally {
-    prepared.free();
-  }
+export async function dbAll<T extends Record<string, unknown>>(
+  statement: string,
+  params: DbValue[] = []
+): Promise<T[]> {
+  return getDb().prepare(statement).all(...params) as T[];
 }
 
-function persist() {
-  if (!db || !dbPath) return;
-  fs.writeFileSync(dbPath, Buffer.from(db.export()));
-  // Track our own write so we don't reload ourselves on the next getDb() call.
-  lastMtime = fs.existsSync(dbPath) ? fs.statSync(dbPath).mtimeMs : 0;
+export function dbRunSync(statement: string, params: DbValue[] = []): void {
+  getDb().prepare(statement).run(...params);
 }
 
-function migrate(database: Database) {
+export function dbTransaction<T>(fn: () => T): T {
+  return getDb().transaction(fn)();
+}
+
+function migrate(database: Database.Database) {
   database.exec(`
-    pragma foreign_keys = on;
-
     create table if not exists users (
       id text primary key,
       email text not null unique,
@@ -471,6 +437,7 @@ function migrate(database: Database) {
     create index if not exists idx_folders_workspace on folders(workspace_id);
     create index if not exists idx_chunks_embedded on chunks(user_id, embedded);
   `);
+
   ensureColumn(database, "notes", "department", "text");
   ensureColumn(database, "notes", "effective_date", "text");
   ensureColumn(database, "notes", "doc_status", "text default 'active'");
@@ -493,10 +460,9 @@ function migrate(database: Database) {
   `);
 }
 
-
-function ensureColumn(database: Database, table: string, column: string, type: string) {
-  const rows = database.exec(`pragma table_info(${table});`);
-  const existing = rows[0]?.values.some((value) => String(value[1]) === column);
+function ensureColumn(database: Database.Database, table: string, column: string, type: string) {
+  const rows = database.pragma(`table_info(${table})`) as Array<{ name: string }>;
+  const existing = rows.some((row) => row.name === column);
   if (!existing) {
     database.exec(`alter table ${table} add column ${column} ${type};`);
   }

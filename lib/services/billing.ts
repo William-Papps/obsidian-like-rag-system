@@ -1,5 +1,5 @@
-import { dbGet, dbRun } from "@/lib/db";
-import { setHostedPlan } from "@/lib/services/settings";
+import { dbGet, dbRun, dbRunSync, dbTransaction } from "@/lib/db";
+import { getProviderSettings } from "@/lib/services/settings";
 import type { BillingProfile, BillingState, BillingSubscription, BillingSubscriptionStatus, HostedPlan } from "@/lib/types";
 import { id, now, toCamelRecord } from "@/lib/utils";
 
@@ -53,18 +53,24 @@ export async function saveBillingState(
 }
 
 export async function setSubscriptionPlan(userId: string, plan: HostedPlan, status: BillingSubscriptionStatus) {
-  const existing = await getBillingState(userId);
+  const [existing, providerSettings] = await Promise.all([getBillingState(userId), getProviderSettings(userId)]);
   const nextPlan = normalizePlan(plan);
   const planChanged = existing.subscription.plan !== nextPlan;
   const periodStart = nextPlan === "free" ? null : planChanged || !existing.subscription.currentPeriodStart ? now() : existing.subscription.currentPeriodStart;
   const periodEnd = nextPlan === "free" ? null : addDays(periodStart!, 30);
   const provider = nextPlan === "free" ? "none" : status === "manual" ? "manual" : "stripe";
 
-  await dbRun(
-    "update subscriptions set plan = ?, status = ?, provider = ?, current_period_start = ?, current_period_end = ?, cancel_at_period_end = 0, updated_at = ? where id = ? and user_id = ?",
-    [nextPlan, status, provider, periodStart, periodEnd, now(), existing.subscription.id, userId]
-  );
-  await setHostedPlan(userId, nextPlan);
+  // Both writes in one transaction — a crash between them can't leave billing and AI settings out of sync.
+  dbTransaction(() => {
+    dbRunSync(
+      "update subscriptions set plan = ?, status = ?, provider = ?, current_period_start = ?, current_period_end = ?, cancel_at_period_end = 0, updated_at = ? where id = ? and user_id = ?",
+      [nextPlan, status, provider, periodStart, periodEnd, now(), existing.subscription.id, userId]
+    );
+    dbRunSync(
+      "update provider_settings set hosted_plan = ?, updated_at = ? where id = ? and user_id = ?",
+      [nextPlan, now(), providerSettings.id, userId]
+    );
+  });
 }
 
 function publicProfile(row: Record<string, unknown>): BillingProfile {

@@ -9,7 +9,7 @@ export async function GET() {
     if (!isAdmin(user)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     const buffer = await exportDatabaseBuffer();
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    return new NextResponse(buffer, {
+    return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
         "content-type": "application/x-sqlite3",

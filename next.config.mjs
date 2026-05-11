@@ -3,7 +3,7 @@ const nextConfig = {
   allowedDevOrigins: ["notes.eternalbot.net"],
   // Prevent pdf-parse and mammoth from being bundled — they rely on
   // Node.js file system access at init time and must run as native modules.
-  serverExternalPackages: ["pdf-parse", "mammoth"],
+  serverExternalPackages: ["pdf-parse", "mammoth", "better-sqlite3"],
   experimental: {
     optimizePackageImports: ["lucide-react", "framer-motion"]
   },
