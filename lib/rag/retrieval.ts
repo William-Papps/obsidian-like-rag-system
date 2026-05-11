@@ -38,7 +38,8 @@ export async function retrieveChunks(
   context?: AiContext
 ): Promise<RetrievedChunk[]> {
   const settings = await getProviderSettings(userId);
-  const queryVector = (await embedText(userId, query, settings.embeddingModel, context)).vector;
+  const embeddingModel = context?.settings?.embeddingModel ?? settings.embeddingModel;
+  const queryVector = (await embedText(userId, query, embeddingModel, context)).vector;
   const rows = await loadScopeChunkRows(userId, scope);
 
   return rows
@@ -69,6 +70,7 @@ export async function retrieveMultiPass(
   context?: AiContext
 ): Promise<{ chunks: RetrievedChunk[]; meta: RetrievalMeta }> {
   const settings = await getProviderSettings(userId);
+  const embeddingModel = context?.settings?.embeddingModel ?? settings.embeddingModel;
 
   const rewritten = rewriteQueryRuleBased(query);
   const keywords = extractKeywords(query);
@@ -76,7 +78,7 @@ export async function retrieveMultiPass(
   const variants = dedupeStrings([query, rewritten, keywords]);
 
   const [embedResults, rows, boosts] = await Promise.all([
-    embedBatch(userId, variants, settings.embeddingModel, context),
+    embedBatch(userId, variants, embeddingModel, context),
     loadScopeChunkRows(userId, scope),
     getChunkBoostsForUser(userId).catch(() => new Map<string, number>())
   ]);
