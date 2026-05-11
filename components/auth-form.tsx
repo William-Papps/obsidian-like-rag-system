@@ -187,8 +187,8 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
     stage === "verify" ? `Enter the verification code for ${pendingEmail || email}.`
     : stage === "forgot" ? "Enter your email and we'll send you a reset link."
     : stage === "reset" ? "Enter your new password below."
-    : mode === "login" ? "Sign in to your private study workspace."
-    : "Create a local account for this self-hosted EternalNotes instance.";
+    : mode === "login" ? "Sign in to your study workspace."
+    : "Create your personal study workspace.";
 
   return (
     <main className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_top,rgba(139,92,246,0.18),transparent_34%),linear-gradient(180deg,#171221,#0f0d15)] px-4 py-10 text-ink-100">
