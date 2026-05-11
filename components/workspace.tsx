@@ -4018,9 +4018,9 @@ function QuizTool({
           {!busy && !currentItem ? <EmptyToolState message="Generate one knowledge check question at a time from your indexed documents." /> : null}
           {currentItem ? (
             <div className="study-card">
-              <div className="mb-3 flex items-center justify-between text-xs text-ink-500">
-                <span>Question</span>
-                <span>{currentItem.source.noteTitle}</span>
+              <div className="mb-3 flex items-center justify-between gap-2 text-xs text-ink-500">
+                <span className="flex shrink-0 items-center gap-1.5"><Check className="h-3.5 w-3.5" />Question</span>
+                <span className="truncate text-right">{currentItem.source.noteTitle}</span>
               </div>
               <div className="text-sm font-medium leading-6 text-ink-100">{currentItem.question}</div>
               <textarea
@@ -4209,12 +4209,19 @@ function FlashcardTool({
       <div className="space-y-3">
         <ToolHeader title="Training Card Review" description={`Card ${dueIndex + 1} of ${dueCards.length} · Space=flip · 1-4=rate`} />
         <div className="study-card">
-          <div className="mb-3 flex items-center justify-between text-xs text-ink-500">
-            <span>Due card</span>
-            <button onClick={() => setMode("generate")} className="text-ink-500 hover:text-ink-300">Exit</button>
+          <div className="mb-3 flex items-center justify-between gap-2 text-xs text-ink-500">
+            <span className="flex items-center gap-1.5"><Brain className="h-3.5 w-3.5" />Due card</span>
+            <button onClick={() => setMode("generate")} className="hover:text-ink-300">Exit</button>
           </div>
           <div className="text-sm font-medium leading-6 text-ink-100">{card.prompt}</div>
-          <button onClick={() => setDueOpen((v) => !v)} className="mt-5 text-xs font-semibold text-accent-300">
+          <button
+            onClick={() => setDueOpen((v) => !v)}
+            className={`mt-4 w-full rounded-lg border py-2 text-sm font-semibold transition-colors ${
+              dueOpen
+                ? "border-ink-700/60 text-ink-400 hover:border-ink-600 hover:text-ink-200"
+                : "border-accent-500/30 bg-accent-500/10 text-accent-300 hover:bg-accent-500/15"
+            }`}
+          >
             {dueOpen ? "Hide answer" : "Reveal answer"}
           </button>
           <div className={`grid transition-all duration-300 ease-premium ${dueOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
@@ -4269,12 +4276,19 @@ function FlashcardTool({
           {!busy && !currentItem ? <EmptyToolState message="Generate one training card at a time from your indexed documents." /> : null}
           {currentItem ? (
             <div className="study-card">
-              <div className="mb-3 flex items-center justify-between text-xs text-ink-500">
-                <span>Training Card</span>
-                <span className="rounded-full bg-amber-400/10 px-2 py-0.5 text-amber-400">Review</span>
+              <div className="mb-3 flex items-center justify-between gap-2 text-xs text-ink-500">
+                <span className="flex shrink-0 items-center gap-1.5"><Brain className="h-3.5 w-3.5" />Training Card</span>
+                <span className="truncate text-right">{currentItem.source.noteTitle}</span>
               </div>
               <div className="text-sm font-medium leading-6 text-ink-100">{currentItem.prompt}</div>
-              <button onClick={() => setOpen((v) => !v)} className="mt-5 text-xs font-semibold text-accent-300">
+              <button
+                onClick={() => setOpen((v) => !v)}
+                className={`mt-4 w-full rounded-lg border py-2 text-sm font-semibold transition-colors ${
+                  open
+                    ? "border-ink-700/60 text-ink-400 hover:border-ink-600 hover:text-ink-200"
+                    : "border-accent-500/30 bg-accent-500/10 text-accent-300 hover:bg-accent-500/15"
+                }`}
+              >
                 {open ? "Hide answer" : "Reveal answer"}
               </button>
               <div className={`grid transition-all duration-300 ease-premium ${open ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"}`}>
@@ -4810,8 +4824,9 @@ function StudyList<T>({
     <div className="space-y-4">
       <ToolHeader title={title} description={description} />
       {controls}
-      <button onClick={run} disabled={busy} className="primary-action w-full">
-        {busy ? "Searching knowledge base..." : label}
+      <button onClick={run} disabled={busy} className="primary-action flex w-full items-center justify-center gap-2">
+        {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+        {busy ? "Searching knowledge base…" : label}
       </button>
       {render(busy, run)}
     </div>
@@ -6111,7 +6126,12 @@ function WorkspaceManageModal({
 }
 
 function EmptyToolState({ message }: { message: string }) {
-  return <div className="surface-soft rounded-xl px-3 py-4 text-sm leading-6 text-ink-400">{message}</div>;
+  return (
+    <div className="flex items-start gap-3 rounded-xl border border-ink-700/40 bg-ink-900/30 px-4 py-3.5">
+      <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-accent-400/50" />
+      <span className="text-sm leading-6 text-ink-400">{message}</span>
+    </div>
+  );
 }
 
 function ResizeHandle({ side, onPointerDown }: { side: "left" | "right"; onPointerDown: (event: MouseEvent<HTMLButtonElement>) => void }) {
