@@ -35,9 +35,9 @@ The app is local-first for development, but the schema and service boundaries ar
 - Reindex flow that skips unchanged notes when content hashes match and removes stale/orphaned chunks.
 - Ask-from-notes responses with citations/source excerpts.
 - Source actions that open the note and temporarily highlight the matching excerpt.
-- Quiz grading that compares the typed answer against the asked question, expected answer, and source excerpt.
-- Single-item quiz flow: one generated question at a time.
-- Single-item flashcard flow: one generated flashcard at a time.
+- Knowledge Check grading that compares the typed answer against the asked question, expected answer, and source excerpt.
+- Single-item Knowledge Check flow: one generated question at a time.
+- Single-item Training Cards flow: one generated flashcard at a time.
 - Searchable scope pickers for study tools and the right sidebar.
 - Extractive summaries generated from indexed excerpts.
 - Document import for DOCX, text, Markdown, and image files.
@@ -236,22 +236,22 @@ Current hosted plan quotas:
 ### Starter
 
 - Ask: `200`
-- Quiz generation: `100`
-- Flashcard generation: `100`
-- Summary generation: `100`
+- Knowledge Check generation: `100`
+- Training Cards generation: `100`
+- Briefing generation: `100`
 - OCR imports: `50`
 - Index/reindex runs: `75`
 
 ### Pro
 
 - Ask: `600`
-- Quiz generation: `300`
-- Flashcard generation: `300`
-- Summary generation: `300`
+- Knowledge Check generation: `300`
+- Training Cards generation: `300`
+- Briefing generation: `300`
 - OCR imports: `150`
 - Index/reindex runs: `200`
 
-Quiz answer checking is intentionally not billed against hosted quota. It uses the user's own key when available, otherwise a local grading heuristic.
+Knowledge Check answer grading is intentionally not billed against hosted quota. It uses the user's own key when available, otherwise a local grading heuristic.
 
 ## Import and OCR
 
@@ -282,7 +282,7 @@ Behavior:
 - shows citations and exact source excerpts
 - if the direct answer is unsupported, shows closest related note evidence
 
-### Quiz
+### Knowledge Check
 
 - generates one question at a time from the selected scope
 - lets the user type an answer
@@ -290,14 +290,14 @@ Behavior:
 - accepts equivalent wording when it matches the source meaning
 - includes a direct source link back to the note
 
-### Flashcards
+### Training Cards
 
 - generates one flashcard at a time from the selected scope
 - shows the prompt first
 - reveals the source-backed answer on demand
 - includes a direct source link back to the note
 
-### Summary
+### Briefing
 
 - produces extractive summaries from saved note excerpts
 - keeps the note text as the factual source
