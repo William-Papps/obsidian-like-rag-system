@@ -6,6 +6,8 @@ import { retrieveChunks } from "@/lib/rag/retrieval";
 import { retrieveMultiPass, type RetrievalMeta } from "@/lib/rag/retrieval";
 import { recordChunkEvents } from "@/lib/services/chunk-feedback";
 import { consumeQuota } from "@/lib/services/quotas";
+import { dbGet } from "@/lib/db";
+import { reindexNotes } from "@/lib/rag/indexing";
 
 function makeClient(ai: AiContext): OpenAI | null {
   if (ai.ollamaBaseUrl) return new OpenAI({ baseURL: `${ai.ollamaBaseUrl}/v1`, apiKey: "ollama" });
@@ -34,10 +36,27 @@ export async function streamAnswerFromNotes(
 
   try {
     const ai = await resolveAiContext(userId, "ask");
+    const currentProvider = ai.ollamaBaseUrl ? "ollama" : ai.apiKey ? "openai" : "local";
+
+    // Detect provider mismatch: notes indexed under a different provider (e.g. local TF-IDF)
+    // produce near-zero cosine scores against the current provider's query vector.
+    // Auto-trigger a background re-index and tell the user to try again.
+    const [providerChunks, totalChunks] = await Promise.all([
+      dbGet<{ count: number }>(
+        "select count(*) as count from chunks where user_id = ? and coalesce(vector_provider, 'local') = ?",
+        [userId, currentProvider]
+      ),
+      dbGet<{ count: number }>("select count(*) as count from chunks where user_id = ?", [userId])
+    ]);
+    if ((totalChunks?.count ?? 0) > 0 && !(providerChunks?.count ?? 0)) {
+      reindexNotes(userId).catch(console.error);
+      send({ type: "chunk", data: "Your notes are being re-indexed for the current AI provider. This may take a moment — please try again shortly." });
+      send({ type: "done" });
+      return;
+    }
+
     const { chunks: citations, meta } = await retrieveMultiPass(userId, question, { ...scope, limit: 6 }, ai);
     send({ type: "citations", data: citations, meta });
-
-    // Fire-and-forget: record chunk retrieval events (never blocks the answer stream).
     void recordRetrievalEvents(userId, citations, meta);
 
     if (meta.resultCount === 0 || meta.topScore < 0.08) {
@@ -46,50 +65,52 @@ export async function streamAnswerFromNotes(
       return;
     }
 
-    const judged = await answerFromCitations(userId, ai, question, citations, meta);
-    for (let i = 0; i < judged.answer.length; i += 120) {
-      send({ type: "chunk", data: judged.answer.slice(i, i + 120) });
-    }
-    send({ type: "done" });
-    return;
-
-    /* const client = makeClient(ai);
+    const client = makeClient(ai);
     if (!client) {
       send({ type: "chunk", data: "Add an OpenAI key in Settings to generate answers. Your best sources are shown below." });
       send({ type: "done" });
       return;
     }
 
-    // Prepend a low-confidence caveat in the system prompt when retrieval is weak.
-    const confidenceCaveat = meta.lowConfidence
-      ? "NOTE: The retrieved excerpts have low similarity to the question — they may not directly address it. " +
-        "If the excerpts do not contain enough evidence, write only: NOT_FOUND\n\n"
-      : "";
-
-    const stream = await client.chat.completions.create({
-      model: ai.settings.answerModel,
-      temperature: 0.1,
-      stream: true,
-      messages: [
-        {
-          role: "system",
-          content:
-            confidenceCaveat +
-            "You answer ONLY from the provided note excerpts. Do not use outside knowledge. Do not guess. " +
-            "Write 2-4 bullet points as short, clear, complete sentences (start each with '- '). " +
-            "Focus on what directly answers the question. " +
-            "If the excerpts do not contain enough evidence, write only: NOT_FOUND"
-        },
-        { role: "user", content: `Question: ${question}\n\nNote excerpts:\n${formatCitations(citations)}` }
-      ]
-    });
-
-    for await (const chunk of stream) {
-      const token = chunk.choices[0]?.delta?.content;
-      if (token) send({ type: "chunk", data: token });
+    if (ai.mode === "hosted") {
+      await consumeQuota(userId, ai.settings.hostedPlan, "ask");
     }
 
-    send({ type: "done" }); */
+    if (ai.ollamaBaseUrl) {
+      // Stream tokens directly for Ollama — small models can't reliably output valid JSON,
+      // and waiting for the full response before displaying anything makes it feel very slow.
+      const confidenceCaveat = meta.lowConfidence
+        ? "The retrieved excerpts have low similarity to the question. If they don't directly answer it, write only: Not found in the knowledge base.\n\n"
+        : "";
+      const stream = await client.chat.completions.create({
+        model: ai.settings.answerModel,
+        temperature: 0.1,
+        stream: true,
+        messages: [
+          {
+            role: "system",
+            content:
+              confidenceCaveat +
+              "Answer ONLY from the provided note excerpts. Do not use outside knowledge. Do not guess. " +
+              "Write 2-4 bullet points as short, clear sentences — start each with '- '. " +
+              "If the excerpts do not contain enough evidence, write only: Not found in the knowledge base."
+          },
+          { role: "user", content: `Question: ${question}\n\nNote excerpts:\n${formatCitations(citations)}` }
+        ]
+      });
+      for await (const streamChunk of stream) {
+        const token = streamChunk.choices[0]?.delta?.content;
+        if (token) send({ type: "chunk", data: token });
+      }
+    } else {
+      // Structured JSON mode for OpenAI — reliable output, fake-stream the formatted result.
+      const judged = await answerFromCitations(userId, ai, question, citations, meta);
+      for (let i = 0; i < judged.answer.length; i += 120) {
+        send({ type: "chunk", data: judged.answer.slice(i, i + 120) });
+      }
+    }
+
+    send({ type: "done" });
   } catch (err) {
     send({ type: "error", data: err instanceof Error ? err.message : "Stream failed" });
     controller.close();
