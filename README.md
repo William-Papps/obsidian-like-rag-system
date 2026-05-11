@@ -78,7 +78,7 @@ Set at least:
 - `AUTH_SESSION_SECRET`
 - `ALLOW_SELF_SIGNUP=true` or `false`
 - `PERSONAL_API_KEY_SECRET`
-- `OWNER_EMAIL=discordboteternal@gmail.com`
+- `OWNER_EMAIL=owner@example.com`
 
 Optional owner/admin setup:
 
@@ -115,7 +115,7 @@ npm run build
 ```bash
 AUTH_SESSION_SECRET=replace-this-with-a-long-random-secret
 ALLOW_SELF_SIGNUP=true
-OWNER_EMAIL=discordboteternal@gmail.com
+OWNER_EMAIL=owner@example.com
 HOSTED_AI_ENABLED=true
 PERSONAL_API_KEY_SECRET=replace-this-too
 RESEND_API_KEY=

@@ -365,7 +365,7 @@ function sessionTokenHash(token: string) {
 }
 
 function ownerRoleForEmail(email: string): UserRole {
-  const owner = (process.env.OWNER_EMAIL?.trim() || "discordboteternal@gmail.com").toLowerCase();
+  const owner = process.env.OWNER_EMAIL?.trim().toLowerCase() ?? "";
   return owner && owner === email.toLowerCase() ? "owner" : "user";
 }
 
