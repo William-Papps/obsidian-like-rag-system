@@ -607,6 +607,7 @@ export function Workspace() {
     return headings;
   }, [draftMarkdown]);
 
+
   function jumpToHeading(pos: number) {
     if (!editorView) return;
     if (noteView !== "write" && noteView !== "split") setNoteView("write");
@@ -1900,25 +1901,41 @@ export function Workspace() {
               <div className="space-y-1">
                 {vaultNotes.length === 0 ? (
                   <div className="px-2 py-6 text-center text-xs text-ink-500">No notes match &ldquo;{vaultSearch}&rdquo;</div>
-                ) : vaultNotes.map((note) => (
-                  <NoteRow
-                    key={note.id}
-                    note={note}
-                    active={activeNoteId === note.id}
-                    pinned={pinnedNoteIds.includes(note.id)}
-                    bulkMode={bulkMode}
-                    bulkSelected={bulkSelectedIds.has(note.id)}
-                    onToggleBulk={() => setBulkSelectedIds((prev) => { const next = new Set(prev); next.has(note.id) ? next.delete(note.id) : next.add(note.id); return next; })}
-                    onClick={() => { selectNote(note.id); setVaultSearch(""); }}
-                    onTogglePin={() => togglePinNote(note)}
-                    onRename={() => renameNoteById(note)}
-                    onDelete={() => requestDeleteNote(note)}
-                    onMove={() => chooseFolderForNote(note)}
-                    onReindex={() => reindexScope({ noteId: note.id }, note.title)}
-                    onDragStart={() => setDragItem({ kind: "note", id: note.id })}
-                    onMenu={(event) => { event.preventDefault(); event.stopPropagation(); setVaultMenu({ kind: "note", id: note.id, x: event.clientX, y: event.clientY }); }}
-                  />
-                ))}
+                ) : vaultNotes.map((note) => {
+                  const preview = note.markdownContent
+                    .replace(/^#{1,6}\s+.+$/gm, "")
+                    .replace(/[*_`~#>[\]!|]/g, "")
+                    .replace(/\s+/g, " ")
+                    .trim();
+                  return (
+                    <div key={note.id}>
+                      <NoteRow
+                        note={note}
+                        active={activeNoteId === note.id}
+                        pinned={pinnedNoteIds.includes(note.id)}
+                        bulkMode={bulkMode}
+                        bulkSelected={bulkSelectedIds.has(note.id)}
+                        onToggleBulk={() => setBulkSelectedIds((prev) => { const next = new Set(prev); next.has(note.id) ? next.delete(note.id) : next.add(note.id); return next; })}
+                        onClick={() => { selectNote(note.id); setVaultSearch(""); }}
+                        onTogglePin={() => togglePinNote(note)}
+                        onRename={() => renameNoteById(note)}
+                        onDelete={() => requestDeleteNote(note)}
+                        onMove={() => chooseFolderForNote(note)}
+                        onReindex={() => reindexScope({ noteId: note.id }, note.title)}
+                        onDragStart={() => setDragItem({ kind: "note", id: note.id })}
+                        onMenu={(event) => { event.preventDefault(); event.stopPropagation(); setVaultMenu({ kind: "note", id: note.id, x: event.clientX, y: event.clientY }); }}
+                      />
+                      {preview ? (
+                        <button
+                          onClick={() => { selectNote(note.id); setVaultSearch(""); }}
+                          className="mt-0.5 w-full rounded-b-lg px-2.5 pb-1.5 text-left"
+                        >
+                          <p className="line-clamp-2 text-[11px] leading-relaxed text-ink-600">{preview}</p>
+                        </button>
+                      ) : null}
+                    </div>
+                  );
+                })}
               </div>
             ) : vaultRootFolder ? (
               <>
@@ -2407,6 +2424,10 @@ export function Workspace() {
                   <span className="flex shrink-0 items-center gap-1">
                     <Clock3 className="h-3 w-3 shrink-0" />
                     {new Date(activeNote.updatedAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </span>
+                  <span className="flex shrink-0 items-center gap-1">
+                    <FileText className="h-3 w-3 shrink-0" />
+                    {wordCount.toLocaleString()} {wordCount === 1 ? "word" : "words"} · {readingMinutes} min read
                   </span>
                   {backlinks.length > 0 ? (
                     <span className="group relative flex shrink-0 cursor-pointer items-center gap-1 hover:text-ink-200">
