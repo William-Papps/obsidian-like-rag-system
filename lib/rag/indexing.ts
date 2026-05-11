@@ -6,6 +6,7 @@ import { chunkNote, chunkDocumentPages } from "@/lib/rag/chunking";
 import { getDocumentPages } from "@/lib/services/documents";
 import { embedBatch } from "@/lib/rag/embeddings";
 import { consumeQuota } from "@/lib/services/quotas";
+import { autoTagNote } from "@/lib/rag/auto-tag";
 import { id, now, sha256 } from "@/lib/utils";
 import type { Note } from "@/lib/types";
 
@@ -132,6 +133,12 @@ async function indexNoteIncremental(
       );
     }
   });
+
+  // Auto-tag untagged notes when an LLM is available. Fire-and-forget so
+  // it never blocks or fails the indexing result if the model is slow/down.
+  if (ai.mode !== "local") {
+    autoTagNote(userId, note.id, note.title, note.markdownContent ?? "", ai).catch(console.error);
+  }
 
   return needEmbed.length;
 }
