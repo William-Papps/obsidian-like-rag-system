@@ -43,6 +43,7 @@ export type Note = {
   effectiveDate?: string | null;
   docStatus?: DocStatus | null;
   docType?: DocType | null;
+  sourceDocumentId?: string | null;
 };
 
 export type Chunk = {
@@ -170,12 +171,28 @@ export type AiContext = {
   settings: ProviderSettings;
 };
 
+export type DocumentFile = {
+  id: string;
+  userId: string;
+  title: string;
+  filename: string;
+  fileType: 'pdf' | 'docx' | 'txt';
+  fileSize: number;
+  pageCount: number | null;
+  contentHash: string;
+  shadowNoteId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type RetrievedChunk = {
   chunkId: string;
   noteId: string;
   noteTitle: string;
   excerpt: string;
   similarity: number;
+  pageNumber?: number | null;
+  documentId?: string | null;
 };
 
 export type AnswerResult = {

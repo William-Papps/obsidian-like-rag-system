@@ -27,13 +27,13 @@ export async function listNotes(userId: string, workspaceId?: string | null): Pr
 
   const [ownedRows, sharedRows] = await Promise.all([
     dbAll(
-      "select * from notes where user_id = ? and workspace_id is null order by coalesce(sort_order, 999999) asc, updated_at desc",
+      "select * from notes where user_id = ? and workspace_id is null and coalesce(doc_type, 'note') != 'document' order by coalesce(sort_order, 999999) asc, updated_at desc",
       [userId]
     ),
     dbAll(
       `select n.*, ns.permission as share_permission from notes n
        join note_shares ns on ns.note_id = n.id and ns.shared_with_user_id = ?
-       where n.workspace_id is null order by n.updated_at desc`,
+       where n.workspace_id is null and coalesce(n.doc_type, 'note') != 'document' order by n.updated_at desc`,
       [userId]
     )
   ]);

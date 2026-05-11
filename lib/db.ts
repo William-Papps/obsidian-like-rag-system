@@ -466,6 +466,28 @@ function migrate(database: Database.Database) {
     create index if not exists idx_note_shares_note on note_shares(note_id);
     create index if not exists idx_note_shares_recipient on note_shares(shared_with_user_id);
   `);
+
+  ensureColumn(database, "notes", "source_document_id", "text");
+  ensureColumn(database, "chunks", "page_number", "integer");
+  ensureColumn(database, "chunks", "source_document_id", "text");
+
+  database.exec(`
+    create table if not exists documents (
+      id text primary key,
+      user_id text not null references users(id) on delete cascade,
+      title text not null,
+      filename text not null,
+      file_type text not null,
+      file_size integer not null,
+      page_count integer,
+      pages_json text,
+      content_hash text not null,
+      shadow_note_id text references notes(id) on delete set null,
+      created_at text not null,
+      updated_at text not null
+    );
+    create index if not exists idx_documents_user on documents(user_id);
+  `);
 }
 
 function ensureColumn(database: Database.Database, table: string, column: string, type: string) {

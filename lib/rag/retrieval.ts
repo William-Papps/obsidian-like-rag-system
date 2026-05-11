@@ -21,10 +21,12 @@ type ScopeFilter = { noteId?: string; folderId?: string | null; workspaceId?: st
 type ChunkRow = {
   id: string;
   note_id: string;
+  source_document_id: string | null;
   title: string;
   chunk_text: string;
   vector_json: string | null;
   vector_blob: Uint8Array | null;
+  page_number: number | null;
 };
 
 // ── Backwards-compatible single-query retrieval (unchanged callers) ──────────
@@ -45,7 +47,9 @@ export async function retrieveChunks(
       noteId: row.note_id,
       noteTitle: row.title,
       excerpt: truncate(row.chunk_text, 900),
-      similarity: cosine(queryVector, decodeVector(row))
+      similarity: cosine(queryVector, decodeVector(row)),
+      pageNumber: row.page_number ?? null,
+      documentId: row.source_document_id ?? null
     }))
     .filter((r) => r.similarity > 0)
     .sort((a, b) => b.similarity - a.similarity)
@@ -90,7 +94,9 @@ export async function retrieveMultiPass(
         noteId: row.note_id,
         noteTitle: row.title,
         excerpt: truncate(row.chunk_text, 900),
-        similarity
+        similarity,
+        pageNumber: row.page_number ?? null,
+        documentId: row.source_document_id ?? null
       };
     })
     .filter((r) => r.similarity > 0)
@@ -149,7 +155,7 @@ async function loadScopeChunkRows(userId: string, scope: ScopeFilter): Promise<C
   }
 
   return dbAll<ChunkRow>(
-    `select c.id, c.note_id, c.chunk_text, c.vector_json, c.vector_blob, n.title
+    `select c.id, c.note_id, c.source_document_id, c.chunk_text, c.vector_json, c.vector_blob, c.page_number, n.title
      from chunks c
      join notes n on n.id = c.note_id
      where ${where}`,

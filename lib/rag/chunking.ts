@@ -44,3 +44,28 @@ export function chunkNote(note: Note) {
 function withContext(title: string, heading: string, text: string) {
   return [`Note: ${title}`, `Section: ${heading.replace(/^#+\s*/, "")}`, "", text.trim()].join("\n");
 }
+
+export function chunkDocumentPages(title: string, pages: string[]): Array<{ text: string; page: number }> {
+  const chunks: Array<{ text: string; page: number }> = [];
+  for (let i = 0; i < pages.length; i++) {
+    const pageNum = i + 1;
+    const pageText = pages[i].trim();
+    if (pageText.length < 20) continue;
+    if (pageText.length <= TARGET_CHARS) {
+      chunks.push({ text: `Document: ${title}\nPage: ${pageNum}\n\n${pageText}`, page: pageNum });
+    } else {
+      // split at paragraph boundaries
+      const paras = pageText.split(/\n+/);
+      let buf = '';
+      for (const p of paras) {
+        const next = buf ? `${buf}\n${p}` : p;
+        if (next.length > TARGET_CHARS && buf) {
+          chunks.push({ text: `Document: ${title}\nPage: ${pageNum}\n\n${buf.trim()}`, page: pageNum });
+          buf = p;
+        } else { buf = next; }
+      }
+      if (buf.trim().length >= 20) chunks.push({ text: `Document: ${title}\nPage: ${pageNum}\n\n${buf.trim()}`, page: pageNum });
+    }
+  }
+  return chunks;
+}

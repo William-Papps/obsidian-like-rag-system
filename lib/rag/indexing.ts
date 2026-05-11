@@ -2,7 +2,8 @@ import { dbAll, dbGet, dbRun, dbRunSync, dbTransaction } from "@/lib/db";
 import { listDescendantFolderIds } from "@/lib/services/folders";
 import { listNotes } from "@/lib/services/notes";
 import { resolveAiContext } from "@/lib/services/ai-access";
-import { chunkNote } from "@/lib/rag/chunking";
+import { chunkNote, chunkDocumentPages } from "@/lib/rag/chunking";
+import { getDocumentPages } from "@/lib/services/documents";
 import { embedBatch } from "@/lib/rag/embeddings";
 import { consumeQuota } from "@/lib/services/quotas";
 import { id, now, sha256 } from "@/lib/utils";
@@ -58,7 +59,17 @@ async function indexNoteIncremental(
   note: Note,
   ai: Awaited<ReturnType<typeof resolveAiContext>>
 ): Promise<number> {
-  const newTexts = chunkNote(note);
+  let newTexts: string[];
+  let pageNumbers: (number | null)[];
+  if (note.sourceDocumentId) {
+    const pages = await getDocumentPages(note.sourceDocumentId);
+    const docChunks = chunkDocumentPages(note.title, pages);
+    newTexts = docChunks.map(c => c.text);
+    pageNumbers = docChunks.map(c => c.page);
+  } else {
+    newTexts = chunkNote(note);
+    pageNumbers = newTexts.map(() => null);
+  }
   const newHashes = newTexts.map((text) => sha256(text));
   const currentProvider = ai.ollamaBaseUrl ? "ollama" : ai.apiKey ? "openai" : "local";
 
@@ -115,9 +126,9 @@ async function indexNoteIncremental(
       dbRunSync(
         `insert into chunks
            (id, user_id, note_id, chunk_text, chunk_index, content_hash, chunk_content_hash,
-            embedded, vector_id, vector_blob, vector_json, vector_provider, created_at, updated_at)
-         values (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, null, ?, ?, ?)`,
-        [id(), userId, note.id, newTexts[i], i, note.contentHash, chunkHash, vectorId, vectorBlob, provider, now(), now()]
+            embedded, vector_id, vector_blob, vector_json, vector_provider, page_number, source_document_id, created_at, updated_at)
+         values (?, ?, ?, ?, ?, ?, ?, 1, ?, ?, null, ?, ?, ?, ?, ?)`,
+        [id(), userId, note.id, newTexts[i], i, note.contentHash, chunkHash, vectorId, vectorBlob, provider, pageNumbers[i] ?? null, note.sourceDocumentId ?? null, now(), now()]
       );
     }
   });

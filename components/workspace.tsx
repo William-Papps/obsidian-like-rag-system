@@ -68,7 +68,7 @@ import {
 import { Component, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MarkdownPreview } from "@/components/markdown";
 import { DocumentImportModal } from "@/components/document-import-modal";
-import type { AnswerResult, Flashcard, Folder as FolderType, Note, NoteShare, NoteSharePermission, ProviderSettings, QuizEvaluation, QuizQuestion, WorkspaceWithMembers } from "@/lib/types";
+import type { AnswerResult, DocumentFile, Flashcard, Folder as FolderType, Note, NoteShare, NoteSharePermission, ProviderSettings, QuizEvaluation, QuizQuestion, WorkspaceWithMembers } from "@/lib/types";
 
 class PanelErrorBoundary extends Component<{ children: ReactNode; label: string }, { error: Error | null }> {
   constructor(props: { children: ReactNode; label: string }) {
@@ -105,6 +105,7 @@ type Bootstrap = {
   indexStatus: { notes: number; chunks: number; staleNotes: number };
   noteTags: Record<string, string[]>;
   workspaces: WorkspaceWithMembers[];
+  documents: DocumentFile[];
 };
 
 type Scope = { type: "all" } | { type: "note"; noteId: string } | { type: "folder"; folderId: string | null };
@@ -204,6 +205,8 @@ export function Workspace() {
   const [mobileTab, setMobileTab] = useState<"vault" | "editor" | "study">("editor");
   const [isMobile, setIsMobile] = useState(() => typeof window !== "undefined" && window.innerWidth < 1024);
   const [reindexingAll, setReindexingAll] = useState(false);
+  const [docsOpen, setDocsOpen] = useState(false);
+  const [docUploading, setDocUploading] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [historyVersions, setHistoryVersions] = useState<{ id: string; noteId: string; title: string; createdAt: string }[]>([]);
   const [historyRestoring, setHistoryRestoring] = useState(false);
@@ -2049,6 +2052,96 @@ export function Workspace() {
                   </div>
                 </div>
               </>
+            )}
+          </div>
+          {/* Documents section */}
+          <div className="mt-5 border-t border-white/[0.06] pt-4">
+            <button
+              onClick={() => setDocsOpen((o) => !o)}
+              className="flex w-full items-center justify-between px-1 pb-2 text-[11px] font-semibold uppercase tracking-widest text-ink-400 hover:text-ink-200"
+            >
+              <span>Documents</span>
+              <div className="flex items-center gap-1.5">
+                <label
+                  onClick={(e) => e.stopPropagation()}
+                  className="cursor-pointer rounded p-0.5 hover:bg-white/[0.06]"
+                  title="Upload document (PDF, DOCX, TXT)"
+                >
+                  <Upload className="h-3.5 w-3.5 text-ink-400 hover:text-ink-100" />
+                  <input
+                    type="file"
+                    accept=".pdf,.docx,.txt"
+                    className="hidden"
+                    disabled={docUploading}
+                    onChange={async (e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (!file) return;
+                      if (file.size > 50 * 1024 * 1024) {
+                        notify("File too large (max 50 MB)", "error");
+                        return;
+                      }
+                      setDocUploading(true);
+                      setDocsOpen(true);
+                      try {
+                        const fd = new FormData();
+                        fd.append("file", file);
+                        const res = await fetch("/api/documents", { method: "POST", body: fd });
+                        if (!res.ok) {
+                          const body = await res.json().catch(() => ({}));
+                          throw new Error((body as { error?: string }).error ?? "Upload failed");
+                        }
+                        notify("Document uploaded and indexed", "success");
+                        refresh();
+                      } catch (err) {
+                        notify(err instanceof Error ? err.message : "Upload failed", "error");
+                      } finally {
+                        setDocUploading(false);
+                      }
+                    }}
+                  />
+                </label>
+                {docsOpen ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+              </div>
+            </button>
+            {docsOpen && (
+              <div className="space-y-1">
+                {docUploading && (
+                  <div className="flex items-center gap-2 rounded-lg px-2 py-2 text-xs text-ink-400">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Uploading...
+                  </div>
+                )}
+                {data.documents.length === 0 && !docUploading && (
+                  <div className="px-2 py-2 text-xs text-ink-500">No documents yet. Upload a PDF, DOCX, or TXT file.</div>
+                )}
+                {data.documents.map((doc) => (
+                  <div key={doc.id} className="group flex items-center gap-1.5 rounded-lg px-2 py-1.5 hover:bg-white/[0.04]">
+                    <FileText className="h-3.5 w-3.5 shrink-0 text-ink-500" />
+                    <span className="min-w-0 flex-1 truncate text-xs text-ink-300" title={doc.title}>{doc.title}</span>
+                    <span className="shrink-0 rounded bg-ink-700/50 px-1 py-0.5 text-[10px] uppercase text-ink-500">{doc.fileType}</span>
+                    {doc.pageCount != null && (
+                      <span className="shrink-0 text-[10px] text-ink-600">{doc.pageCount}p</span>
+                    )}
+                    <button
+                      onClick={async () => {
+                        try {
+                          const res = await fetch(`/api/documents/${doc.id}`, { method: "DELETE" });
+                          if (!res.ok) throw new Error("Delete failed");
+                          notify("Document deleted", "info");
+                          refresh();
+                        } catch {
+                          notify("Failed to delete document", "error");
+                        }
+                      }}
+                      className="hidden shrink-0 rounded p-0.5 text-ink-600 hover:text-danger-400 group-hover:block"
+                      title="Delete document"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
             )}
           </div>
           <ResizeHandle side="left" onPointerDown={(event) => resizePanel("left", event)} />
@@ -4477,7 +4570,7 @@ function SourceList({
   query,
   onOpenNote
 }: {
-  sources: Array<{ chunkId: string; noteId?: string; noteTitle: string; excerpt: string; similarity: number }>;
+  sources: Array<{ chunkId: string; noteId?: string; noteTitle: string; excerpt: string; similarity: number; pageNumber?: number | null; documentId?: string | null }>;
   compact?: boolean;
   empty?: string;
   query?: string;
@@ -4490,7 +4583,14 @@ function SourceList({
         <details key={`${source.chunkId}-${index}`} className="group rounded-xl border border-ink-700/80 bg-ink-850/80 p-3 open:shadow-glow" open={!compact}>
           <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
             <div className="min-w-0">
-              <div className="truncate text-xs font-semibold text-accent-300">{source.noteTitle}</div>
+              <div className="flex items-center gap-1.5">
+                <span className="truncate text-xs font-semibold text-accent-300">{source.noteTitle}</span>
+                {source.pageNumber != null && (
+                  <span className="shrink-0 rounded bg-ink-700/60 px-1.5 py-0.5 text-[10px] font-semibold text-ink-300">
+                    Page {source.pageNumber}
+                  </span>
+                )}
+              </div>
               <div className="mt-1 text-[11px] text-ink-500">{sourceContextLabel(source, index)}</div>
             </div>
             <div className="flex items-center gap-2">
@@ -4504,7 +4604,16 @@ function SourceList({
             {cleanSourceExcerpt(source.excerpt, query)}
           </blockquote>
           <div className="mt-3 flex flex-wrap gap-2">
-            {source.noteId && onOpenNote ? (
+            {source.documentId ? (
+              <button
+                type="button"
+                onClick={() => window.open(`/api/documents/${source.documentId}/file#page=${source.pageNumber ?? 1}`, '_blank')}
+                className="inline-flex items-center gap-1.5 rounded-lg border border-ink-700 bg-ink-950/40 px-2.5 py-1.5 text-xs font-medium text-ink-200 transition-colors hover:border-accent-500/40 hover:bg-accent-500/10 hover:text-accent-200 focus:outline-none focus:ring-2 focus:ring-accent-400/40"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                View document{source.pageNumber != null ? ` (p.${source.pageNumber})` : ""}
+              </button>
+            ) : source.noteId && onOpenNote ? (
               <>
                 <button
                   type="button"

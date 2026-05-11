@@ -1,0 +1,445 @@
+================================================================================
+FULL SYSTEM AUDIT REPORT
+Obsidian RAG System — Next.js App Router + SQLite Backend
+Date: 2026-05-11
+================================================================================
+
+
+--------------------------------------------------------------------------------
+1. EXECUTIVE SUMMARY
+--------------------------------------------------------------------------------
+
+Health: FRAGILE — safe for single-user, risky at multi-user scale
+
+The system is well-structured and works well on the happy path. However it has
+one auth bug that can silently fail, data loss risks under concurrent writes,
+and several RAG accuracy gaps.
+
+Biggest risks in order:
+  1. Logout may not invalidate the session server-side
+  2. SQL.js concurrent writes can overwrite each other
+  3. Indexing race condition can lose embeddings
+  4. Email verification can be bypassed silently
+
+
+--------------------------------------------------------------------------------
+2. CRITICAL ISSUES
+--------------------------------------------------------------------------------
+
+ISSUE #1 — Session logout bug
+Severity: CRITICAL
+File: lib/auth.ts
+
+What is wrong:
+  Logout parses the cookie header with a regex instead of using Next.js's
+  cookies() API. If the browser sends the cookie with extra attributes, the
+  regex fails silently — the session is never deleted from the database, and
+  the old token stays valid indefinitely.
+
+Why it matters:
+  Users who log out are not actually logged out. Their session token remains
+  valid and could be reused to impersonate them.
+
+Evidence:
+  logoutUserWithResponse() uses:
+    const tokenMatch = cookieHeader.match(/(?:^|; )studyos_session=([^;]+)/);
+  But getCurrentUser() in the same file correctly uses:
+    const token = store.get(SESSION_COOKIE)?.value;
+
+Suggested fix:
+  Use cookies() to read the token in logout, same as getCurrentUser() does.
+
+--------------------------------------------------------------------------------
+
+ISSUE #2 — Email verification bypass
+Severity: CRITICAL
+File: lib/auth.ts
+
+What is wrong:
+  During login, if verification is currently disabled but the user registered
+  when it was enabled, the code auto-marks them as verified on login — without
+  them ever clicking a verification link.
+
+Why it matters:
+  Silently lets unverified email addresses into the system and breaks the
+  audit trail.
+
+Evidence:
+  if (!verificationRequired && !user.email_verified_at) {
+    await dbRun("update users set email_verified_at = ? ...", [...]);
+  }
+  This runs based on the CURRENT setting, not the setting at registration time.
+
+Suggested fix:
+  Do not auto-verify accounts on login. Require an explicit admin action or
+  a re-verification email to clear stuck accounts.
+
+--------------------------------------------------------------------------------
+
+ISSUE #3 — Indexing race condition
+Severity: HIGH
+File: lib/rag/indexing.ts
+
+What is wrong:
+  Two concurrent reindex requests both check whether a note has up-to-date
+  chunks, both find none, both call indexNoteIncremental() which deletes then
+  re-inserts chunks. Last writer wins; the other's insertions are gone.
+
+Why it matters:
+  Embeddings are silently lost. Notes appear indexed but return no results.
+
+Evidence:
+  No lock or transaction wraps the check + delete + insert sequence.
+  The upToDate check and the subsequent delete are two separate DB calls with
+  no atomicity guarantee.
+
+Suggested fix:
+  Wrap check + delete + insert in a single SQLite transaction, or add a unique
+  constraint on (user_id, note_id, chunk_index) to prevent duplicates.
+
+--------------------------------------------------------------------------------
+
+ISSUE #4 — SQL.js concurrent write loss
+Severity: HIGH
+File: lib/db.ts
+
+What is wrong:
+  Every dbRun() calls persist() which synchronously exports the entire
+  in-memory database and writes it to disk. Two concurrent requests can both
+  mutate the in-memory state, then both call persist() — the second write
+  overwrites the first.
+
+Why it matters:
+  Quota counters, session tokens, note versions, and study records are all at
+  risk under any concurrent load. This is a data loss bug, not just a
+  performance issue.
+
+Evidence:
+  function persist() {
+    fs.writeFileSync(dbPath, Buffer.from(db.export())); // Blocks + overwrites
+  }
+  Called on every single INSERT, UPDATE, DELETE.
+
+Suggested fix:
+  Replace SQL.js with better-sqlite3. Same SQLite schema, no migration needed,
+  proper file-level locking, synchronous API, and no export/writeFileSync cycle.
+  This is the single highest-impact architecture change available.
+
+
+--------------------------------------------------------------------------------
+3. LOGIC FLAWS
+--------------------------------------------------------------------------------
+
+FLAW #1 — Quota consumed before success
+File: lib/services/quotas.ts
+
+  consumeQuota() increments the usage counter before confirming the AI call
+  succeeded. If the downstream operation fails, quota is still charged with
+  no rollback path.
+
+FLAW #2 — Similarity score clamping collapses top rankings
+File: lib/rag/retrieval.ts
+
+  Chunk boost is added after cosine similarity then clamped to [0, 1].
+  A strong match boosted past 1.0 becomes artificially "perfect", collapsing
+  ranking precision at the top of results.
+
+FLAW #3 — Null vector silently returns empty array
+File: lib/rag/retrieval.ts
+
+  If both vector_blob and vector_json are null on a chunk row, decodeVector()
+  returns [], which scores 0 similarity against everything. The chunk
+  disappears from search results with no warning or logging.
+
+  Evidence:
+    return JSON.parse(row.vector_json ?? "[]");
+    // Returns [] when vector_json is also null
+
+FLAW #4 — Study scoring has no time decay
+File: lib/rag/study.ts
+
+  pickStudyChunk() excludes recently-studied notes but does not decay scores
+  over time. A chunk studied 6 months ago has the same selection weight as
+  one studied yesterday. Spaced repetition benefit is undermined.
+
+
+--------------------------------------------------------------------------------
+4. BROKEN OR RISKY USER FLOWS
+--------------------------------------------------------------------------------
+
+FLOW #1 — Concurrent note edit + reindex
+  User edits a note while an indexing job is mid-flight on that same note.
+  The job deletes all chunks for the note and re-inserts, but the edit's new
+  content may land in a different state. Result: stale or missing embeddings
+  with no user-visible error.
+
+FLOW #2 — Plan downgrade during active session
+  Admin downgrades user from Pro to Free while the user has an in-flight
+  study request that already passed requireProAccess(). The request completes
+  normally. Billing records show Pro-tier activity under a Free account with
+  no inconsistency detection.
+
+FLOW #3 — Version history truncated silently
+  Version history is hard-capped at 10 per note with no user-visible warning.
+  A user who edits a note 15 times in a day loses the 5 oldest versions
+  permanently without knowing.
+
+FLOW #4 — Logout succeeds visually but session stays alive
+  (See Critical Issue #1.) User clicks logout, UI redirects to login page,
+  but old session token remains valid in the database. If token is intercepted
+  or left in browser history, account is accessible.
+
+
+--------------------------------------------------------------------------------
+5. RAG / AI-SPECIFIC RISKS
+--------------------------------------------------------------------------------
+
+RISK #1 — Embedding provider mismatch corrupts similarity scores
+Files: lib/rag/indexing.ts, lib/rag/retrieval.ts
+
+  If a user switches from OpenAI embeddings to Ollama (nomic-embed-text) or
+  vice versa, old chunks from the previous provider stay in the database.
+  At query time, vectors from different embedding spaces are compared directly
+  with cosine similarity, producing nonsensical scores. The system appears to
+  work but returns wrong answers.
+
+RISK #2 — Confidence threshold is a magic number with no model awareness
+Files: lib/rag/retrieval.ts, lib/rag/answer.ts
+
+  The threshold 0.08 appears in multiple places with no justification.
+  OpenAI embeddings (text-embedding-3-small) and Ollama/nomic-embed-text
+  produce different score distributions. The same threshold can mean "good
+  match" on one model and "garbage match" on another, causing the system to
+  either miss valid answers or return weak ones.
+
+RISK #3 — response_format: json_object used with Ollama
+File: lib/rag/answer.ts
+
+  answerFromNotes() passes response_format: { type: "json_object" } to the
+  chat completion call. This is an OpenAI-specific feature. When Ollama's
+  llama3.2 is the backend, the model may not honor this format. The code
+  catches JSON.parse failures and returns "Not found in the knowledge base"
+  — so Ollama users silently get degraded answers even when documents exist.
+
+RISK #4 — Query rewriting wastes embeddings on identical variants
+File: lib/rag/retrieval.ts
+
+  Multi-pass retrieval generates 3 query variants then deduplicates after
+  embedding all of them. For simple queries, the rewritten variant is often
+  identical to the original. Two unnecessary embedding calls are made with
+  no pre-deduplication check.
+
+RISK #5 — Weak retrieval threshold not surfaced to user
+File: lib/rag/answer.ts
+
+  When retrieval confidence is low, a caveat is added to the system prompt
+  but the user sees a normal-looking answer with no indication that the
+  sources were weak matches. Users may trust low-confidence answers.
+
+
+--------------------------------------------------------------------------------
+6. SECURITY / PRIVACY RISKS
+--------------------------------------------------------------------------------
+
+RISK #1 — Hosted API key cached in module-level memory
+File: lib/services/settings.ts
+
+  readHostedApiKey() deletes process.env.HOSTED_OPENAI_API_KEY to look
+  secure, but immediately stores the value in a module-level _cachedHostedKey
+  variable that lives for the server's entire lifetime. A heap dump, Node.js
+  debugger, or memory profiler exposes it in plaintext.
+
+RISK #2 — OWNER_EMAIL has a hardcoded fallback
+File: lib/auth.ts
+
+  process.env.OWNER_EMAIL ?? "discordboteternal@gmail.com"
+
+  If an operator forgets to set OWNER_EMAIL in their environment, that email
+  address automatically becomes the owner account with full admin privileges.
+
+RISK #3 — Single encryption key for all user API keys
+File: lib/services/settings.ts
+
+  All per-user API keys are encrypted with the same PERSONAL_API_KEY_SECRET.
+  If that secret is leaked, every stored user API key is compromised at once.
+  There is no per-user key material, no key rotation mechanism, and no way
+  to selectively revoke access.
+
+RISK #4 — No rate limiting on auth endpoints
+Files: app/api/auth/login/route.ts, app/api/auth/register/route.ts
+
+  Login and register endpoints have no brute-force protection, no CAPTCHA,
+  and no account lockout. Unlimited password attempts are possible against
+  any account.
+
+RISK #5 — Session tokens could leak in error logs
+File: lib/auth.ts
+
+  The plaintext session token is read into memory during getCurrentUser().
+  If any error logging, Sentry integration, or debug output captures the
+  local variable at that point, the token is exposed to logs and monitoring
+  systems.
+
+
+--------------------------------------------------------------------------------
+7. DATA / PERSISTENCE RISKS
+--------------------------------------------------------------------------------
+
+RISK #1 — SQL.js concurrent writes cause data loss (see Critical Issue #4)
+  This is the single biggest data integrity risk in the system.
+
+RISK #2 — Image deletion is not transactional with note deletion
+File: lib/services/notes.ts
+
+  deleteNote() loops through image IDs and deletes them one by one before
+  deleting the note record. If the process crashes or an image deletion fails
+  mid-loop, some images remain on disk permanently with no cleanup path.
+  The note may or may not be deleted depending on where the failure occurred.
+
+RISK #3 — FK cascade enforcement not confirmed
+File: lib/db.ts
+
+  SQL.js requires PRAGMA foreign_keys = ON per connection. If this pragma
+  is not set or is reset, cascading deletes won't fire. Deleting a note
+  would leave orphaned chunks and versions in the database indefinitely,
+  bloating the database and polluting search results.
+
+RISK #4 — Embedding cache has no integrity check
+File: lib/rag/indexing.ts
+
+  Vectors are reused from cache based on content hash alone. No checksum
+  verifies the vector bytes weren't corrupted during a persist() cycle.
+  Corrupted vectors are silently propagated to all notes with the same
+  content.
+
+RISK #5 — Version history hard limit with no warning
+File: lib/services/notes.ts
+
+  The 10-version limit is enforced silently. Users are never told their
+  history was truncated. No configuration exists to adjust the limit.
+
+
+--------------------------------------------------------------------------------
+8. ARCHITECTURE PROBLEMS
+--------------------------------------------------------------------------------
+
+PROBLEM #1 — SQL.js is the wrong persistence layer for a multi-user server
+
+  SQL.js is an excellent embedded database for single-process, single-user
+  applications. Its export-based persistence model means every write exports
+  the entire database and overwrites the file. This fundamentally cannot be
+  made safe for concurrent writes without a rewrite.
+
+  Recommended replacement: better-sqlite3
+    - Same SQLite schema, zero migration needed
+    - Proper file-level locking (SQLite WAL mode)
+    - Synchronous API that matches the current dbRun/dbGet pattern
+    - Dramatically safer under any concurrent load
+
+PROBLEM #2 — No transactionality on multi-step operations
+File: lib/services/billing.ts
+
+  Billing plan changes update subscriptions and provider_settings in two
+  separate dbRun() calls with no wrapping transaction. A crash between them
+  leaves billing and AI provider settings permanently out of sync with no
+  detection mechanism.
+
+PROBLEM #3 — Admin dashboard has no pagination
+File: app/api/admin/route.ts
+
+  Every aggregation query fetches all rows from all users with no LIMIT,
+  OFFSET, or cursor. With substantial data, these queries will take seconds
+  or time out entirely, and the heavy joins will block the single-threaded
+  SQL.js database for other requests.
+
+PROBLEM #4 — requireProAccess makes a DB call on every gated request
+File: lib/services/ai-access.ts
+
+  requireProAccess() issues a SELECT to check the user's role on every
+  call to a Pro-gated endpoint. With no caching and SQL.js's serialized
+  writes, this adds latency to every study and OCR request.
+
+
+--------------------------------------------------------------------------------
+9. QUICK WINS
+--------------------------------------------------------------------------------
+
+The following fixes are small, low-risk, and high-impact:
+
+  1. Fix logout to use cookies() API instead of regex          ~10 min
+     Fixes the silent session invalidation bug.
+
+  2. Gate response_format: json_object to OpenAI only          ~10 min
+     Stops Ollama users from silently getting "Not found" answers.
+
+  3. Warn + skip null vectors in decodeVector()                ~5 min
+     Makes embedding gaps visible instead of silent.
+
+  4. Remove _cachedHostedKey module variable                   ~5 min
+     Read the env var fresh each time or use a short TTL.
+
+  5. Add LIMIT to admin dashboard aggregation queries          ~20 min
+     Prevents timeout as data grows.
+
+  6. Add console.warn when FK pragma is not confirmed          ~5 min
+     Makes orphan risk visible during development.
+
+  7. Log a warning when two embedding providers coexist        ~15 min
+     Alerts operators to stale vectors before accuracy degrades.
+
+
+--------------------------------------------------------------------------------
+10. RECOMMENDED FIX ORDER
+--------------------------------------------------------------------------------
+
+PHASE 1 — Fix Immediately (production correctness)
+  1. Logout session invalidation bug (lib/auth.ts)
+  2. Gate response_format: json_object to OpenAI only (lib/rag/answer.ts)
+  3. Null vector warning in decodeVector() (lib/rag/retrieval.ts)
+
+PHASE 2 — This Week (stability and security)
+  4. Replace SQL.js with better-sqlite3
+     Highest impact change. Same schema, same query API, safe concurrency.
+  5. Wrap billing plan changes in a transaction
+  6. Rate-limit login and register endpoints
+  7. Remove cached hosted API key from module memory
+
+PHASE 3 — Next Sprint (reliability and accuracy)
+  8. Wrap indexing check+delete+insert in a transaction
+  9. Admin dashboard pagination
+  10. Detect and warn on mixed embedding provider vectors at query time
+  11. Make confidence threshold configurable per embedding model
+
+PHASE 4 — Future Improvements (quality of life)
+  12. Time decay in study chunk scoring
+  13. Pre-deduplicate query variants before embedding
+  14. Per-user encryption key material for stored API keys
+  15. User-visible version history retention setting
+
+
+--------------------------------------------------------------------------------
+SUMMARY TABLE
+--------------------------------------------------------------------------------
+
+ #   Category    Severity   File                        Issue
+ --  ----------  ---------  --------------------------  -----------------------
+ 1   Auth        CRITICAL   lib/auth.ts                 Logout regex fails silently
+ 2   Auth        CRITICAL   lib/auth.ts                 Email verification bypass
+ 3   RAG         HIGH       lib/rag/indexing.ts         Race condition loses embeddings
+ 4   DB          HIGH       lib/db.ts                   Concurrent writes overwrite data
+ 5   RAG         HIGH       lib/rag/answer.ts           json_object breaks Ollama answers
+ 6   RAG         MEDIUM     lib/rag/retrieval.ts        Null vector returns [] silently
+ 7   Quota       MEDIUM     lib/services/quotas.ts      No rollback on operation failure
+ 8   Study       MEDIUM     lib/rag/study.ts            No time decay in chunk scoring
+ 9   Security    MEDIUM     lib/services/settings.ts    Hosted key cached in memory
+ 10  Security    MEDIUM     lib/auth.ts                 Hardcoded fallback owner email
+ 11  Security    MEDIUM     lib/services/settings.ts    Single key encrypts all secrets
+ 12  Security    MEDIUM     app/api/auth/*              No rate limiting on auth routes
+ 13  DB          MEDIUM     lib/services/notes.ts       Image deletion not transactional
+ 14  DB          MEDIUM     lib/rag/indexing.ts         No vector integrity check
+ 15  Arch        MEDIUM     lib/services/billing.ts     Plan change not transactional
+
+
+================================================================================
+END OF REPORT
+================================================================================
