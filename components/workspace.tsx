@@ -4996,64 +4996,44 @@ function FolderRow({
   dragActive: boolean;
   onMenu: (event: MouseEvent) => void;
 }) {
-  const compactActions = depth >= 1;
   return (
     <div
       draggable
       onDragStart={onDragStart}
-      onDragOver={(event) => {
-        if (dragActive) event.preventDefault();
-      }}
-      onDrop={(event) => {
-        event.preventDefault();
-        onDrop();
-      }}
+      onDragOver={(event) => { if (dragActive) event.preventDefault(); }}
+      onDrop={(event) => { event.preventDefault(); onDrop(); }}
       onContextMenu={onMenu}
-      className={`group flex items-center rounded-lg border ${
+      className={`group flex h-9 items-center rounded-lg border ${
         active ? "border-accent-500/25 bg-accent-500/10" : dragActive ? "border-transparent hover:border-accent-500/30 hover:bg-accent-500/8" : "border-transparent hover:bg-white/[0.04]"
       }`}
     >
-      {/* Chevron — fixed width, never shrinks */}
-      <button onClick={onToggle} aria-label={collapsed ? "Expand folder" : "Collapse folder"} className="grid h-9 w-8 shrink-0 place-items-center text-ink-500 hover:text-ink-100">
-        {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+      {/* Chevron — fixed 28 px, never shrinks */}
+      <button onClick={onToggle} aria-label={collapsed ? "Expand folder" : "Collapse folder"} className="grid h-9 w-7 shrink-0 place-items-center text-ink-500 hover:text-ink-300">
+        {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
       </button>
-      {/* Folder icon + title — takes all remaining space, clips long names */}
-      <button onClick={onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-center gap-2 py-2 text-left text-sm text-ink-200">
+
+      {/* Icon + title — owns all remaining space; title truncates with ellipsis */}
+      <button onClick={onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5 text-left">
         {collapsed ? <Folder className="h-4 w-4 shrink-0 text-accent-400/70" /> : <FolderOpen className="h-4 w-4 shrink-0 text-accent-400/70" />}
-        <span title={folder.name} className="min-w-0 flex-1 overflow-hidden text-ellipsis whitespace-nowrap text-ink-100">
-          {folder.name}
-        </span>
+        <span title={folder.name} className="min-w-0 flex-1 truncate text-sm text-ink-100">{folder.name}</span>
       </button>
-      {/* Hidden utility buttons (programmatic access only) */}
+
+      {/* Hidden utility buttons — keyboard / programmatic access; all actions also in context menu */}
+      <button onClick={onCreate} aria-label={`New note in ${folder.name}`} className="hidden" />
+      <button onClick={onCreateFolder} aria-label={`New folder in ${folder.name}`} className="hidden" />
+      <button onClick={onCreateLecture} aria-label={`New project in ${folder.name}`} className="hidden" />
+      <button onClick={onRename} aria-label={`Rename ${folder.name}`} className="hidden" />
+      <button onClick={onDelete} aria-label={`Delete ${folder.name}`} className="hidden" />
       <button onClick={onMove} aria-label={`Move ${folder.name}`} className="hidden" />
       <button onClick={onReindex} aria-label={`Reindex ${folder.name}`} className="hidden" />
-      <button onClick={onCreateLecture} aria-label={`New project in ${folder.name}`} className="hidden" />
-      {/* Action strip — in-flow so the title can never overlap it; invisible until hover */}
-      <div className="flex shrink-0 items-center gap-0.5 pr-1 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto">
-        <span className="rounded-full border border-ink-700/70 bg-white/[0.03] px-2 py-0.5 text-xs text-ink-400">{count}</span>
-        {!compactActions ? (
-          <>
-            <button onClick={onCreate} aria-label={`New note in ${folder.name}`} className="grid h-8 w-8 shrink-0 place-items-center text-ink-500 hover:text-accent-300">
-              <FilePlus className="h-3.5 w-3.5" />
-            </button>
-            <button onClick={onCreateFolder} aria-label={`New folder in ${folder.name}`} className="grid h-8 w-8 shrink-0 place-items-center text-ink-500 hover:text-accent-300">
-              <FolderPlus className="h-3.5 w-3.5" />
-            </button>
-            <button onClick={onRename} aria-label={`Rename ${folder.name}`} className="grid h-8 w-8 shrink-0 place-items-center text-ink-500 hover:text-accent-300">
-              <Pencil className="h-3.5 w-3.5" />
-            </button>
-            <button onClick={onDelete} aria-label={`Delete ${folder.name}`} className="grid h-8 w-8 shrink-0 place-items-center text-ink-500 hover:text-danger-400">
-              <Trash2 className="h-3.5 w-3.5" />
-            </button>
-          </>
-        ) : null}
+
+      {/* Fixed 32 px right slot — count at rest, kebab on hover; never squeezes the title */}
+      <div className="flex h-9 w-8 shrink-0 items-center justify-center">
+        <span className="text-[11px] tabular-nums text-ink-600 group-hover:hidden">{count}</span>
         <button
-          onClick={(event) => {
-            event.stopPropagation();
-            onMenu(event);
-          }}
+          onClick={(event) => { event.stopPropagation(); onMenu(event); }}
           aria-label={`More actions for ${folder.name}`}
-          className="grid h-8 w-8 shrink-0 place-items-center text-ink-500 hover:text-ink-100"
+          className="hidden h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-100 group-hover:grid"
         >
           <MoreVertical className="h-3.5 w-3.5" />
         </button>
@@ -5098,39 +5078,39 @@ function NoteRow({
       draggable={!bulkMode}
       onDragStart={onDragStart}
       onContextMenu={onMenu}
-      className={`group relative flex w-full items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-all duration-150 ${
+      className={`group flex h-8 w-full items-center rounded-lg border transition-colors duration-150 ${
         bulkSelected ? "border-accent-500/40 bg-accent-500/12" : active ? "border-accent-500/25 bg-accent-500/10 text-ink-100 shadow-[0_0_12px_rgba(139,92,246,0.08)]" : "border-transparent text-ink-300 hover:border-white/[0.05] hover:bg-white/[0.035] hover:text-ink-100"
       }`}
     >
+      {/* Bulk checkbox */}
       {bulkMode ? (
-        <button onClick={onToggleBulk} className="mt-0.5 shrink-0">
+        <button onClick={onToggleBulk} className="ml-2 shrink-0">
           {bulkSelected ? <SquareCheck className="h-4 w-4 text-accent-300" /> : <Square className="h-4 w-4 text-ink-500" />}
         </button>
       ) : null}
-      <button onClick={bulkMode ? onToggleBulk : onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-center gap-2 text-left">
+
+      {/* Icon + title — flex-1, title truncates */}
+      <button onClick={bulkMode ? onToggleBulk : onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-center gap-2 px-2 text-left">
         {!bulkMode && (pinned ? <Pin className="h-3.5 w-3.5 shrink-0 text-accent-300" /> : <FileText className={`h-3.5 w-3.5 shrink-0 ${active ? "text-accent-300" : "text-ink-500 group-hover:text-ink-300"}`} />)}
-        <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink-100 group-hover:pr-24">{note.title}</span>
-        <span className="shrink-0 text-[10px] tabular-nums text-ink-600">{new Date(note.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>
+        <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink-100">{note.title}</span>
       </button>
+
+      {/* Hidden utility buttons — all actions also in context menu */}
+      <button onClick={onTogglePin} aria-label={pinned ? `Unpin ${note.title}` : `Pin ${note.title}`} className="hidden" />
+      <button onClick={onRename} aria-label={`Rename ${note.title}`} className="hidden" />
+      <button onClick={onDelete} aria-label={`Delete ${note.title}`} className="hidden" />
       <button onClick={onMove} aria-label={`Move ${note.title}`} className="hidden" />
       <button onClick={onReindex} aria-label={`Reindex ${note.title}`} className="hidden" />
-      <div className="absolute right-1 top-2 flex items-center gap-1 opacity-0 pointer-events-none transition-opacity group-hover:opacity-100 group-hover:pointer-events-auto">
-        <button onClick={onTogglePin} aria-label={pinned ? `Unpin ${note.title}` : `Pin ${note.title}`} className="grid h-7 w-7 place-items-center text-ink-500 hover:text-accent-300">
-          {pinned ? <PinOff className="h-3.5 w-3.5" /> : <Pin className="h-3.5 w-3.5" />}
-        </button>
-        <button onClick={onRename} aria-label={`Rename ${note.title}`} className="grid h-7 w-7 place-items-center text-ink-500 hover:text-accent-300">
-          <Pencil className="h-3.5 w-3.5" />
-        </button>
-        <button onClick={onDelete} aria-label={`Delete ${note.title}`} className="grid h-7 w-7 place-items-center text-ink-500 hover:text-danger-400">
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+
+      {/* Fixed 32 px right slot — date at rest, kebab on hover */}
+      <div className="flex h-8 w-8 shrink-0 items-center justify-center">
+        <span className="text-[10px] tabular-nums text-ink-600 group-hover:hidden">
+          {new Date(note.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+        </span>
         <button
-          onClick={(event) => {
-            event.stopPropagation();
-            onMenu(event);
-          }}
+          onClick={(event) => { event.stopPropagation(); onMenu(event); }}
           aria-label={`More actions for ${note.title}`}
-          className="grid h-7 w-7 place-items-center text-ink-500 hover:text-ink-100"
+          className="hidden h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-100 group-hover:grid"
         >
           <MoreVertical className="h-3.5 w-3.5" />
         </button>
