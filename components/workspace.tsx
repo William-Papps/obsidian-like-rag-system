@@ -3067,7 +3067,7 @@ function SideRail(props: {
       <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${expanded ? "px-3" : "px-2"}`}>
         {/* Document nav */}
         <div className={`flex flex-col gap-1 pt-3 ${expanded ? "" : "items-center"}`}>
-          <RailIconButton label={props.leftOpen ? "Hide documents" : "Show documents"} onClick={props.onToggleLeft} active={props.leftOpen}>
+          <RailIconButton label={props.leftOpen ? "Hide vault" : "Show vault"} onClick={props.onToggleLeft} active={props.leftOpen}>
             <LayoutPanelLeft className="h-4 w-4" />
           </RailIconButton>
           <RailIconButton label="New note" onClick={props.onNewNote}>
@@ -5921,7 +5921,7 @@ function ShareModal({
         {/* Current shares */}
         {shares.length > 0 ? (
           <div className="mt-5">
-            <div className="mb-2 text-xs font-semibold uppercase tracking-widest text-ink-500">People with access</div>
+            <div className="mb-2 text-xs font-semibold text-ink-500">People with access</div>
             <div className="space-y-2">
               {shares.map((share) => (
                 <div key={share.sharedWithUserId} className="flex items-center gap-3 rounded-xl border border-ink-700/60 bg-ink-800/40 px-3 py-2.5">
