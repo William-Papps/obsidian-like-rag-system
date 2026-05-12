@@ -2,6 +2,15 @@
 
 An Obsidian-like local study workspace with Markdown notes, SQLite persistence, and source-grounded RAG study tools — runs fully offline with Ollama.
 
+**[Get EternalNotes at eternalbot.net](https://eternalbot.net)** — download, license, and hosted access.
+
+---
+
+## Self-Hosting (Advanced)
+
+> The recommended way to use EternalNotes is through **[eternalbot.net](https://eternalbot.net)**.
+> The instructions below are for users who want to run their own instance from source.
+
 ## Docker Quickstart (< 20 min)
 
 **Requirements:** Docker Desktop 4.x, 8 GB RAM, 10 GB free disk.
