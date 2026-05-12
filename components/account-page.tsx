@@ -346,7 +346,7 @@ export function AccountPage({
             <div className="relative mt-3 flex items-center gap-1.5">
               <div className="h-1.5 w-1.5 rounded-full bg-success-400" />
               <span className="text-xs text-ink-500">
-                {billing.subscription.plan === "free" ? "Free plan" : `${billing.subscription.plan} plan`}
+                {billing.subscription.plan === "free" ? "Personal plan" : "Pro plan"}
               </span>
             </div>
           </div>
@@ -620,7 +620,7 @@ export function AccountPage({
                     <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
                       <div className="space-y-4">
                         <div className="grid gap-3 sm:grid-cols-2">
-                          <MetricCard label="Current plan" value={billing.subscription.plan === "free" ? "Free" : "Pro"} accent />
+                          <MetricCard label="Current plan" value={billing.subscription.plan === "free" ? "Personal" : "Pro"} accent />
                           <MetricCard label="Status" value={formatBillingStatus(billing.subscription.status)} />
                         </div>
 
@@ -650,8 +650,8 @@ export function AccountPage({
                             onChange={(event) => setHostedPlan(event.target.value as typeof hostedPlan)}
                             className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
                           >
-                            <option value="free">Free — Local AI + bring your own key</option>
-                            <option value="starter">Pro — Higher limits + hosted AI</option>
+                            <option value="free">Personal — Free forever, bring your own key</option>
+                            <option value="starter">Pro — $12/mo, hosted AI included</option>
                           </select>
                         </Field>
 
@@ -676,18 +676,18 @@ export function AccountPage({
 
                       <div className="space-y-3">
                         <PlanCard
-                          title="Free"
-                          price="Always free"
+                          title="Personal"
+                          price="$0 / month"
                           active={hostedPlan === "free"}
-                          description="Full notes experience with local AI powered by Ollama."
-                          bullets={["Unlimited documents & workspaces", "Local AI via Ollama (no API key needed)", "100 Ask queries/mo", "50 Quizzes & Flashcards/mo", "20 OCR scans/mo", "Bring your own key for unlimited"]}
+                          description="Full access to all features. Bring your own OpenAI API key."
+                          bullets={["Unlimited documents", "All AI tools (BYOK)", "Team workspaces", "No monthly cost"]}
                         />
                         <PlanCard
                           title="Pro"
-                          price="Higher limits"
+                          price="$12 / month"
                           active={hostedPlan === "starter" || hostedPlan === "pro"}
-                          description="Everything in Free with higher quotas and hosted AI access."
-                          bullets={["1500 Ask queries/mo", "600 Quizzes & Flashcards/mo", "200 OCR scans/mo", "Hosted AI (no local setup needed)"]}
+                          description="Everything in Personal plus hosted AI — no API key needed."
+                          bullets={["1500 Ask queries / month", "600 Knowledge Checks / month", "600 Training Cards / month", "600 Briefings / month", "200 OCR scans / month", "Team workspaces"]}
                           highlight
                         />
                       </div>
@@ -699,7 +699,7 @@ export function AccountPage({
                       eyebrow="Features"
                       title="What's included"
                       icon={<BarChart3 className="h-5 w-5" />}
-                      description="Pro features are available to users on the Pro plan or with a personal API key."
+                      description="Pro features are available on the Pro plan or with a personal API key (BYOK)."
                     />
                     <div className="mt-6 grid gap-2 sm:grid-cols-2">
                       {[
@@ -719,7 +719,7 @@ export function AccountPage({
                           <div key={feat.label} className={`flex items-center justify-between rounded-lg border px-3 py-2 ${unlocked ? "border-white/[0.08] bg-white/[0.02]" : "border-white/[0.04] bg-transparent opacity-50"}`}>
                             <span className="text-sm text-ink-300">{feat.label}</span>
                             <span className={`text-[11px] font-semibold ${feat.free ? "text-success-400" : "text-accent-400"}`}>
-                              {feat.free ? "Free" : "Pro"}
+                              {feat.free ? "Personal" : "Pro"}
                             </span>
                           </div>
                         );
@@ -915,9 +915,9 @@ export function AccountPage({
                                 value={managedUser.hostedPlan}
                                 onChange={(value) => void updateManagedUser(managedUser.id, { hostedPlan: value as "free" | "starter" | "pro" })}
                                 options={[
-                                  { value: "free", label: "Free" },
-                                  { value: "starter", label: "AI Starter" },
-                                  { value: "pro", label: "AI Pro" }
+                                  { value: "free", label: "Personal" },
+                                  { value: "starter", label: "Pro" },
+                                  { value: "pro", label: "Pro (legacy)" }
                                 ]}
                               />
                               <ToggleInline

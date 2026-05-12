@@ -336,29 +336,20 @@ Current admin/runtime implementation:
 
 Current hosted plan quotas:
 
-### Free
+### Personal (free)
 
-- no hosted AI quota
-- full notes workspace
-- users can still use AI with their own API key
+- No hosted AI quota
+- Full notes workspace and all study tools
+- AI runs on the user's own API key (BYOK)
 
-### Starter
+### Pro ($12/month)
 
-- Ask: `200`
-- Knowledge Check generation: `100`
-- Training Cards generation: `100`
-- Briefing generation: `100`
-- OCR imports: `50`
-- Index/reindex runs: `75`
-
-### Pro
-
-- Ask: `600`
-- Knowledge Check generation: `300`
-- Training Cards generation: `300`
-- Briefing generation: `300`
-- OCR imports: `150`
-- Index/reindex runs: `200`
+- Ask: `1500`
+- Knowledge Check generation: `600`
+- Training Cards generation: `600`
+- Briefing generation: `600`
+- OCR imports: `200`
+- Index/reindex runs: `1000`
 
 Knowledge Check answer grading is intentionally not billed against hosted quota. It uses the user's own key when available, otherwise a local grading heuristic.
 
