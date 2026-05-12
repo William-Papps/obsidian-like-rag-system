@@ -2213,8 +2213,8 @@ export function Workspace() {
         <section className={`grid min-h-0 min-w-0 grid-rows-[auto_42px_45px_minmax(0,1fr)_auto] overflow-hidden bg-ink-925 ${isMobile && mobileTab !== "editor" ? "hidden" : ""}`}>
           {activeNote ? (
             <>
-              <div className="min-w-0 border-b border-white/[0.06] bg-ink-950/60 px-5 py-3 backdrop-blur-sm">
-                <div className="flex min-w-0 items-center gap-3">
+              <div className="min-w-0 border-b border-white/[0.06] px-5 py-3">
+                <div className="flex min-w-0 items-center gap-1">
                   <input
                     value={draftTitle}
                     onKeyDown={allowNativeTextShortcuts}
@@ -2240,11 +2240,13 @@ export function Workspace() {
                     ))}
                   </select>
                   <SaveBadge saving={saving} stale={data.indexStatus.staleNotes > 0} preparing={reindexingAll} onPrepare={reindexAll} />
-                  <IconButton label="Export as Markdown" onClick={exportActiveNote}>
-                    <Download className="h-4 w-4" />
-                  </IconButton>
-                  <IconButton
-                    label={publicToken ? "Public link active — click to copy or disable" : "Create public share link"}
+                  <span className="mx-1.5 h-4 w-px shrink-0 bg-ink-700/60" />
+                  <button title="Export as Markdown" aria-label="Export as Markdown" onClick={exportActiveNote} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+                    <Download className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    title={publicToken ? "Public link active — click to copy" : "Create public share link"}
+                    aria-label={publicToken ? "Copy public link" : "Create public share link"}
                     onClick={() => {
                       if (publicToken) {
                         void navigator.clipboard.writeText(`${window.location.origin}/share/${publicToken}`);
@@ -2253,21 +2255,23 @@ export function Workspace() {
                         void togglePublicLink();
                       }
                     }}
+                    className={`grid h-7 w-7 place-items-center rounded hover:bg-white/[0.06] ${publicToken ? "text-accent-300" : "text-ink-500 hover:text-ink-200"}`}
                   >
-                    <Link className={`h-4 w-4 ${publicToken ? "text-accent-300" : ""}`} />
-                  </IconButton>
+                    <Link className="h-3.5 w-3.5" />
+                  </button>
                   {publicToken && (
-                    <IconButton label="Disable public link" onClick={() => void togglePublicLink()} tone="danger">
-                      <X className="h-4 w-4" />
-                    </IconButton>
+                    <button title="Disable public link" aria-label="Disable public link" onClick={() => void togglePublicLink()} className="grid h-7 w-7 place-items-center rounded text-ink-600 hover:bg-danger-400/10 hover:text-danger-400">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
                   )}
+                  <span className="mx-1.5 h-4 w-px shrink-0 bg-ink-700/60" />
                   <div className="relative">
-                    <IconButton label={tocOpen ? "Close table of contents" : "Table of contents"} onClick={() => setTocOpen((o) => !o)}>
-                      <List className={`h-4 w-4 ${tocOpen ? "text-accent-300" : ""}`} />
-                    </IconButton>
+                    <button title={tocOpen ? "Close table of contents" : "Table of contents"} aria-label={tocOpen ? "Close table of contents" : "Table of contents"} onClick={() => setTocOpen((o) => !o)} className={`grid h-7 w-7 place-items-center rounded hover:bg-white/[0.06] ${tocOpen ? "text-accent-300" : "text-ink-500 hover:text-ink-200"}`}>
+                      <List className="h-3.5 w-3.5" />
+                    </button>
                     {tocOpen && tocHeadings.length > 0 ? (
                       <div className="absolute right-0 top-[calc(100%+6px)] z-40 w-64 overflow-hidden rounded-xl border border-ink-700/90 bg-ink-925 shadow-panel">
-                        <div className="border-b border-ink-700/80 px-3 py-2 text-[11px] font-semibold uppercase tracking-widest text-ink-400">
+                        <div className="border-b border-ink-700/80 px-3 py-2 text-xs font-semibold text-ink-400">
                           Table of contents
                         </div>
                         <div className="max-h-72 overflow-auto p-2">
@@ -2292,9 +2296,9 @@ export function Workspace() {
                   </div>
                   {/* Symbol picker */}
                   <div className="relative">
-                    <IconButton label="Insert symbol" onClick={(e) => { e.stopPropagation(); if (editorView) symbolInsertPosRef.current = editorView.state.selection.main.from; setSymbolsOpen((o) => !o); setSymbolsQuery(""); }}>
-                      <span className={`text-base leading-none font-serif ${symbolsOpen ? "text-accent-300" : ""}`}>∑</span>
-                    </IconButton>
+                    <button title="Insert symbol" aria-label="Insert symbol" onClick={(e) => { e.stopPropagation(); if (editorView) symbolInsertPosRef.current = editorView.state.selection.main.from; setSymbolsOpen((o) => !o); setSymbolsQuery(""); }} className={`grid h-7 w-7 place-items-center rounded hover:bg-white/[0.06] ${symbolsOpen ? "text-accent-300" : "text-ink-500 hover:text-ink-200"}`}>
+                      <span className="font-serif text-sm leading-none">∑</span>
+                    </button>
                     {symbolsOpen && (
                       <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-[calc(100%+6px)] z-50 w-80 overflow-hidden rounded-xl border border-ink-700/90 bg-ink-925 shadow-panel">
                         <div className="border-b border-ink-700/80 p-2">
@@ -2314,7 +2318,7 @@ export function Workspace() {
                             if (!hits.length) return null;
                             return (
                               <div key={group.label}>
-                                <div className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-widest text-ink-500">{group.label}</div>
+                                <div className="mb-1 px-1 text-[10px] font-medium text-ink-600">{group.label}</div>
                                 <div className="flex flex-wrap gap-0.5">
                                   {hits.map((sym) => (
                                     <button
@@ -2345,24 +2349,27 @@ export function Workspace() {
                       </div>
                     )}
                   </div>
-                  <IconButton label={zenMode ? "Exit zen mode (Ctrl+Shift+Z)" : "Zen mode (Ctrl+Shift+Z)"} onClick={() => setZenMode((z) => !z)}>
-                    {zenMode ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-                  </IconButton>
-                  <IconButton
-                    label="Version history"
+                  <button title={zenMode ? "Exit zen mode (Ctrl+Shift+Z)" : "Zen mode (Ctrl+Shift+Z)"} aria-label={zenMode ? "Exit zen mode" : "Zen mode"} onClick={() => setZenMode((z) => !z)} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+                    {zenMode ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
+                  </button>
+                  <span className="mx-1.5 h-4 w-px shrink-0 bg-ink-700/60" />
+                  <button
+                    title="Version history"
+                    aria-label="Version history"
                     onClick={async () => {
                       if (historyOpen) { setHistoryOpen(false); return; }
                       const res = await fetch(`/api/notes/${activeNote.id}/versions`);
                       setHistoryVersions(await res.json() as typeof historyVersions);
                       setHistoryOpen(true);
                     }}
+                    className={`grid h-7 w-7 place-items-center rounded hover:bg-white/[0.06] ${historyOpen ? "text-accent-300" : "text-ink-500 hover:text-ink-200"}`}
                   >
-                    <RotateCw className="h-4 w-4" />
-                  </IconButton>
+                    <RotateCw className="h-3.5 w-3.5" />
+                  </button>
                   {activeNote.userId === data.user.id ? (
-                    <IconButton label="Share note" onClick={() => void openShareModal(activeNote.id)}>
-                      <UserPlus className="h-4 w-4" />
-                    </IconButton>
+                    <button title="Share note" aria-label="Share note" onClick={() => void openShareModal(activeNote.id)} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+                      <UserPlus className="h-3.5 w-3.5" />
+                    </button>
                   ) : (
                     <span className={`rounded-lg border px-2 py-1 text-xs font-semibold ${
                       activeNote.sharePermission === "edit"
@@ -2373,15 +2380,15 @@ export function Workspace() {
                     </span>
                   )}
                   {activeNote.userId === data.user.id ? (
-                    <IconButton label="Delete note" onClick={deleteActiveNote} tone="danger">
-                      <Trash2 className="h-4 w-4" />
-                    </IconButton>
+                    <button title="Delete note" aria-label="Delete note" onClick={deleteActiveNote} className="grid h-7 w-7 place-items-center rounded text-ink-600 hover:bg-danger-400/10 hover:text-danger-400">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   ) : null}
                 </div>
                 {historyOpen && activeNote ? (
                   <div className="mx-4 mb-2 rounded-xl border border-ink-700/80 bg-ink-900 p-3 text-sm">
                     <div className="mb-2 flex items-center justify-between">
-                      <span className="text-xs font-semibold uppercase tracking-widest text-ink-400">Version history</span>
+                      <span className="text-xs font-semibold text-ink-400">Version history</span>
                       <button onClick={() => setHistoryOpen(false)} className="text-ink-500 hover:text-ink-200"><X className="h-3.5 w-3.5" /></button>
                     </div>
                     {historyVersions.length === 0 ? (
@@ -3244,7 +3251,7 @@ function NoteViewTabs({
           </button>
         ))}
       </div>
-      <div className="hidden min-w-max items-center gap-2 py-1.5 lg:flex">
+      <div className="hidden min-w-max items-center gap-0.5 py-1.5 lg:flex">
         {value === "code" && codeLanguage && onChangeCodeLanguage ? (
           <>
             <select
@@ -3265,7 +3272,7 @@ function NoteViewTabs({
             {onInsertSnippet ? (
               <button
                 onClick={onInsertSnippet}
-                className="inline-flex items-center gap-1 rounded-md border border-accent-500/25 bg-accent-500/10 px-2 py-1 text-xs font-semibold text-accent-200 hover:bg-accent-500/15"
+                className="ml-1 inline-flex items-center gap-1 rounded-md border border-accent-500/25 bg-accent-500/10 px-2 py-1 text-xs font-semibold text-accent-200 hover:bg-accent-500/15"
               >
                 <Code2 className="h-3.5 w-3.5" />
                 Insert snippet
@@ -3273,58 +3280,47 @@ function NoteViewTabs({
             ) : null}
           </>
         ) : null}
-        <button onClick={onInsertHeading} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
+        <button title="Insert heading" onClick={onInsertHeading} className="grid h-7 w-7 place-items-center rounded text-[11px] font-bold text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
           H2
         </button>
-        <button onClick={onInsertList} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
-          List
+        <button title="Insert list" onClick={onInsertList} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+          <List className="h-3.5 w-3.5" />
         </button>
-        <button onClick={onInsertQuote} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
-          Quote
+        <button title="Insert blockquote" onClick={onInsertQuote} className="grid h-7 w-7 place-items-center rounded font-serif text-base text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+          &ldquo;
         </button>
         {onInsertCallout ? (
-          <button onClick={onInsertCallout} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
+          <button title="Insert callout box" onClick={onInsertCallout} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
             <Info className="h-3.5 w-3.5" />
-            Box
           </button>
         ) : null}
-        <button onClick={onInsertCode} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
-          Code
+        <button title="Insert code block" onClick={onInsertCode} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+          <Code2 className="h-3.5 w-3.5" />
         </button>
-        <button onClick={onInsertTable} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
+        <button title="Insert table" onClick={onInsertTable} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
           <Table2 className="h-3.5 w-3.5" />
-          Table
         </button>
         {onAddTableRow ? (
-          <button onClick={onAddTableRow} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
-            <Rows3 className="h-3.5 w-3.5" />
-            Row +
-          </button>
+          <button title="Add table row" onClick={onAddTableRow} className="grid h-7 place-items-center rounded px-1.5 text-[11px] font-semibold text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">+R</button>
         ) : null}
         {onDeleteTableRow ? (
-          <button onClick={onDeleteTableRow} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
-            Row -
-          </button>
+          <button title="Delete table row" onClick={onDeleteTableRow} className="grid h-7 place-items-center rounded px-1.5 text-[11px] font-semibold text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">−R</button>
         ) : null}
         {onAddTableColumn ? (
-          <button onClick={onAddTableColumn} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
-            Col +
-          </button>
+          <button title="Add table column" onClick={onAddTableColumn} className="grid h-7 place-items-center rounded px-1.5 text-[11px] font-semibold text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">+C</button>
         ) : null}
         {onDeleteTableColumn ? (
-          <button onClick={onDeleteTableColumn} className="rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
-            Col -
-          </button>
+          <button title="Delete table column" onClick={onDeleteTableColumn} className="grid h-7 place-items-center rounded px-1.5 text-[11px] font-semibold text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">−C</button>
         ) : null}
         {onUploadImage ? (
           <>
             <button
+              title="Upload image"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingImage}
-              className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100 disabled:opacity-50"
+              className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200 disabled:opacity-50"
             >
               {uploadingImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
-              Image
             </button>
             <input
               ref={fileInputRef}
@@ -3340,12 +3336,11 @@ function NoteViewTabs({
           </>
         ) : null}
         {onFormat ? (
-          <button onClick={onFormat} className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-semibold text-ink-400 hover:bg-white/6 hover:text-ink-100">
+          <button title="Auto-format note" onClick={onFormat} disabled={formatting} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200 disabled:opacity-50">
             {formatting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-            Format
           </button>
         ) : null}
-        {pastingImage ? <span className="text-xs font-medium text-accent-300">Importing pasted image...</span> : null}
+        {pastingImage ? <span className="ml-1 text-xs font-medium text-accent-300">Importing…</span> : null}
       </div>
     </div>
   );
