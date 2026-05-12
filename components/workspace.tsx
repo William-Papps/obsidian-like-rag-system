@@ -5411,12 +5411,17 @@ function CommandPalette({
 
   if (!open) return null;
 
-  const activeItemClass = "bg-accent-500/14 border-accent-500/30 text-ink-100";
-  const baseItemClass = "border-ink-700/80 text-ink-200 hover:bg-white/[0.04]";
+  const actionIcons: Record<string, ReactNode> = {
+    "Create note":        <FilePlus className="h-3.5 w-3.5" />,
+    "Create folder":      <FolderPlus className="h-3.5 w-3.5" />,
+    "Import document":    <Upload className="h-3.5 w-3.5" />,
+    "Open account":       <Settings className="h-3.5 w-3.5" />,
+    "Reindex workspace":  <RotateCw className="h-3.5 w-3.5" />,
+  };
 
   let globalIdx = 0;
 
-  function renderItem(item: CmdItem, idx: number, badge: string) {
+  function renderItem(item: CmdItem, idx: number, icon: ReactNode) {
     const isActive = idx === selectedIndex;
     const key = item.kind === "note" || item.kind === "folder" ? item.id : item.label;
     const run = item.kind === "action" ? item.run : item.kind === "note" ? () => onOpenNote(item.id) : undefined;
@@ -5426,24 +5431,23 @@ function CommandPalette({
         data-cmd-idx={idx}
         onClick={run}
         disabled={item.kind === "folder"}
-        className={`flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-sm transition-colors ${isActive ? activeItemClass : baseItemClass} ${item.kind === "folder" ? "cursor-default opacity-60" : ""}`}
+        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${isActive ? "bg-accent-500/12 text-ink-100" : "text-ink-300 hover:bg-white/[0.04] hover:text-ink-100"} ${item.kind === "folder" ? "cursor-default opacity-50" : ""}`}
       >
-        <span className="truncate">{item.label}</span>
-        <span className={`shrink-0 text-xs ${isActive ? "text-accent-400" : "text-ink-500"}`}>{badge}</span>
+        <span className={`flex h-5 w-5 shrink-0 items-center justify-center ${isActive ? "text-accent-400" : "text-ink-500"}`}>{icon}</span>
+        <span className="min-w-0 flex-1 truncate">{item.label}</span>
+        {isActive && <kbd className="shrink-0 rounded border border-ink-700/80 bg-ink-875 px-1.5 py-0.5 font-mono text-[10px] text-ink-500">↵</kbd>}
       </button>
     );
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[75] bg-black/60 p-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
+    <div className="fixed inset-0 z-[75] bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="mx-auto mt-[10vh] w-full max-w-2xl rounded-2xl border border-ink-700 bg-ink-900 shadow-panel"
+        className="mx-auto mt-[12vh] w-full max-w-xl rounded-2xl border border-ink-700/80 bg-ink-925 shadow-[0_32px_80px_rgba(0,0,0,0.5)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="border-b border-ink-700/80 p-4">
+        <div className="flex items-center gap-3 border-b border-ink-700/60 px-4 py-3.5">
+          <Search className="h-4 w-4 shrink-0 text-ink-500" />
           <input
             autoFocus
             value={query}
@@ -5462,52 +5466,52 @@ function CommandPalette({
                 onClose();
               }
             }}
-            placeholder="Jump to a note or run a command..."
-            className="w-full bg-transparent text-base text-ink-100 outline-none placeholder:text-ink-500"
+            placeholder="Jump to a note or run a command…"
+            className="min-w-0 flex-1 bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500"
           />
+          <kbd className="shrink-0 rounded border border-ink-700/80 bg-ink-875 px-1.5 py-0.5 font-mono text-[10px] text-ink-500">Esc</kbd>
         </div>
-        <div ref={listRef} className="max-h-[65vh] overflow-auto p-3">
+        <div ref={listRef} className="max-h-[60vh] overflow-auto p-2">
           {actions.length > 0 ? (
             <>
-              <div className="mb-1.5 px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">Actions</div>
-              <div className="space-y-1">
-                {actions.map((action) => {
-                  const idx = globalIdx++;
-                  return renderItem({ kind: "action", label: action.label, run: action.run }, idx, "Command");
-                })}
-              </div>
+              <div className="mb-0.5 mt-1 px-2.5 text-[11px] font-medium text-ink-600">Actions</div>
+              {actions.map((action) => {
+                const idx = globalIdx++;
+                return renderItem({ kind: "action", label: action.label, run: action.run }, idx, actionIcons[action.label] ?? <Command className="h-3.5 w-3.5" />);
+              })}
             </>
           ) : null}
           {filteredNotes.length > 0 ? (
             <>
-              <div className="mb-1.5 mt-4 px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">Notes</div>
-              <div className="space-y-1">
-                {filteredNotes.map((note) => {
-                  const idx = globalIdx++;
-                  return renderItem({ kind: "note", id: note.id, label: note.title }, idx, "Note");
-                })}
-              </div>
+              <div className={`mb-0.5 px-2.5 text-[11px] font-medium text-ink-600 ${actions.length > 0 ? "mt-4" : "mt-1"}`}>Notes</div>
+              {filteredNotes.map((note) => {
+                const idx = globalIdx++;
+                return renderItem({ kind: "note", id: note.id, label: note.title }, idx, <FileText className="h-3.5 w-3.5" />);
+              })}
             </>
           ) : null}
           {filteredFolders.length ? (
             <>
-              <div className="mb-1.5 mt-4 px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">Folders</div>
-              <div className="space-y-1">
-                {filteredFolders.map((folder) => {
-                  const idx = globalIdx++;
-                  return renderItem({ kind: "folder", id: folder.id, label: folderPath(folder.id, folders) }, idx, "Folder");
-                })}
-              </div>
+              <div className={`mb-0.5 px-2.5 text-[11px] font-medium text-ink-600 ${actions.length > 0 || filteredNotes.length > 0 ? "mt-4" : "mt-1"}`}>Folders</div>
+              {filteredFolders.map((folder) => {
+                const idx = globalIdx++;
+                return renderItem({ kind: "folder", id: folder.id, label: folderPath(folder.id, folders) }, idx, <Folder className="h-3.5 w-3.5" />);
+              })}
             </>
           ) : null}
           {allItems.length === 0 ? (
-            <div className="px-3 py-6 text-center text-sm text-ink-500">No results for "{query}"</div>
+            <div className="py-8 text-center text-sm text-ink-500">No results for &ldquo;{query}&rdquo;</div>
           ) : null}
         </div>
-        <div className="border-t border-ink-700/60 px-4 py-2 text-[11px] text-ink-600">
-          <span className="mr-3">↑↓ navigate</span>
-          <span className="mr-3">↵ open</span>
-          <span>Esc close</span>
+        <div className="flex items-center gap-4 border-t border-ink-700/60 px-4 py-2">
+          <span className="flex items-center gap-1.5 text-[11px] text-ink-600">
+            <kbd className="rounded border border-ink-700/60 bg-ink-875 px-1 py-0.5 font-mono text-[10px] text-ink-500">↑↓</kbd>
+            navigate
+          </span>
+          <span className="flex items-center gap-1.5 text-[11px] text-ink-600">
+            <kbd className="rounded border border-ink-700/60 bg-ink-875 px-1 py-0.5 font-mono text-[10px] text-ink-500">↵</kbd>
+            open
+          </span>
         </div>
       </div>
     </div>
@@ -6314,6 +6318,11 @@ function SkeletonStack() {
 }
 
 function ToastView({ toast }: { toast: Toast }) {
+  const icon = toast.tone === "success"
+    ? <Check className="h-3.5 w-3.5 shrink-0" />
+    : toast.tone === "error"
+      ? <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+      : <Info className="h-3.5 w-3.5 shrink-0" />;
   const tone =
     toast.tone === "success"
       ? "border-success-400/25 bg-success-400/10 text-success-400"
@@ -6321,7 +6330,8 @@ function ToastView({ toast }: { toast: Toast }) {
         ? "border-danger-400/25 bg-danger-400/10 text-danger-400"
         : "border-accent-500/25 bg-accent-500/10 text-accent-300";
   return (
-    <div className={`fixed bottom-4 right-4 z-50 rounded-xl border px-4 py-3 text-sm shadow-panel animate-[toastIn_220ms_ease-out] ${tone}`}>
+    <div className={`fixed bottom-4 right-4 z-50 flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm shadow-panel animate-[toastIn_220ms_ease-out] ${tone}`}>
+      {icon}
       {toast.message}
     </div>
   );

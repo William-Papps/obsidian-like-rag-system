@@ -1,6 +1,6 @@
 "use client";
 
-import { KeyRound, Loader2, LockKeyhole, Mail, User2 } from "lucide-react";
+import { BookOpen, KeyRound, Loader2, LockKeyhole, Mail, User2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
@@ -194,9 +194,14 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
     <main className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_top,rgba(139,92,246,0.18),transparent_34%),linear-gradient(180deg,#171221,#0f0d15)] px-4 py-10 text-ink-100">
       <div className="w-full max-w-md rounded-2xl border border-ink-700/80 bg-ink-900/95 p-6 shadow-[0_32px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">
         <div className="mb-6">
-          <div className="text-xs font-semibold uppercase tracking-[0.18em] text-accent-300">EternalNotes</div>
-          <h1 className="mt-2 text-2xl font-semibold text-ink-100">{stageTitle}</h1>
-          <p className="mt-2 text-sm leading-6 text-ink-400">{stageSubtitle}</p>
+          <div className="mb-5 flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-500/20">
+              <BookOpen className="h-3.5 w-3.5 text-accent-400" />
+            </div>
+            <span className="text-sm font-semibold text-ink-200">EternalNotes</span>
+          </div>
+          <h1 className="text-2xl font-semibold text-ink-100">{stageTitle}</h1>
+          <p className="mt-1.5 text-sm leading-6 text-ink-400">{stageSubtitle}</p>
         </div>
 
         {stage === "auth" ? (
@@ -309,7 +314,7 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
 function Field({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
   return (
     <label className="block">
-      <div className="mb-1.5 text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">{label}</div>
+      <div className="mb-1.5 text-xs font-medium text-ink-500">{label}</div>
       <div className="flex items-center gap-2 rounded-xl border border-ink-700/80 bg-ink-950/60 px-3 py-3 text-ink-400">{icon}{children}</div>
     </label>
   );
