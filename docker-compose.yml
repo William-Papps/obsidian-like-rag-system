@@ -32,6 +32,7 @@ services:
 
   app:
     build: .
+    platform: linux/amd64
     ports:
       - "3000:3000"
     depends_on:
