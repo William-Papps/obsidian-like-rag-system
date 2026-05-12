@@ -1,0 +1,15 @@
+.git
+.next
+node_modules
+data
+.env
+.env.local
+.env*.local
+*.md
+!README.md
+.gitignore
+.gitattributes
+Dockerfile*
+docker-compose*
+docker/
+TROUBLESHOOT.md
