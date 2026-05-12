@@ -5,6 +5,7 @@ import { Workspace } from "@/components/workspace";
 import Link from "next/link";
 import { HelpWidget } from "@/components/help-widget";
 import { CookieBanner } from "@/components/cookie-banner";
+import { Brain, Check, FileStack, FileText, ShieldCheck, Sparkles, Upload, Users } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -54,7 +55,8 @@ function LandingPage() {
           <div className="absolute left-1/2 top-0 h-[600px] w-[900px] -translate-x-1/2 rounded-full bg-accent-500/10 blur-[120px]" />
         </div>
         <div className="relative mx-auto max-w-4xl px-6 text-center">
-          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-accent-500/25 bg-accent-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-accent-300">
+          <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-accent-500/25 bg-accent-500/10 px-3.5 py-1.5 text-xs font-medium text-accent-300">
+            <Sparkles className="h-3 w-3" />
             AI-powered knowledge management
           </div>
           <h1 className="mb-6 text-5xl font-bold leading-[1.1] tracking-tight text-ink-100 sm:text-6xl">
@@ -133,43 +135,17 @@ function LandingPage() {
           <p className="mt-3 text-ink-400">Built for teams that run on documents and can&apos;t afford wrong answers.</p>
         </div>
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {[
-            {
-              icon: "M9 3H5a2 2 0 00-2 2v4m6-6h6a2 2 0 012 2v4M9 3v10m0 0h6m-6 0H3m6 0v4m0-4h6m0 0v4",
-              title: "Grounded AI answers",
-              description: "Ask anything in plain English. Every answer is backed by exact quotes from your documents — no hallucinations, ever."
-            },
-            {
-              icon: "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z",
-              title: "Team workspaces",
-              description: "Invite colleagues into shared workspaces. Everyone queries the same documents, from anywhere."
-            },
-            {
-              icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
-              title: "Import anything",
-              description: "Paste text, upload PDFs, Word docs, and more. EternalNotes extracts the text and helps you index it for grounded Q&A."
-            },
-            {
-              icon: "M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z",
-              title: "Cited responses",
-              description: "Every answer links back to the exact source document and excerpt. Click to jump straight to it."
-            },
-            {
-              icon: "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
-              title: "Knowledge checks",
-              description: "Generate Q&A quizzes from your documents to validate team understanding of SOPs and policies."
-            },
-            {
-              icon: "M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z",
-              title: "Private by default",
-              description: "Your documents never leave your infrastructure. Self-hosted, fully under your control."
-            }
-          ].map((feature, i) => (
+          {([
+            { icon: <Sparkles className="h-5 w-5 text-accent-400" />, title: "Grounded AI answers", description: "Ask anything in plain English. Every answer is backed by exact quotes from your documents — no hallucinations, ever." },
+            { icon: <Users className="h-5 w-5 text-accent-400" />, title: "Team workspaces", description: "Invite colleagues into shared workspaces. Everyone queries the same documents, from anywhere." },
+            { icon: <Upload className="h-5 w-5 text-accent-400" />, title: "Import anything", description: "Paste text, upload PDFs, Word docs, and more. EternalNotes extracts the text and indexes it for grounded Q&A." },
+            { icon: <FileText className="h-5 w-5 text-accent-400" />, title: "Cited responses", description: "Every answer links back to the exact source document and excerpt. Click to jump straight to it." },
+            { icon: <Brain className="h-5 w-5 text-accent-400" />, title: "Knowledge checks", description: "Generate Q&A quizzes from your documents to validate team understanding of SOPs and policies." },
+            { icon: <ShieldCheck className="h-5 w-5 text-accent-400" />, title: "Private by default", description: "Your documents never leave your infrastructure. Self-hosted, fully under your control." },
+          ] as { icon: React.ReactNode; title: string; description: string }[]).map((feature, i) => (
             <div key={i} className="rounded-2xl border border-white/[0.07] bg-ink-900/40 p-6 backdrop-blur">
               <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-accent-500/15">
-                <svg className="h-5 w-5 text-accent-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d={feature.icon} />
-                </svg>
+                {feature.icon}
               </div>
               <h3 className="mb-2 text-base font-semibold text-ink-100">{feature.title}</h3>
               <p className="text-sm leading-relaxed text-ink-400">{feature.description}</p>
@@ -213,7 +189,7 @@ function LandingPage() {
           {/* Personal */}
           <div className="flex flex-col rounded-2xl border border-white/[0.08] bg-ink-900/40 p-8">
             <div className="mb-6">
-              <div className="mb-1 text-xs font-bold uppercase tracking-widest text-ink-500">Personal</div>
+              <div className="mb-1 text-xs font-medium text-ink-500">Personal</div>
               <div className="flex items-end gap-1.5">
                 <span className="text-5xl font-bold text-ink-100">$0</span>
                 <span className="mb-1.5 text-sm text-ink-500">/ month</span>
@@ -247,12 +223,12 @@ function LandingPage() {
           {/* Pro */}
           <div className="relative flex flex-col rounded-2xl border border-accent-500/40 bg-gradient-to-b from-accent-500/10 to-ink-900/60 p-8">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-              <span className="rounded-full bg-accent-500 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-white">
+              <span className="rounded-full bg-accent-500 px-3 py-1 text-[11px] font-semibold text-white">
                 Most popular
               </span>
             </div>
             <div className="mb-6">
-              <div className="mb-1 text-xs font-bold uppercase tracking-widest text-accent-400">Pro</div>
+              <div className="mb-1 text-xs font-medium text-accent-400">Pro</div>
               <div className="flex items-end gap-1.5">
                 <span className="text-5xl font-bold text-ink-100">$12</span>
                 <span className="mb-1.5 text-sm text-ink-500">/ month</span>
