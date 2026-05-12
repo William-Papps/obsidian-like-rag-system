@@ -10,26 +10,24 @@ import type { AiContext } from "@/lib/types";
 
 type MammothMarkdownAdapter = {
   convertToMarkdown: (
-    input: { arrayBuffer: ArrayBuffer },
+    input: { buffer: Buffer },
     options?: { convertImage?: unknown }
   ) => Promise<{ value: string }>;
 };
 
 async function convertDocxToMarkdown(userId: string, buffer: Buffer): Promise<{ markdown: string; warnings: string[] }> {
   try {
-    const bytes = Uint8Array.from(buffer);
-    const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
     const imageSections: string[] = [];
     const warnings: string[] = [];
     let imageIndex = 0;
     let context: AiContext | null = null;
     const result = await (mammoth as unknown as MammothMarkdownAdapter).convertToMarkdown(
-      { arrayBuffer },
+      { buffer },
       {
         convertImage: mammoth.images.imgElement(async (image) => {
           imageIndex += 1;
           if (!context) context = await resolveAiContext(userId, "ocr");
-          const imageBuffer = await image.readAsBuffer();
+          const imageBuffer = await image.read() as Buffer;
           const extracted = await extractTextFromImage(userId, {
             bytes: imageBuffer,
             contentType: image.contentType || "image/png",
