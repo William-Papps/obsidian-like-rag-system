@@ -3505,7 +3505,7 @@ function StudyScopePicker({
 }) {
   return (
     <div className="space-y-1.5">
-      <label className="text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">{label}</label>
+      <label className="text-xs font-medium text-ink-500">{label}</label>
       <SearchableScopePicker scope={scope} setScope={setScope} data={data} activeNote={activeNote} ariaLabel={label} />
     </div>
   );
@@ -3640,7 +3640,7 @@ function SearchableScopePicker({
               <div className="space-y-3">
                 {groups.map(([group, groupOptions]) => (
                   <div key={group} className="space-y-1">
-                    <div className="px-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-ink-500">{group}</div>
+                    <div className="px-2 text-[11px] font-medium text-ink-500">{group}</div>
                     {groupOptions.map((option) => {
                       const active = scopeKey(option.scope) === scopeKey(scope);
                       return (
@@ -5197,7 +5197,7 @@ function VaultContextMenu({
     >
       <div className="border-b border-ink-700/70 px-3 py-2">
         <div className="truncate text-xs font-semibold text-ink-100">{folder?.name ?? note?.title}</div>
-        <div className="mt-0.5 text-[11px] uppercase tracking-[0.14em] text-ink-500">{folder ? "Folder" : "Note"}</div>
+        <div className="mt-0.5 text-[11px] font-medium text-ink-500">{folder ? "Folder" : "Note"}</div>
       </div>
       {folder ? (
         <>
@@ -5557,7 +5557,7 @@ function FeedbackModal({ onClose, onSent }: { onClose: () => void; onSent: () =>
         </div>
         <div className="space-y-4 px-5 py-4">
           <div>
-            <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-ink-500">Category</span>
+            <span className="mb-2 block text-xs font-medium text-ink-500">Category</span>
             <div className="flex gap-2">
               {(["general", "feature", "bug"] as const).map((cat) => (
                 <button
@@ -5577,7 +5577,7 @@ function FeedbackModal({ onClose, onSent }: { onClose: () => void; onSent: () =>
             </div>
           </div>
           <div>
-            <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-ink-500">Message</span>
+            <span className="mb-2 block text-xs font-medium text-ink-500">Message</span>
             <textarea
               autoFocus
               value={message}
@@ -5659,11 +5659,10 @@ function TextInputModal({
       <div className="w-full max-w-md rounded-2xl border border-ink-700 bg-ink-900 shadow-panel">
         <div className="border-b border-ink-700/80 px-5 py-4">
           <div className="text-lg font-semibold text-ink-100">{draft.title}</div>
-          <div className="mt-1 text-sm text-ink-500">Folders help organize documents by project, team, or topic.</div>
         </div>
         <div className="px-5 py-4">
           <label className="block">
-            <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-ink-500">{draft.label}</span>
+            <span className="mb-2 block text-xs font-medium text-ink-500">{draft.label}</span>
             <input
               autoFocus
               value={draft.value}
@@ -5863,7 +5862,7 @@ function TableInsertModal({
         </div>
         <div className="grid gap-4 px-5 py-4 sm:grid-cols-2">
           <label className="block">
-            <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-ink-500">Rows</span>
+            <span className="mb-2 block text-xs font-medium text-ink-500">Rows</span>
             <input
               autoFocus
               type="number"
@@ -5875,7 +5874,7 @@ function TableInsertModal({
             />
           </label>
           <label className="block">
-            <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-ink-500">Columns</span>
+            <span className="mb-2 block text-xs font-medium text-ink-500">Columns</span>
             <input
               type="number"
               min={1}
@@ -6027,7 +6026,7 @@ function WorkspaceCreateModal({
         </div>
         <div className="space-y-4 px-5 py-4">
           <label className="block">
-            <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-ink-500">Workspace name</span>
+            <span className="mb-2 block text-xs font-medium text-ink-500">Workspace name</span>
             <input
               autoFocus
               value={name}
@@ -6038,7 +6037,7 @@ function WorkspaceCreateModal({
             />
           </label>
           <label className="block">
-            <span className="mb-2 block text-xs font-medium uppercase tracking-[0.14em] text-ink-500">Description (optional)</span>
+            <span className="mb-2 block text-xs font-medium text-ink-500">Description (optional)</span>
             <input
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -6103,7 +6102,7 @@ function WorkspaceManageModal({
         <div className="max-h-[60vh] overflow-y-auto">
           {isOwner ? (
             <div className="border-b border-ink-700/40 px-5 py-4">
-              <div className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">Invite member</div>
+              <div className="mb-3 text-xs font-medium text-ink-500">Invite member</div>
               {inviteToken ? (
                 <div className="rounded-lg border border-accent-500/20 bg-accent-500/10 p-3">
                   <div className="mb-2 text-xs text-ink-400">Invite link generated — share with your colleague:</div>
@@ -6136,7 +6135,7 @@ function WorkspaceManageModal({
           ) : null}
 
           <div className="px-5 py-4">
-            <div className="mb-3 text-xs font-semibold uppercase tracking-[0.14em] text-ink-500">Members ({workspace.members.length})</div>
+            <div className="mb-3 text-xs font-medium text-ink-500">Members ({workspace.members.length})</div>
             <div className="space-y-2">
               {workspace.members.map((member) => (
                 <div key={member.userId} className="flex items-center gap-3">
@@ -6210,7 +6209,7 @@ function ResizeHandle({ side, onPointerDown }: { side: "left" | "right"; onPoint
 function MetricPill({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-lg border border-white/[0.07] bg-white/[0.025] px-2.5 py-2">
-      <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-500">{label}</div>
+      <div className="text-[10px] font-medium text-ink-500">{label}</div>
       <div className="mt-0.5 truncate text-xs font-semibold text-ink-200">{value}</div>
     </div>
   );
@@ -6244,7 +6243,7 @@ function IconButton({
 }
 
 function SectionLabel({ label }: { label: string }) {
-  return <div className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-500">{label}</div>;
+  return <div className="mb-2 px-1 text-[11px] font-medium text-ink-500">{label}</div>;
 }
 
 function ToolHeader({ title, description }: { title: string; description: string }) {
