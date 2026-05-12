@@ -15,6 +15,17 @@ function makeClient(ai: AiContext): OpenAI | null {
   return null;
 }
 
+function ollamaModelNotFound(err: unknown): string | null {
+  const msg = err instanceof Error ? err.message : String(err);
+  const status = (err as { status?: number })?.status;
+  if (status === 404 || /model .* not found/i.test(msg) || /pull the model/i.test(msg)) {
+    const match = msg.match(/model ['"]?([^'"]+)['"]? not found/i);
+    const modelName = match ? match[1] : "the required model";
+    return `Ollama model not installed: ${modelName}. On the server, run: ollama pull ${modelName}`;
+  }
+  return null;
+}
+
 export type AskStreamEvent =
   | { type: "citations"; data: RetrievedChunk[]; meta?: RetrievalMeta }
   | { type: "chunk"; data: string }
@@ -82,25 +93,35 @@ export async function streamAnswerFromNotes(
       const confidenceCaveat = meta.lowConfidence
         ? "The retrieved excerpts have low similarity to the question. If they don't directly answer it, write only: Not found in the knowledge base.\n\n"
         : "";
-      const stream = await client.chat.completions.create({
-        model: ai.settings.answerModel,
-        temperature: 0.1,
-        stream: true,
-        messages: [
-          {
-            role: "system",
-            content:
-              confidenceCaveat +
-              "Answer ONLY from the provided note excerpts. Do not use outside knowledge. Do not guess. " +
-              "Write 2-4 bullet points as short, clear sentences — start each with '- '. " +
-              "If the excerpts do not contain enough evidence, write only: Not found in the knowledge base."
-          },
-          { role: "user", content: `Question: ${question}\n\nNote excerpts:\n${formatCitations(citations)}` }
-        ]
-      });
-      for await (const streamChunk of stream) {
-        const token = streamChunk.choices[0]?.delta?.content;
-        if (token) send({ type: "chunk", data: token });
+      try {
+        const stream = await client.chat.completions.create({
+          model: ai.settings.answerModel,
+          temperature: 0.1,
+          stream: true,
+          messages: [
+            {
+              role: "system",
+              content:
+                confidenceCaveat +
+                "Answer ONLY from the provided note excerpts. Do not use outside knowledge. Do not guess. " +
+                "Write 2-4 bullet points as short, clear sentences — start each with '- '. " +
+                "If the excerpts do not contain enough evidence, write only: Not found in the knowledge base."
+            },
+            { role: "user", content: `Question: ${question}\n\nNote excerpts:\n${formatCitations(citations)}` }
+          ]
+        });
+        for await (const streamChunk of stream) {
+          const token = streamChunk.choices[0]?.delta?.content;
+          if (token) send({ type: "chunk", data: token });
+        }
+      } catch (ollamaErr) {
+        const notFound = ollamaModelNotFound(ollamaErr);
+        if (notFound) {
+          send({ type: "chunk", data: notFound });
+          send({ type: "done" });
+          return;
+        }
+        throw ollamaErr;
       }
     } else {
       // Structured JSON mode for OpenAI — reliable output, fake-stream the formatted result.
@@ -112,6 +133,12 @@ export async function streamAnswerFromNotes(
 
     send({ type: "done" });
   } catch (err) {
+    const notFound = ollamaModelNotFound(err);
+    if (notFound) {
+      send({ type: "chunk", data: notFound });
+      send({ type: "done" });
+      return;
+    }
     send({ type: "error", data: err instanceof Error ? err.message : "Stream failed" });
     controller.close();
     throw err;

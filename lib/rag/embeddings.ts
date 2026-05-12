@@ -10,6 +10,16 @@ function makeEmbedClient(context?: AiContext): OpenAI | null {
   return context?.apiKey ? new OpenAI({ apiKey: context.apiKey }) : null;
 }
 
+function isOllamaModelNotFound(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  const status = (err as { status?: number })?.status;
+  return status === 404 || /model .* not found/i.test(msg) || /pull the model/i.test(msg);
+}
+
+function ollamaModelNotFoundMessage(err: unknown, model: string): string {
+  return `Ollama embedding model not installed: ${model}. On the server, run: ollama pull ${model}`;
+}
+
 export async function embedText(
   userId: string,
   text: string,
@@ -18,8 +28,15 @@ export async function embedText(
 ): Promise<{ vector: number[]; provider: "openai" | "ollama" | "local" }> {
   const client = makeEmbedClient(context);
   if (!client) return { vector: localEmbedding(text), provider: "local" };
-  const response = await client.embeddings.create({ model, input: text });
-  return { vector: response.data[0].embedding, provider: context?.ollamaBaseUrl ? "ollama" : "openai" };
+  try {
+    const response = await client.embeddings.create({ model, input: text });
+    return { vector: response.data[0].embedding, provider: context?.ollamaBaseUrl ? "ollama" : "openai" };
+  } catch (err) {
+    if (context?.ollamaBaseUrl && isOllamaModelNotFound(err)) {
+      throw new Error(ollamaModelNotFoundMessage(err, model));
+    }
+    throw err;
+  }
 }
 
 // Single OpenAI call for all chunks in a note instead of N sequential calls.
@@ -34,9 +51,16 @@ export async function embedBatch(
   if (!client) {
     return texts.map((text) => ({ vector: localEmbedding(text), provider: "local" as const }));
   }
-  const response = await client.embeddings.create({ model, input: texts });
-  const provider = context?.ollamaBaseUrl ? ("ollama" as const) : ("openai" as const);
-  return response.data.map((item) => ({ vector: item.embedding, provider }));
+  try {
+    const response = await client.embeddings.create({ model, input: texts });
+    const provider = context?.ollamaBaseUrl ? ("ollama" as const) : ("openai" as const);
+    return response.data.map((item) => ({ vector: item.embedding, provider }));
+  } catch (err) {
+    if (context?.ollamaBaseUrl && isOllamaModelNotFound(err)) {
+      throw new Error(ollamaModelNotFoundMessage(err, model));
+    }
+    throw err;
+  }
 }
 
 export function localEmbedding(text: string): number[] {
