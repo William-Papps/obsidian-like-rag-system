@@ -5,7 +5,7 @@ import { resolveAiContext } from "@/lib/services/ai-access";
 import { retrieveChunks } from "@/lib/rag/retrieval";
 import { retrieveMultiPass, type RetrievalMeta } from "@/lib/rag/retrieval";
 import { recordChunkEvents } from "@/lib/services/chunk-feedback";
-import { consumeQuota } from "@/lib/services/quotas";
+import { consumeQuota, recordUsage } from "@/lib/services/quotas";
 import { dbGet } from "@/lib/db";
 import { reindexNotes } from "@/lib/rag/indexing";
 
@@ -85,6 +85,8 @@ export async function streamAnswerFromNotes(
 
     if (ai.mode === "hosted") {
       await consumeQuota(userId, ai.settings.hostedPlan, "ask");
+    } else {
+      await recordUsage(userId, "ask");
     }
 
     if (ai.ollamaBaseUrl) {

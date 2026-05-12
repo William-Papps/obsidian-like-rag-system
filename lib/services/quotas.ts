@@ -86,6 +86,20 @@ export async function peekQuota(userId: string, plan: HostedPlan, feature: AiFea
   }
 }
 
+// Records one usage event without enforcing any limit. Use for BYOK and Ollama
+// users so admin usage stats remain accurate across all AI modes.
+export async function recordUsage(userId: string, feature: AiFeature): Promise<void> {
+  const period = currentUsagePeriod();
+  await dbRun(
+    `insert into ai_usage (id, user_id, period, feature, count, created_at, updated_at)
+     values (?, ?, ?, ?, 1, ?, ?)
+     on conflict(user_id, period, feature) do update set
+       count = count + 1,
+       updated_at = excluded.updated_at`,
+    [id(), userId, period, feature, now(), now()]
+  );
+}
+
 export async function consumeQuota(userId: string, plan: HostedPlan, feature: AiFeature) {
   const privileged = await isOwnerOrAdmin(userId);
   const limit = PLAN_LIMITS[plan][feature];
