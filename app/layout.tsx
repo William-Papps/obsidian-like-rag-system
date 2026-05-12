@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { DemoBanner } from "@/components/demo-banner";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -26,7 +27,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* Apply theme before first paint to prevent flash */}
         <script dangerouslySetInnerHTML={{ __html: `(function(){try{var t=JSON.parse(localStorage.getItem('studyos:theme'))||'purple';document.documentElement.setAttribute('data-theme',t);}catch(e){}})();` }} />
       </head>
-      <body>{children}</body>
+      <body>
+        <DemoBanner />
+        {children}
+      </body>
     </html>
   );
 }
