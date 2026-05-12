@@ -2658,7 +2658,7 @@ export function Workspace() {
                     <Sparkles className="h-6 w-6 text-accent-400" />
                   </div>
                   <div className="relative text-xl font-bold tracking-tight text-ink-100">Your workspace is ready</div>
-                  <div className="relative mt-2 text-sm leading-6 text-ink-500">Add notes on any topic. Once you have some, use the Knowledge Tools panel to ask questions about them.</div>
+                  <div className="relative mt-2 text-sm leading-6 text-ink-500">Add notes on any topic. Once you have some, use the study tools to ask questions about them.</div>
                   <button
                     onClick={() => createNote()}
                     className="primary-action relative mt-5 inline-flex items-center gap-2"
@@ -2671,24 +2671,59 @@ export function Workspace() {
                     className="relative mt-3 flex w-full items-center justify-center gap-1.5 text-sm text-ink-500 transition-colors hover:text-ink-300"
                   >
                     <MessageSquareText className="h-3.5 w-3.5" />
-                    Preview the Knowledge Tools panel
+                    Open study tools
                   </button>
                 </div>
               ) : (
-                <div className="relative w-full max-w-md text-center">
-                  <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-500/10 blur-[80px]" />
-                  <div className="relative mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-500/30 bg-accent-500/15 shadow-glow">
-                    <Sparkles className="h-6 w-6 text-accent-400" />
+                <div className="relative w-full max-w-sm">
+                  <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-500/8 blur-[80px]" />
+                  <div className="relative text-center">
+                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-ink-700/60 bg-ink-875/80">
+                      <BookOpen className="h-5 w-5 text-ink-400" />
+                    </div>
+                    <div className="text-base font-semibold tracking-tight text-ink-100">No note open</div>
+                    <div className="mt-1 text-sm text-ink-500">Select a note from the vault or create a new one.</div>
                   </div>
-                  <div className="relative text-xl font-bold tracking-tight text-ink-100">Start writing</div>
-                  <div className="relative mt-2 text-sm leading-6 text-ink-500">Create a document, index it, then ask questions from your knowledge base using the AI tools panel.</div>
-                  <button
-                    onClick={() => createNote()}
-                    className="primary-action relative mt-5 inline-flex items-center gap-2"
-                  >
-                    <FilePlus className="h-4 w-4" />
-                    Create note
-                  </button>
+                  {(() => {
+                    const recent = [...data.notes]
+                      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+                      .slice(0, 4);
+                    const relDate = (iso: string) => {
+                      const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+                      if (days === 0) return "Today";
+                      if (days === 1) return "Yesterday";
+                      return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+                    };
+                    return (
+                      <div className="relative mt-5 space-y-0.5">
+                        <p className="mb-1.5 px-3 text-[11px] font-medium text-ink-600">Recent</p>
+                        {recent.map((note) => (
+                          <button
+                            key={note.id}
+                            onClick={() => selectNote(note.id)}
+                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-white/[0.05]"
+                          >
+                            <FileText className="h-3.5 w-3.5 shrink-0 text-ink-600" />
+                            <span className="min-w-0 flex-1 truncate text-sm text-ink-300">{note.title}</span>
+                            <span className="shrink-0 text-[11px] text-ink-600">{relDate(note.updatedAt)}</span>
+                          </button>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                  <div className="relative mt-5 flex items-center justify-center gap-3">
+                    <button
+                      onClick={() => createNote()}
+                      className="primary-action inline-flex items-center gap-2"
+                    >
+                      <FilePlus className="h-4 w-4" />
+                      New note
+                    </button>
+                  </div>
+                  <div className="relative mt-4 flex items-center justify-center gap-1.5 text-[11px] text-ink-600">
+                    <kbd className="rounded border border-ink-700/80 bg-ink-875 px-1.5 py-0.5 font-mono text-[10px] text-ink-500">Ctrl K</kbd>
+                    <span>to search all notes</span>
+                  </div>
                 </div>
               )}
             </div>
