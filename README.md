@@ -1,6 +1,55 @@
 # EternalNotes
 
-An Obsidian-like local study workspace with Markdown notes, SQLite persistence, and source-grounded RAG study tools.
+An Obsidian-like local study workspace with Markdown notes, SQLite persistence, and source-grounded RAG study tools — runs fully offline with Ollama.
+
+## Docker Quickstart (< 20 min)
+
+**Requirements:** Docker Desktop 4.x, 8 GB RAM, 10 GB free disk.
+
+**Step 1 — Clone and configure**
+
+```bash
+git clone https://github.com/William-Papps/obsidian-rag-system.git
+cd obsidian-rag-system
+cp .env.example .env
+```
+
+Open `.env` and set two required secrets (use any long random strings):
+
+```
+AUTH_SESSION_SECRET=replace-with-64-random-chars
+PERSONAL_API_KEY_SECRET=replace-with-64-random-chars
+```
+
+**Step 2 — Start the stack**
+
+```bash
+docker compose up -d
+```
+
+This pulls Ollama, downloads three AI models (`nomic-embed-text`, `llama3.2:3b`, `moondream`), and starts the app. Model downloads are ~3–5 GB total and only happen once.
+
+**Step 3 — Wait for models to load**
+
+```bash
+docker compose logs -f init-models
+```
+
+When you see `success` lines for all three models, the app is ready.
+
+**Step 4 — Open EternalNotes**
+
+Visit `http://localhost:3000`, create an account, and start importing notes.
+
+**Step 5 — Verify AI is working**
+
+Go to **Account → Settings** and confirm the AI status shows Ollama connected. Index a note and use **Ask** to test retrieval.
+
+> **Backup:** your data lives in the `app_data` Docker volume. Export a backup any time from **Account → Backups**.
+
+If anything doesn't work, see [TROUBLESHOOT.md](TROUBLESHOOT.md).
+
+---
 
 The app is local-first for development, but the schema and service boundaries are user-scoped so it can move toward hosted multi-user deployment without rewriting the core data model.
 
