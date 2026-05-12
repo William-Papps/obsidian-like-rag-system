@@ -57,7 +57,7 @@ export async function resolveAiContext(userId: string, feature: AiFeature): Prom
       settings: {
         ...settings,
         embeddingModel: "nomic-embed-text",
-        answerModel: "llama3.2",
+        answerModel: "llama3.2:3b",
         visionModel: "moondream"
       }
     };
