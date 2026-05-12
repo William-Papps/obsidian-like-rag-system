@@ -5009,7 +5009,7 @@ function FolderRow({
         onDrop();
       }}
       onContextMenu={onMenu}
-      className={`group relative flex items-start rounded-lg border ${
+      className={`group relative flex items-start rounded-lg border hover:z-10 ${
         active ? "border-accent-500/25 bg-accent-500/10" : dragActive ? "border-transparent hover:border-accent-500/30 hover:bg-accent-500/8" : "border-transparent hover:bg-white/[0.04]"
       }`}
     >
@@ -5020,7 +5020,7 @@ function FolderRow({
         {collapsed ? <Folder className="mt-0.5 h-4 w-4 shrink-0 text-accent-400/70" /> : <FolderOpen className="mt-0.5 h-4 w-4 shrink-0 text-accent-400/70" />}
         <span
           title={folder.name}
-          className="min-w-0 flex-1 pr-2 leading-5 text-ink-100 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden group-hover:pr-44"
+          className={`min-w-0 flex-1 pr-2 leading-5 text-ink-100 [display:-webkit-box] [-webkit-line-clamp:2] [-webkit-box-orient:vertical] overflow-hidden ${compactActions ? "group-hover:pr-16" : "group-hover:pr-44"}`}
         >
           {folder.name}
         </span>
