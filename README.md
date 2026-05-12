@@ -107,6 +107,36 @@ Notes are the source of truth. The answer prompt instructs the model to:
 
 The UI always shows source excerpts for answers and study artifacts. Study generation and grading are grounded in stored note content, not external facts.
 
+## System Requirements
+
+For Docker deployment (recommended):
+
+- **OS:** Linux, macOS, or Windows with WSL2
+- **Architecture:** x86\_64 / amd64. Apple Silicon users: add `platform: linux/amd64` under the `app:` service in `docker-compose.yml` and enable Rosetta in Docker Desktop. Native ARM support is planned for v2.
+- **RAM:** 16 GB minimum (32 GB recommended). `llama3.2:3b` uses ~3 GB, `nomic-embed-text` uses ~300 MB.
+- **Disk:** 15 GB free (Ollama models ~5 GB + app data)
+- **Docker:** Docker Desktop 4.x or Docker Engine 24+
+
+For local development only:
+
+- Node.js 20+, npm 10+
+
+---
+
+## Team Setup
+
+EternalNotes supports multi-user access from a single server. One person hosts; everyone else connects via browser.
+
+1. The host runs `docker compose up -d` on a machine or VPS reachable by the team (e.g. `http://192.168.1.10:3000`)
+2. The host creates the first account — this becomes the owner account
+3. The owner invites teammates: go to **Account → Workspaces**, create a workspace, and share the invite link (valid 7 days)
+4. Teammates open the server URL, click the invite link, and create their own accounts
+5. All notes and data stay on the host's machine — nothing leaves the network
+
+The $399 team license covers up to 20 users on a single installation. Each person gets their own private note vault; workspaces allow selective sharing.
+
+---
+
 ## Local Setup
 
 ```bash
@@ -147,6 +177,27 @@ Notes remain free without any AI key. Users can then either:
 
 - enter their own OpenAI key in Account settings for BYOK AI
 - use a hosted AI plan if the server has `HOSTED_OPENAI_API_KEY` configured
+
+## Production Setup
+
+When running with `.env.demo`, EternalNotes displays a warning banner — sessions will not survive restarts because the demo uses ephemeral secrets.
+
+To remove the banner and run securely:
+
+```bash
+# Generate two independent secrets
+openssl rand -hex 32   # → paste as AUTH_SESSION_SECRET
+openssl rand -hex 32   # → paste as PERSONAL_API_KEY_SECRET
+```
+
+Edit your `.env` and set those values, then also set `DEMO_MODE=false` (or remove the line). Restart the stack:
+
+```bash
+docker compose down
+docker compose up -d
+```
+
+---
 
 ## Home Server Deployment
 
