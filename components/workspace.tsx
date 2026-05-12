@@ -3139,7 +3139,7 @@ function SideRail(props: {
           </RailIconButton>
           <div className="group relative flex justify-center">
             <a
-              href="https://discord.gg/9YHgyNvy9k"
+              href="https://discord.gg/6hhxtpzkAE"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Discord community"
@@ -5596,7 +5596,7 @@ function FeedbackModal({ onClose, onSent }: { onClose: () => void; onSent: () =>
         </div>
         <div className="flex items-center justify-between border-t border-ink-700/80 px-5 py-4">
           <a
-            href="https://discord.gg/9YHgyNvy9k"
+            href="https://discord.gg/6hhxtpzkAE"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 text-xs text-ink-500 hover:text-[#5865F2] transition-colors"

@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Cookie Policy — EternalNotes",
+  title: "Cookie Policy â€” EternalNotes",
   description: "Cookie Policy for EternalNotes",
 };
 
@@ -13,14 +13,14 @@ export default function CookiesPage() {
 
       <p>
         This page explains how EternalNotes uses cookies and browser storage. We keep
-        this minimal — there is no advertising, no cross-site tracking, and no third-party
+        this minimal â€” there is no advertising, no cross-site tracking, and no third-party
         analytics cookies.
       </p>
 
       <h2>1. What Is a Cookie?</h2>
       <p>
         A cookie is a small piece of data stored in your browser by a website. Cookies can
-        be used for many purposes — from keeping you logged in to tracking your behaviour
+        be used for many purposes â€” from keeping you logged in to tracking your behaviour
         across the internet. EternalNotes only uses cookies for the former.
       </p>
 
@@ -39,7 +39,7 @@ export default function CookiesPage() {
           <tbody>
             <tr>
               <td><code>studyos_session</code></td>
-              <td>Keeps you logged in. Contains a hashed session token — not your password or any personal data.</td>
+              <td>Keeps you logged in. Contains a hashed session token â€” not your password or any personal data.</td>
               <td>30 days</td>
               <td>Essential</td>
             </tr>
@@ -56,7 +56,7 @@ export default function CookiesPage() {
       <h2>3. Browser Storage (localStorage)</h2>
       <p>
         EternalNotes also stores some data in your browser's <code>localStorage</code>. This
-        is not a cookie — it stays on your device and is never sent to our servers. It is used
+        is not a cookie â€” it stays on your device and is never sent to our servers. It is used
         to remember your preferences between sessions:
       </p>
       <ul>
@@ -99,8 +99,9 @@ export default function CookiesPage() {
       <h2>7. Contact</h2>
       <p>
         Questions? <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a>{" "}
-        or <a href="https://discord.gg/9YHgyNvy9k" target="_blank" rel="noopener noreferrer">Discord</a>.
+        or <a href="https://discord.gg/6hhxtpzkAE" target="_blank" rel="noopener noreferrer">Discord</a>.
       </p>
     </article>
   );
 }
+

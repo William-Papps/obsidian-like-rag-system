@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Contact & Legal — EternalNotes",
+  title: "Contact & Legal â€” EternalNotes",
   description: "Contact information and legal enquiries for EternalNotes",
 };
 
@@ -22,8 +22,8 @@ export default function ContactPage() {
         active and can respond quickly.
       </p>
       <p>
-        <a href="https://discord.gg/9YHgyNvy9k" target="_blank" rel="noopener noreferrer">
-          Join the EternalNotes Discord →
+        <a href="https://discord.gg/6hhxtpzkAE" target="_blank" rel="noopener noreferrer">
+          Join the EternalNotes Discord â†’
         </a>
       </p>
 
@@ -66,3 +66,4 @@ export default function ContactPage() {
     </article>
   );
 }
+

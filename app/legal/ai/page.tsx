@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "AI Usage Disclaimer — EternalNotes",
+  title: "AI Usage Disclaimer â€” EternalNotes",
   description: "AI Usage Disclaimer for EternalNotes",
 };
 
@@ -22,7 +22,7 @@ export default function AiDisclaimerPage() {
         EternalNotes uses a technique called <strong>Retrieval-Augmented Generation (RAG)</strong>.
         When you ask a question, the system searches your indexed notes and documents for
         relevant passages, then uses an AI language model to compose an answer based on what
-        it found. This means AI responses are grounded in your own content — not the open
+        it found. This means AI responses are grounded in your own content â€” not the open
         internet.
       </p>
 
@@ -44,10 +44,10 @@ export default function AiDisclaimerPage() {
         kind, including:
       </p>
       <ul>
-        <li><strong>Legal advice</strong> — AI summaries of legal documents are not a substitute for a lawyer</li>
-        <li><strong>Medical advice</strong> — AI outputs about health topics are not a substitute for a doctor</li>
-        <li><strong>Financial advice</strong> — AI summaries of financial content are not investment guidance</li>
-        <li><strong>Academic advice</strong> — AI-generated study content should not replace thorough study</li>
+        <li><strong>Legal advice</strong> â€” AI summaries of legal documents are not a substitute for a lawyer</li>
+        <li><strong>Medical advice</strong> â€” AI outputs about health topics are not a substitute for a doctor</li>
+        <li><strong>Financial advice</strong> â€” AI summaries of financial content are not investment guidance</li>
+        <li><strong>Academic advice</strong> â€” AI-generated study content should not replace thorough study</li>
       </ul>
       <p>
         You remain responsible for all decisions you make based on information from the platform.
@@ -59,11 +59,11 @@ export default function AiDisclaimerPage() {
       </p>
       <ul>
         <li>
-          <strong>Locally via Ollama</strong> — all processing happens on the server, nothing
+          <strong>Locally via Ollama</strong> â€” all processing happens on the server, nothing
           is sent externally
         </li>
         <li>
-          <strong>Via OpenAI (your own key or a hosted key)</strong> — relevant excerpts from
+          <strong>Via OpenAI (your own key or a hosted key)</strong> â€” relevant excerpts from
           your documents and your query text are sent to OpenAI's API to generate a response.
           OpenAI's usage policies and privacy practices apply.
         </li>
@@ -97,8 +97,9 @@ export default function AiDisclaimerPage() {
       <p>
         Questions about how AI is used in EternalNotes? Contact us at{" "}
         <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a> or
-        via <a href="https://discord.gg/9YHgyNvy9k" target="_blank" rel="noopener noreferrer">Discord</a>.
+        via <a href="https://discord.gg/6hhxtpzkAE" target="_blank" rel="noopener noreferrer">Discord</a>.
       </p>
     </article>
   );
 }
+

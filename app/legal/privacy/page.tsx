@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Privacy Policy — EternalNotes",
+  title: "Privacy Policy â€” EternalNotes",
   description: "Privacy Policy for EternalNotes",
 };
 
@@ -37,7 +37,7 @@ export default function PrivacyPage() {
       <p>
         Any notes you write or documents you upload (PDFs, Word files, text files) are stored
         on the server running EternalNotes. We do not read, sell, or share your content.
-        Your content is used solely to provide the Service to you — for example, to answer
+        Your content is used solely to provide the Service to you â€” for example, to answer
         your questions using AI retrieval.
       </p>
 
@@ -57,7 +57,7 @@ export default function PrivacyPage() {
 
       <h3>Browser storage</h3>
       <p>
-        We store UI preferences in your browser's <code>localStorage</code> — things like
+        We store UI preferences in your browser's <code>localStorage</code> â€” things like
         your theme choice, panel sizes, and pinned notes. This data never leaves your device
         and is not sent to our servers.
       </p>
@@ -79,7 +79,7 @@ export default function PrivacyPage() {
         <li>
           <strong>Hosted AI key:</strong> If a server-side AI key is configured by the operator,
           your query text and relevant document excerpts may be sent to OpenAI on your behalf.
-          Only the information needed to answer your question is sent — not your entire note
+          Only the information needed to answer your question is sent â€” not your entire note
           library.
         </li>
       </ul>
@@ -141,7 +141,7 @@ export default function PrivacyPage() {
       <p>
         To exercise any of these rights, contact us at{" "}
         <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a>. We do not
-        currently have a self-serve data export or deletion tool — requests are handled manually.
+        currently have a self-serve data export or deletion tool â€” requests are handled manually.
       </p>
 
       <h2>10. Children</h2>
@@ -167,8 +167,9 @@ export default function PrivacyPage() {
       <h2>13. Contact</h2>
       <p>
         Privacy questions or data requests: <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a>{" "}
-        or our <a href="https://discord.gg/9YHgyNvy9k" target="_blank" rel="noopener noreferrer">Discord community</a>.
+        or our <a href="https://discord.gg/6hhxtpzkAE" target="_blank" rel="noopener noreferrer">Discord community</a>.
       </p>
     </article>
   );
 }
+

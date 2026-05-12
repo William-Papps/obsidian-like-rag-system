@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Refund & Cancellation Policy — EternalNotes",
+  title: "Refund & Cancellation Policy â€” EternalNotes",
   description: "Refund and Cancellation Policy for EternalNotes",
 };
 
@@ -14,7 +14,7 @@ export default function RefundsPage() {
       <h2>1. Current Billing Model</h2>
       <p>
         EternalNotes currently operates on a free-tier model. Paid plan upgrades, where available,
-        are arranged manually — there is no automated subscription billing or card processing
+        are arranged manually â€” there is no automated subscription billing or card processing
         at this time. No payment card details are collected or stored by EternalNotes.
       </p>
 
@@ -33,7 +33,7 @@ export default function RefundsPage() {
           <strong>Cancellation:</strong> You can request cancellation of your paid plan at any
           time by contacting us at{" "}
           <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a> or
-          via <a href="https://discord.gg/9YHgyNvy9k" target="_blank" rel="noopener noreferrer">Discord</a>.
+          via <a href="https://discord.gg/6hhxtpzkAE" target="_blank" rel="noopener noreferrer">Discord</a>.
           Your access will continue until the end of the paid period.
         </li>
         <li>
@@ -63,9 +63,10 @@ export default function RefundsPage() {
       <h2>6. Contact</h2>
       <p>
         Billing or refund queries: <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a>{" "}
-        or <a href="https://discord.gg/9YHgyNvy9k" target="_blank" rel="noopener noreferrer">Discord</a>.
+        or <a href="https://discord.gg/6hhxtpzkAE" target="_blank" rel="noopener noreferrer">Discord</a>.
         We aim to respond within 2 business days.
       </p>
     </article>
   );
 }
+

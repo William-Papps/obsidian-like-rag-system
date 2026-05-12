@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Terms of Service — EternalNotes",
+  title: "Terms of Service â€” EternalNotes",
   description: "Terms of Service for EternalNotes",
 };
 
@@ -85,7 +85,7 @@ export default function TermsPage() {
       <h2>8. Subscriptions and Payments</h2>
       <p>
         EternalNotes currently offers a free tier. Paid plans, where available, are handled
-        manually — there is no automated billing at this time. Any payment arrangements will
+        manually â€” there is no automated billing at this time. Any payment arrangements will
         be communicated to you directly. See our <a href="/legal/refunds">Refund Policy</a> for
         details on cancellations and refunds.
       </p>
@@ -135,8 +135,9 @@ export default function TermsPage() {
       <h2>14. Contact</h2>
       <p>
         Questions about these Terms? Reach us at <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a> or
-        via our <a href="https://discord.gg/9YHgyNvy9k" target="_blank" rel="noopener noreferrer">Discord community</a>.
+        via our <a href="https://discord.gg/6hhxtpzkAE" target="_blank" rel="noopener noreferrer">Discord community</a>.
       </p>
     </article>
   );
 }
+

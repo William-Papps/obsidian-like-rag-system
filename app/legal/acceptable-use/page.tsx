@@ -1,7 +1,7 @@
-import type { Metadata } from "next";
+﻿import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Acceptable Use Policy — EternalNotes",
+  title: "Acceptable Use Policy â€” EternalNotes",
   description: "Acceptable Use Policy for EternalNotes",
 };
 
@@ -56,7 +56,7 @@ export default function AcceptableUsePage() {
       <p>
         When using AI features, you must not attempt to manipulate AI outputs in ways that
         cause harm to others, generate illegal content, or circumvent safety measures.
-        AI tools are provided to help you learn from your own content — not to produce
+        AI tools are provided to help you learn from your own content â€” not to produce
         content intended to deceive, harm, or violate the rights of others.
       </p>
 
@@ -77,7 +77,7 @@ export default function AcceptableUsePage() {
       <p>
         If you believe someone is violating this policy, please report it at{" "}
         <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a> or
-        via our <a href="https://discord.gg/9YHgyNvy9k" target="_blank" rel="noopener noreferrer">Discord</a>.
+        via our <a href="https://discord.gg/6hhxtpzkAE" target="_blank" rel="noopener noreferrer">Discord</a>.
       </p>
 
       <h2>8. Changes to This Policy</h2>
@@ -88,3 +88,4 @@ export default function AcceptableUsePage() {
     </article>
   );
 }
+
