@@ -3373,45 +3373,36 @@ function AssistantPanel(props: {
   ];
 
   return (
-    <aside className="panel-shell grid h-full min-h-0 grid-rows-[72px_70px_minmax(0,1fr)] overflow-hidden border-l">
-      <div className="flex min-w-0 items-center justify-between gap-2 border-b border-white/[0.06] px-4">
-        <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-accent-500/30 bg-accent-500/15">
-              <Sparkles className="h-3.5 w-3.5 text-accent-400" />
-            </div>
-            <div className="text-sm font-semibold text-ink-100">Knowledge Tools</div>
+    <aside className="panel-shell flex h-full min-h-0 flex-col overflow-hidden border-l">
+      <div className="shrink-0 border-b border-white/[0.06] px-4 py-3">
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-accent-500/30 bg-accent-500/15">
+            <Sparkles className="h-3.5 w-3.5 text-accent-400" />
           </div>
-          <div className="mt-0.5 flex items-center gap-1.5 text-xs text-ink-500">
-            <ShieldCheck className="h-3 w-3 text-accent-400/70" />
-            Cited from your documents
-          </div>
-        </div>
-        <div className="flex min-w-0 shrink-0 items-center gap-2">
+          <span className="min-w-0 flex-1 text-sm font-semibold text-ink-100">Study tools</span>
           <ScopeSelect {...props} />
-          <IconButton label="Hide tools panel" onClick={props.onHide}>
-            <PanelRightClose className="h-4 w-4" />
-          </IconButton>
+          <button title="Hide tools panel" aria-label="Hide tools panel" onClick={props.onHide} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+            <PanelRightClose className="h-3.5 w-3.5" />
+          </button>
         </div>
       </div>
-      <div className="relative flex min-w-0 overflow-x-auto overflow-y-hidden border-b border-white/[0.06] bg-white/[0.015]">
-        {tabs.map(([id, fullLabel, shortLabel, icon]) => (
+      <div className="shrink-0 flex overflow-x-auto border-b border-white/[0.06]">
+        {tabs.map(([id, fullLabel, , icon]) => (
           <button
             key={id}
             onClick={() => props.setTab(id)}
             title={fullLabel}
-            className={`relative flex flex-1 flex-col items-center justify-center gap-1 py-2 text-[10px] font-medium transition-all duration-150 ${
+            className={`relative flex flex-1 items-center justify-center py-2.5 transition-colors duration-150 ${
               props.tab === id
                 ? "text-accent-300 after:absolute after:bottom-0 after:left-1 after:right-1 after:h-[2px] after:rounded-full after:bg-accent-500"
                 : "text-ink-500 hover:text-ink-300"
             }`}
           >
-            <span className={props.tab === id ? "text-accent-400" : ""}>{icon}</span>
-            <span>{shortLabel}</span>
+            {icon}
           </button>
         ))}
       </div>
-      <div className="min-h-0 overflow-auto p-4">
+      <div className="min-h-0 flex-1 overflow-auto p-4">
         <PanelErrorBoundary label={props.tab}>
           <div key={props.tab} className="animate-[fadeIn_220ms_ease-out]">
             {props.tab === "ask" ? <AskTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} sampleWorkspace={props.sampleWorkspace} indexingNotes={props.indexingNotes} notesNeedPrep={props.notesNeedPrep} onPrepareNotes={props.onPrepareNotes} preparingNotes={props.preparingNotes} /> : null}
