@@ -61,6 +61,9 @@ export function registerNodeJs() {
 
   scheduleAutoBackup();
 
+  const dataDir = process.env.DATA_DIR?.trim() || path.join(process.env.APP_DIR?.trim() || process.cwd(), "data");
+  console.log(`[EternalNotes] Data stored at: ${dataDir} — back up this directory to preserve your notes, settings, and secrets.`);
+
   const hostedKey = process.env.HOSTED_OPENAI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim() || "";
   if (hostedKey && !/^[Ss][Kk]-/.test(hostedKey)) {
     console.error(

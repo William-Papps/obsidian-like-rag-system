@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  output: "standalone",
   allowedDevOrigins: ["notes.eternalbot.net"],
   // Prevent pdf-parse and mammoth from being bundled — they rely on
   // Node.js file system access at init time and must run as native modules.
