@@ -44,9 +44,6 @@ function inline(raw: string, onWikilink?: (title: string) => void): string {
     .replace(/!\[([^\]]*)\]\((\/api\/images\/[^)]+)\)/g, (_, alt, src) =>
       `<img src="${src}" alt="${escapeHtml(alt)}" class="md-img" loading="lazy" />`
     )
-    .replace(/!\[([^\]]*)\]\((data:image\/[^)]+)\)/g, (_, alt, src) =>
-      `<img src="${src}" alt="${escapeHtml(alt)}" class="md-img" loading="lazy" />`
-    )
     .replace(/!\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g, (_, alt, src) =>
       `<img src="${safeHref(src)}" alt="${escapeHtml(alt)}" class="md-img" loading="lazy" />`
     )

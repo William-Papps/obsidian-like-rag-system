@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, ImageIcon, Sparkles, Upload, X } from "lucide-react";
+import { FileText, Sparkles, Upload, X } from "lucide-react";
 import { useRef, useState } from "react";
 
 type DocumentImportModalProps = {
@@ -25,41 +25,8 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
   const [statusText, setStatusText] = useState("");
   const [enhanceStructure, setEnhanceStructure] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const embedInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
-
-  const handleEmbedImageSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    if (file.size > 5 * 1024 * 1024) {
-      notify("Image too large — max 5 MB for embedded diagrams", "error");
-      if (embedInputRef.current) embedInputRef.current.value = "";
-      return;
-    }
-    setIsLoading(true);
-    setStatusText("Embedding image…");
-    try {
-      const dataUri = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
-      const noteName = file.name.replace(/\.[^/.]+$/, "");
-      const noteTitle = title.trim() || noteName;
-      const markdown = `# ${noteTitle}\n\n![${noteTitle}](${dataUri})`;
-      notify("Diagram embedded", "success");
-      onImport(markdown, noteName, { importMode: "single", title: noteTitle });
-      onClose();
-    } catch {
-      notify("Failed to embed image", "error");
-    } finally {
-      setIsLoading(false);
-      setStatusText("");
-      if (embedInputRef.current) embedInputRef.current.value = "";
-    }
-  };
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -305,37 +272,6 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
                   placeholder="Paste document text, meeting notes, research, or reports here..."
                   className="min-h-[120px] w-full rounded-lg border border-graphite-rail bg-black px-3 py-2 text-sm text-ink-100 placeholder-ink-500 focus:border-electric-blue/50 focus:outline-none"
                 />
-              </div>
-
-              {/* Divider */}
-              <div className="flex items-center gap-3">
-                <div className="h-px flex-1 bg-graphite-rail/50" />
-                <span className="text-xs text-ink-500">OR</span>
-                <div className="h-px flex-1 bg-graphite-rail/50" />
-              </div>
-
-              {/* Embed diagram */}
-              <div>
-                <label className="mb-1 block text-sm font-medium text-ink-300">Embed Diagram</label>
-                <p className="mb-2 text-xs leading-5 text-ink-500">
-                  Saves the image directly inside the note so it renders visually in preview mode. Max 5 MB.
-                </p>
-                <div className="relative cursor-pointer" onClick={() => embedInputRef.current?.click()}>
-                  <input
-                    ref={embedInputRef}
-                    type="file"
-                    accept="image/png,image/jpeg,image/webp,image/gif,image/bmp,image/tiff"
-                    onChange={handleEmbedImageSelect}
-                    className="hidden"
-                  />
-                  <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-graphite-rail/60 px-4 py-6 transition hover:border-electric-blue/40 hover:bg-electric-blue/5">
-                    <div className="text-center">
-                      <ImageIcon className="mx-auto mb-2 h-7 w-7 text-ink-500" />
-                      <p className="text-sm font-medium text-ink-300">Click to embed an image</p>
-                      <p className="mt-1 text-xs text-ink-500">PNG, JPG, WebP, GIF — renders in preview</p>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
 
