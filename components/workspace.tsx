@@ -201,7 +201,7 @@ export function Workspace() {
   const [openNoteIds, setOpenNoteIds] = useState<string[]>([]);
   const [pinnedNoteIds, setPinnedNoteIds] = useState<string[]>(() => readStoredJson("studyos:pinnedNotes", []));
   const [vaultRootId, setVaultRootId] = useState<string>(() => readStoredJson("studyos:vaultRootId", "__all__"));
-  const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>({});
+  const [collapsedFolders, setCollapsedFolders] = useState<Record<string, boolean>>(() => readStoredJson("studyos:collapsedFolders", {}));
   const [toast, setToast] = useState<Toast | null>(null);
   const [vaultMenu, setVaultMenu] = useState<VaultMenu>(null);
   const [dragItem, setDragItem] = useState<DragItem>(null);
@@ -1729,7 +1729,7 @@ export function Workspace() {
   const renderFolderNode = (folder: FolderType, depth = 0): ReactNode => {
     const folderNotes = vaultNotes.filter((note) => note.folderId === folder.id);
     const childFolders = data.folders.filter((child) => child.parentId === folder.id);
-    const collapsed = collapsedFolders[folder.id] ?? false;
+    const collapsed = collapsedFolders[folder.id] ?? true;
     return (
       <div key={folder.id} className="rounded-lg" style={{ marginLeft: depth ? 12 : 0 }}>
         <FolderRow
@@ -1740,7 +1740,11 @@ export function Workspace() {
           depth={depth}
           dragActive={dragItem?.id !== folder.id}
           onClick={() => setScope({ type: "folder", folderId: folder.id })}
-          onToggle={() => setCollapsedFolders((current) => ({ ...current, [folder.id]: !collapsed }))}
+          onToggle={() => setCollapsedFolders((current) => {
+            const next = { ...current, [folder.id]: !collapsed };
+            try { localStorage.setItem("studyos:collapsedFolders", JSON.stringify(next)); } catch { /* storage unavailable */ }
+            return next;
+          })}
           onCreate={() => createNote(folder.id)}
           onCreateFolder={() => createFolder(folder.id)}
           onCreateLecture={() => createLectureWorkflow(folder)}
