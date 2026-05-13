@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ChevronDown, ChevronRight, FileText, Folder, FolderOpen } from "lucide-react";
+import { ChevronDown, ChevronRight, Download, FileText, Folder, FolderOpen, Loader2 } from "lucide-react";
 import { MarkdownPreview } from "@/components/markdown";
 
 type FolderNode = { id: string; name: string; parentId: string | null };
@@ -90,6 +90,7 @@ export default function PublicFolderSharePage({ params }: { params: Promise<{ to
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [token, setToken] = useState<string | null>(null);
+  const [importState, setImportState] = useState<"idle" | "loading" | "done" | "needsAuth">("idle");
 
   useEffect(() => {
     params.then((p) => setToken(p.token));
@@ -129,18 +130,57 @@ export default function PublicFolderSharePage({ params }: { params: Promise<{ to
 
   const selectedNote = data.notes.find((n) => n.id === selectedNoteId) ?? null;
 
-  function toggleFolder(id: string) {
-    setCollapsed((prev) => ({ ...prev, [id]: !prev[id] }));
+  function toggleFolder(folderId: string) {
+    setCollapsed((prev) => ({ ...prev, [folderId]: !prev[folderId] }));
+  }
+
+  async function handleImport() {
+    if (!token) return;
+    setImportState("loading");
+    const res = await fetch(`/api/public/folder/${token}/import`, { method: "POST" });
+    if (res.status === 401) { setImportState("needsAuth"); return; }
+    if (res.ok) { setImportState("done"); return; }
+    setImportState("idle");
   }
 
   return (
     <div className="flex h-screen bg-ink-950 text-ink-100">
       {/* Sidebar */}
       <aside className="flex w-60 shrink-0 flex-col border-r border-graphite-rail">
-        <div className="border-b border-graphite-rail px-4 py-4">
-          <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">Shared Folder</div>
-          <div className="mt-1 truncate text-sm font-semibold text-ink-100">{data.folderName}</div>
-          <div className="mt-0.5 text-xs text-ink-500">{data.notes.length} {data.notes.length === 1 ? "note" : "notes"}</div>
+        <div className="border-b border-graphite-rail px-4 py-4 space-y-3">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-wider text-ink-500">Shared Folder</div>
+            <div className="mt-1 truncate text-sm font-semibold text-ink-100">{data.folderName}</div>
+            <div className="mt-0.5 text-xs text-ink-500">{data.notes.length} {data.notes.length === 1 ? "note" : "notes"}</div>
+          </div>
+          {importState === "done" ? (
+            <a
+              href="/"
+              className="flex w-full items-center justify-center gap-1.5 rounded-[6px] border border-electric-blue px-3 py-1.5 text-xs font-semibold text-white hover:bg-electric-blue/10 transition-colors"
+            >
+              Imported — open workspace
+            </a>
+          ) : importState === "needsAuth" ? (
+            <a
+              href={`/auth?next=${encodeURIComponent(typeof window !== "undefined" ? window.location.pathname : "")}`}
+              className="flex w-full items-center justify-center gap-1.5 rounded-[6px] border border-graphite-rail px-3 py-1.5 text-xs font-medium text-ink-300 hover:bg-graphite-rail/30 transition-colors"
+            >
+              Sign in to import
+            </a>
+          ) : (
+            <button
+              onClick={() => void handleImport()}
+              disabled={importState === "loading"}
+              className="flex w-full items-center justify-center gap-1.5 rounded-[6px] border border-electric-blue px-3 py-1.5 text-xs font-semibold text-white hover:bg-electric-blue/10 transition-colors disabled:opacity-60"
+            >
+              {importState === "loading" ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Download className="h-3 w-3" />
+              )}
+              {importState === "loading" ? "Importing…" : "Import to my workspace"}
+            </button>
+          )}
         </div>
         <nav className="flex-1 overflow-y-auto p-2">
           <FolderTree
