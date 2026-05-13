@@ -44,7 +44,7 @@ function JoinPageInner() {
   }, [token]);
 
   return (
-    <div className="w-full max-w-sm rounded-2xl border border-ink-700 bg-ink-900 p-8 shadow-panel text-center">
+    <div className="w-full max-w-sm rounded-2xl border border-graphite-rail bg-[#0b0e14] p-8 text-center">
       {status === "loading" ? (
         <>
           <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-accent-400" />
@@ -52,10 +52,10 @@ function JoinPageInner() {
         </>
       ) : status === "success" ? (
         <>
-          <CheckCircle className="mx-auto mb-4 h-8 w-8 text-emerald-400" />
+          <CheckCircle className="mx-auto mb-4 h-8 w-8 text-delivered-green" />
           <div className="mb-1 text-lg font-semibold text-ink-100">You joined {workspaceName}</div>
           <div className="mb-6 text-sm text-ink-500">You now have access to all shared documents.</div>
-          <a href="/" className="inline-block rounded-lg bg-accent-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-accent-400">
+          <a href="/" className="inline-block rounded-[6px] border border-electric-blue px-5 py-2.5 text-sm font-semibold text-white hover:bg-electric-blue/10 transition-colors">
             Open workspace
           </a>
         </>
@@ -75,7 +75,7 @@ export default function WorkspaceJoinPage() {
   return (
     <main className="flex min-h-screen items-center justify-center bg-ink-950 p-4">
       <Suspense fallback={
-        <div className="w-full max-w-sm rounded-2xl border border-ink-700 bg-ink-900 p-8 text-center">
+        <div className="w-full max-w-sm rounded-2xl border border-graphite-rail bg-[#0b0e14] p-8 text-center">
           <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-accent-400" />
           <div className="text-ink-300">Loading…</div>
         </div>

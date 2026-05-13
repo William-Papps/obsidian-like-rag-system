@@ -20,7 +20,7 @@ export function CookieBanner() {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-ink-700/80 bg-ink-950/95 px-4 py-3 backdrop-blur-xl">
+    <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-graphite-rail bg-black/95 px-4 py-3 backdrop-blur-xl">
       <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
         <p className="text-xs text-ink-400">
           We use one session cookie to keep you logged in — no tracking or advertising.{" "}
@@ -30,7 +30,7 @@ export function CookieBanner() {
         </p>
         <button
           onClick={dismiss}
-          className="shrink-0 rounded-lg border border-ink-700 px-3 py-1.5 text-xs font-medium text-ink-300 hover:bg-ink-800 transition-colors"
+          className="shrink-0 rounded-lg border border-graphite-rail px-3 py-1.5 text-xs font-medium text-ink-300 hover:bg-graphite-rail/40 transition-colors"
         >
           Got it
         </button>

@@ -300,14 +300,8 @@ export function AccountPage({
 
   return (
     <main className="min-h-screen bg-ink-950 text-ink-100">
-      {/* Ambient background glow */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute left-1/4 top-0 h-[500px] w-[700px] -translate-x-1/2 rounded-full bg-accent-500/8 blur-[120px]" />
-        <div className="absolute right-1/4 bottom-1/4 h-[400px] w-[600px] rounded-full bg-accent-600/6 blur-[100px]" />
-      </div>
-
       {/* Top bar */}
-      <div className="relative border-b border-white/[0.06] bg-ink-950/80 backdrop-blur-xl">
+      <div className="relative border-b border-graphite-rail bg-black/80 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <div className="min-w-0">
             <Link href="/" className="inline-flex items-center gap-2 text-xs font-medium text-ink-500 transition-colors hover:text-ink-300">
@@ -320,7 +314,7 @@ export function AccountPage({
           <button
             onClick={signOut}
             disabled={signingOut}
-            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.04] px-4 text-sm font-medium text-ink-300 transition-colors hover:bg-white/[0.07] hover:text-ink-100 disabled:opacity-60"
+            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-graphite-rail bg-black/30 px-4 text-sm font-medium text-ink-300 transition-colors hover:bg-graphite-rail/40 hover:text-ink-100 disabled:opacity-60"
           >
             {signingOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
             Sign out
@@ -330,12 +324,12 @@ export function AccountPage({
 
       <div className="relative mx-auto grid w-full max-w-[1440px] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         {/* Sidebar */}
-        <aside className="h-fit rounded-2xl border border-white/[0.08] bg-ink-900/60 p-3 shadow-panel backdrop-blur-xl lg:sticky lg:top-6">
+        <aside className="h-fit rounded-2xl border border-graphite-rail bg-[#0b0e14] p-3 backdrop-blur-xl lg:sticky lg:top-6">
           {/* User card */}
           <div className="relative overflow-hidden rounded-xl border border-accent-500/20 bg-gradient-to-br from-accent-500/15 via-accent-600/10 to-transparent p-4">
             <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-accent-400/5 to-transparent" />
             <div className="relative flex items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent-500 to-accent-600 text-sm font-bold text-white shadow-glow">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent-500 to-accent-600 text-sm font-bold text-white">
                 {initials}
               </div>
               <div className="min-w-0">
@@ -363,7 +357,7 @@ export function AccountPage({
                   className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors ${
                     active
                       ? "text-ink-100"
-                      : "text-ink-400 hover:bg-white/[0.03] hover:text-ink-200"
+                      : "text-ink-400 hover:bg-graphite-rail/20 hover:text-ink-200"
                   }`}
                 >
                   {active && (
@@ -416,7 +410,7 @@ export function AccountPage({
                       <MetricCard label="Display name" value={user.name} accent />
                       <MetricCard label="Email address" value={user.email} />
                     </div>
-                    <div className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.02] p-4 text-sm leading-6 text-ink-400">
+                    <div className="mt-4 rounded-xl border border-graphite-rail bg-black/20 p-4 text-sm leading-6 text-ink-400">
                       The note system stays free. AI usage can run on a personal API key or on a hosted plan backed by the server key if the server owner has configured one.
                     </div>
                   </GlassPanel>
@@ -434,7 +428,7 @@ export function AccountPage({
                             initial={{ opacity: 0, x: -8 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: i * 0.04 }}
-                            className="flex items-start justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-3 py-2.5"
+                            className="flex items-start justify-between gap-3 rounded-xl border border-graphite-rail bg-black/20 px-3 py-2.5"
                           >
                             <div>
                               <div className="text-sm font-medium text-ink-200">{formatActivity(item.kind)}</div>
@@ -489,7 +483,7 @@ export function AccountPage({
                           className={`relative overflow-hidden rounded-xl border-2 p-4 text-left transition-all ${
                             active
                               ? "border-accent-500/60 bg-accent-500/10 shadow-[0_0_24px_rgba(139,92,246,0.15)]"
-                              : "border-white/[0.08] hover:border-white/[0.14] hover:bg-white/[0.02]"
+                              : "border-graphite-rail hover:border-graphite-rail hover:bg-graphite-rail/10"
                           }`}
                         >
                           {active && (
@@ -529,7 +523,7 @@ export function AccountPage({
                       ? "border-success-400/25 bg-success-400/8 text-success-300"
                       : billing.subscription.plan !== "free" && billing.hostedAccessGranted
                       ? "border-accent-500/25 bg-accent-500/8 text-accent-300"
-                      : "border-white/[0.08] bg-white/[0.03] text-ink-400"
+                      : "border-graphite-rail bg-black/20 text-ink-400"
                   }`}>
                     <div className="flex items-center gap-2">
                       <Zap className="h-3.5 w-3.5 shrink-0" />
@@ -656,7 +650,7 @@ export function AccountPage({
                         </Field>
 
                         {settings.hostedKeyAvailable && hostedPlan !== "free" ? (
-                          <div className={`rounded-xl border p-4 ${billing.hostedAccessGranted ? "border-success-400/25 bg-success-400/8" : "border-white/[0.08] bg-white/[0.02]"}`}>
+                          <div className={`rounded-xl border p-4 ${billing.hostedAccessGranted ? "border-success-400/25 bg-success-400/8" : "border-graphite-rail bg-black/20"}`}>
                             <div className="flex items-center gap-2">
                               <div className={`h-1.5 w-1.5 rounded-full ${billing.hostedAccessGranted ? "bg-success-400" : "bg-ink-500"}`} />
                               <div className="text-xs font-semibold text-ink-500">Hosted key access</div>
@@ -716,7 +710,7 @@ export function AccountPage({
                         const userIsPro = billing.subscription.plan !== "free" || !!settings.maskedKey;
                         const unlocked = feat.free || userIsPro;
                         return (
-                          <div key={feat.label} className={`flex items-center justify-between rounded-lg border px-3 py-2 ${unlocked ? "border-white/[0.08] bg-white/[0.02]" : "border-white/[0.04] bg-transparent opacity-50"}`}>
+                          <div key={feat.label} className={`flex items-center justify-between rounded-lg border px-3 py-2 ${unlocked ? "border-graphite-rail bg-black/20" : "border-graphite-rail/40 bg-transparent opacity-50"}`}>
                             <span className="text-sm text-ink-300">{feat.label}</span>
                             <span className={`text-[11px] font-semibold ${feat.free ? "text-success-400" : "text-accent-400"}`}>
                               {feat.free ? "Personal" : "Pro"}
@@ -781,7 +775,7 @@ export function AccountPage({
                 <>
                   <GlassPanel>
                     <SectionHeading eyebrow="Backup" title="Export database snapshot" icon={<Download className="h-5 w-5" />} description="Download the SQLite database so you can restore notes and indexes later." />
-                    <div className="mt-6 rounded-xl border border-white/[0.08] bg-white/[0.02] p-4 text-sm leading-6 text-ink-400">
+                    <div className="mt-6 rounded-xl border border-graphite-rail bg-black/20 p-4 text-sm leading-6 text-ink-400">
                       This export includes the database only. Files under <code className="rounded bg-white/[0.06] px-1 py-0.5 text-xs">data/secrets</code> are not included and still need filesystem backup.
                     </div>
                     <div className="mt-4">
@@ -873,9 +867,9 @@ export function AccountPage({
                             initial={{ opacity: 0, y: 6 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ delay: i * 0.04 }}
-                            className="overflow-hidden rounded-xl border border-white/[0.08] bg-white/[0.02]"
+                            className="overflow-hidden rounded-xl border border-graphite-rail bg-black/20"
                           >
-                            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-white/[0.05]">
+                            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 border-b border-graphite-rail">
                               <div className="flex items-center gap-3 min-w-0">
                                 <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-accent-500/40 to-accent-600/30 text-xs font-bold text-accent-200">
                                   {userInitials}
@@ -893,7 +887,7 @@ export function AccountPage({
                               <div className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
                                 managedUser.disabledAt
                                   ? "border-danger-400/30 text-danger-400"
-                                  : "border-white/[0.1] text-ink-400"
+                                  : "border-graphite-rail text-ink-400"
                               }`}>
                                 {managedUser.disabledAt ? "Disabled" : managedUser.subscriptionStatus}
                               </div>
@@ -955,7 +949,7 @@ export function AccountPage({
                           initial={{ opacity: 0 }}
                           animate={{ opacity: 1 }}
                           transition={{ delay: i * 0.025 }}
-                          className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-white/[0.02] px-4 py-2.5"
+                          className="flex items-center justify-between gap-3 rounded-xl border border-graphite-rail bg-black/20 px-4 py-2.5"
                         >
                           <div>
                             <div className="text-sm font-medium text-ink-200">{log.event}</div>
@@ -964,7 +958,7 @@ export function AccountPage({
                           <div className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold ${
                             log.level === "warn" || log.level === "error"
                               ? "border-amber-400/25 text-amber-400"
-                              : "border-white/[0.08] text-ink-500"
+                              : "border-graphite-rail text-ink-500"
                           }`}>
                             {log.level}
                           </div>
@@ -986,7 +980,7 @@ export function AccountPage({
 
 function GlassPanel({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-white/[0.08] bg-ink-900/60 p-6 shadow-panel backdrop-blur-xl">
+    <div className="rounded-2xl border border-graphite-rail bg-[#0b0e14] p-6 backdrop-blur-xl">
       {children}
     </div>
   );
@@ -1018,7 +1012,7 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 function MetricCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className={`relative overflow-hidden rounded-xl border p-4 ${accent ? "border-accent-500/20 bg-accent-500/8" : "border-white/[0.08] bg-white/[0.02]"}`}>
+    <div className={`relative overflow-hidden rounded-xl border p-4 ${accent ? "border-accent-500/20 bg-accent-500/8" : "border-graphite-rail bg-black/20"}`}>
       {accent && <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-0.5 rounded-l-xl bg-gradient-to-b from-accent-400 to-accent-600" />}
       <div className="text-xs font-medium text-ink-500">{label}</div>
       <div className="mt-1.5 text-base font-semibold text-ink-100 truncate">{value}</div>
@@ -1028,7 +1022,7 @@ function MetricCard({ label, value, accent }: { label: string; value: string; ac
 
 function PillToggleLabel({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2.5">
+    <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-graphite-rail bg-black/20 px-3 py-2.5">
       <PillToggle checked={checked} onChange={onChange} />
       <span className="text-sm text-ink-300">{label}</span>
     </label>
@@ -1044,7 +1038,7 @@ function PillToggle({ checked, onChange, disabled }: { checked: boolean; onChang
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={`relative h-5 w-9 shrink-0 rounded-full border transition-colors ${
-        checked ? "border-accent-500/50 bg-accent-500" : "border-white/[0.15] bg-white/[0.08]"
+        checked ? "border-accent-500/50 bg-accent-500" : "border-graphite-rail bg-graphite-rail/30"
       } disabled:opacity-50`}
     >
       <motion.div
@@ -1070,7 +1064,7 @@ function ToggleCard({
   onChange: (checked: boolean) => void;
 }) {
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-white/[0.02] p-4">
+    <div className="rounded-xl border border-graphite-rail bg-black/20 p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
           <div className="text-sm font-semibold text-ink-100">{label}</div>
@@ -1084,7 +1078,7 @@ function ToggleCard({
 
 function ToggleInline({ label, checked, onChange }: { label: string; checked: boolean; onChange: (checked: boolean) => void }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.02] px-3 py-2 text-sm text-ink-300">
+    <label className="flex cursor-pointer items-center gap-2 rounded-lg border border-graphite-rail bg-black/20 px-3 py-2 text-sm text-ink-300">
       <PillToggle checked={checked} onChange={onChange} />
       <span className="text-xs font-medium">{label}</span>
     </label>
@@ -1123,7 +1117,7 @@ function PlanCard({ title, price, description, bullets, active, highlight }: { t
         ? highlight
           ? "border-accent-500/40 bg-accent-500/10 shadow-[0_0_30px_rgba(139,92,246,0.12)]"
           : "border-accent-500/30 bg-accent-500/8"
-        : "border-white/[0.08] bg-white/[0.02]"
+        : "border-graphite-rail bg-black/20"
     }`}>
       {active && highlight && (
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-accent-500/8 to-transparent" />
@@ -1169,7 +1163,7 @@ function PrimaryButton({
     <button
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex h-10 items-center justify-center gap-2 rounded-xl bg-accent-500 px-5 text-sm font-semibold text-white shadow-glow transition-all hover:bg-accent-400 hover:-translate-y-px disabled:opacity-60 disabled:transform-none"
+      className="inline-flex h-10 items-center justify-center gap-2 rounded-[6px] border border-electric-blue px-5 text-sm font-semibold text-white transition-colors hover:bg-electric-blue/10 disabled:opacity-60"
     >
       {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : icon}
       {children}
@@ -1184,7 +1178,7 @@ function NoticeBanner({ notice }: { notice: NonNullable<Notice> }) {
     info: "border-accent-500/25 bg-accent-500/10 text-accent-300"
   };
   return (
-    <div className={`rounded-xl border px-4 py-3 text-sm font-medium shadow-panel ${styles[notice.tone]}`}>
+    <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${styles[notice.tone]}`}>
       {notice.message}
     </div>
   );

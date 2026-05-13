@@ -119,9 +119,9 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
       <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={isLoading ? undefined : onClose} />
 
       {/* Modal */}
-      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-ink-700/80 bg-ink-900 shadow-2xl">
+      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-graphite-rail bg-[#0b0e14]">
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-ink-700/80 px-6 py-4">
+        <div className="flex items-center justify-between border-b border-graphite-rail px-6 py-4">
           <div>
             <h2 className="text-lg font-semibold text-ink-100">Import Document</h2>
             <p className="mt-1 text-xs text-ink-500">Convert DOCX, PDFs, screenshots, and plain text into Markdown notes</p>
@@ -140,7 +140,7 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
               </div>
 
               {selectedFile && (
-                <div className="w-full rounded-xl border border-white/[0.07] bg-white/[0.03] px-4 py-3 text-left">
+                <div className="w-full rounded-xl border border-graphite-rail bg-black/50 px-4 py-3 text-left">
                   <div className="truncate text-sm font-medium text-ink-100">{selectedFile.name}</div>
                   <div className="mt-0.5 text-xs text-ink-500">{formatBytes(selectedFile.size)}</div>
                 </div>
@@ -186,14 +186,14 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
                   <button
                     type="button"
                     onClick={() => setImportMode("single")}
-                    className={`rounded-lg border px-3 py-2 text-sm ${importMode === "single" ? "border-accent-500/40 bg-accent-500/10 text-accent-200" : "border-ink-700/80 text-ink-400 hover:bg-ink-800"}`}
+                    className={`rounded-lg border px-3 py-2 text-sm ${importMode === "single" ? "border-accent-500/40 bg-accent-500/10 text-accent-200" : "border-graphite-rail/50 text-ink-400 hover:bg-graphite-rail/20"}`}
                   >
                     Single note
                   </button>
                   <button
                     type="button"
                     onClick={() => setImportMode("split")}
-                    className={`rounded-lg border px-3 py-2 text-sm ${importMode === "split" ? "border-accent-500/40 bg-accent-500/10 text-accent-200" : "border-ink-700/80 text-ink-400 hover:bg-ink-800"}`}
+                    className={`rounded-lg border px-3 py-2 text-sm ${importMode === "split" ? "border-accent-500/40 bg-accent-500/10 text-accent-200" : "border-graphite-rail/50 text-ink-400 hover:bg-graphite-rail/20"}`}
                   >
                     Split by headings
                   </button>
@@ -207,7 +207,7 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
                 className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
                   enhanceStructure
                     ? "border-accent-500/40 bg-accent-500/8"
-                    : "border-ink-700/50 hover:border-ink-600/60 hover:bg-ink-800/40"
+                    : "border-graphite-rail hover:border-graphite-rail hover:bg-graphite-rail/20"
                 }`}
               >
                 <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${enhanceStructure ? "bg-accent-500/20" : "bg-ink-800"}`}>
@@ -228,7 +228,7 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
                   placeholder="Optional custom note title"
-                  className="w-full rounded-lg border border-ink-700/50 bg-ink-850 px-3 py-2 text-sm text-ink-100 placeholder-ink-500 focus:border-accent-500/50 focus:outline-none"
+                  className="w-full rounded-lg border border-graphite-rail bg-black px-3 py-2 text-sm text-ink-100 placeholder-ink-500 focus:border-electric-blue/50 focus:outline-none"
                 />
               </div>
 
@@ -243,7 +243,7 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
                     onChange={handleFileSelect}
                     className="hidden"
                   />
-                  <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-ink-700/50 px-4 py-8 transition hover:border-accent-500/50 hover:bg-accent-500/5">
+                  <div className="flex items-center justify-center rounded-lg border-2 border-dashed border-graphite-rail/60 px-4 py-8 transition hover:border-electric-blue/40 hover:bg-electric-blue/5">
                     <div className="text-center">
                       <Upload className="mx-auto mb-2 h-8 w-8 text-ink-500" />
                       <p className="text-sm font-medium text-ink-300">Click to upload a document</p>
@@ -270,23 +270,23 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
                   value={text}
                   onChange={(e) => setText(e.target.value)}
                   placeholder="Paste document text, meeting notes, research, or reports here..."
-                  className="min-h-[120px] w-full rounded-lg border border-ink-700/50 bg-ink-850 px-3 py-2 text-sm text-ink-100 placeholder-ink-500 focus:border-accent-500/50 focus:outline-none"
+                  className="min-h-[120px] w-full rounded-lg border border-graphite-rail bg-black px-3 py-2 text-sm text-ink-100 placeholder-ink-500 focus:border-electric-blue/50 focus:outline-none"
                 />
               </div>
             </div>
 
             {/* Footer */}
-            <div className="flex gap-3 border-t border-ink-700/80 px-6 py-4">
+            <div className="flex gap-3 border-t border-graphite-rail px-6 py-4">
               <button
                 onClick={onClose}
-                className="flex-1 rounded-lg border border-ink-700/80 px-4 py-2 text-sm font-medium text-ink-300 hover:bg-ink-800"
+                className="flex-1 rounded-lg border border-graphite-rail px-4 py-2 text-sm font-medium text-ink-300 hover:bg-graphite-rail/30 transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleTextImport}
                 disabled={!text.trim()}
-                className="flex-1 rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-ink-950 hover:bg-accent-400 disabled:opacity-60"
+                className="flex-1 rounded-[6px] border border-electric-blue px-4 py-2 text-sm font-semibold text-white hover:bg-electric-blue/10 transition-colors disabled:opacity-60"
               >
                 Convert & Import
               </button>

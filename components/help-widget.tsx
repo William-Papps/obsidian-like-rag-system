@@ -82,11 +82,14 @@ export function HelpWidget() {
     <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-3">
       {/* Chat panel */}
       {open ? (
-        <div className="flex h-[480px] w-[340px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-ink-900 shadow-panel">
+        <div className="flex h-[480px] w-[340px] flex-col overflow-hidden rounded-2xl border border-graphite-rail bg-[#0b0e14]">
           {/* Header */}
-          <div className="flex items-center justify-between border-b border-white/[0.07] bg-ink-875 px-4 py-3">
+          <div className="flex items-center justify-between border-b border-graphite-rail bg-black px-4 py-3">
             <div className="flex items-center gap-2.5">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-500">
+              <div
+                className="flex h-7 w-7 items-center justify-center rounded-lg"
+                style={{ background: "linear-gradient(to right bottom in oklab, rgb(146,129,247) 0%, rgb(154,84,220) 100%)" }}
+              >
                 <MessageCircle className="h-3.5 w-3.5 text-white" />
               </div>
               <div>
@@ -128,7 +131,7 @@ export function HelpWidget() {
                   <button
                     key={i}
                     onClick={() => send(faq.q)}
-                    className="flex w-full items-center justify-between rounded-xl border border-white/[0.07] bg-ink-800/50 px-3 py-2 text-left text-xs text-ink-300 transition-colors hover:border-accent-500/30 hover:bg-ink-800 hover:text-ink-100"
+                    className="flex w-full items-center justify-between rounded-xl border border-graphite-rail bg-black/50 px-3 py-2 text-left text-xs text-ink-300 transition-colors hover:border-electric-blue/30 hover:bg-graphite-rail/40 hover:text-ink-100"
                   >
                     <span>{faq.q}</span>
                     <ChevronRight className="ml-2 h-3 w-3 shrink-0 text-ink-600" />
@@ -140,8 +143,8 @@ export function HelpWidget() {
           </div>
 
           {/* Input */}
-          <div className="border-t border-white/[0.07] p-3">
-            <div className="flex items-center gap-2 rounded-xl border border-white/[0.08] bg-ink-800/60 px-3 py-2">
+          <div className="border-t border-graphite-rail p-3">
+            <div className="flex items-center gap-2 rounded-xl border border-graphite-rail bg-black/60 px-3 py-2">
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
@@ -152,7 +155,7 @@ export function HelpWidget() {
               <button
                 onClick={() => send(input)}
                 disabled={!input.trim()}
-                className="rounded-lg bg-accent-500 p-1.5 text-white transition-colors hover:bg-accent-400 disabled:opacity-40"
+                className="rounded-lg border border-electric-blue p-1.5 text-white transition-colors hover:bg-electric-blue/10 disabled:opacity-40"
               >
                 <ChevronRight className="h-3.5 w-3.5" />
               </button>
@@ -164,7 +167,8 @@ export function HelpWidget() {
       {/* Toggle button */}
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex h-14 w-14 items-center justify-center rounded-full bg-accent-500 shadow-glow transition-all hover:bg-accent-400 hover:scale-105 active:scale-95"
+        className="flex h-14 w-14 items-center justify-center rounded-full transition-all hover:scale-105 active:scale-95"
+        style={{ background: "linear-gradient(to right bottom in oklab, rgb(146,129,247) 0%, rgb(154,84,220) 100%)" }}
         aria-label="Open help chat"
       >
         {open ? <X className="h-5 w-5 text-white" /> : <MessageCircle className="h-5 w-5 text-white" />}

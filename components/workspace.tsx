@@ -1691,7 +1691,7 @@ export function Workspace() {
   if (!data) {
     return (
       <main className="grid min-h-screen place-items-center bg-ink-950 text-ink-100">
-        <div className="surface-soft shimmer flex w-72 items-center gap-3 rounded-lg px-4 py-3 text-sm text-ink-300 shadow-panel">
+        <div className="surface-soft shimmer flex w-72 items-center gap-3 rounded-lg px-4 py-3 text-sm text-ink-300">
           <Loader2 className="h-4 w-4 animate-spin text-accent-400" />
           Opening workspace
         </div>
@@ -1731,7 +1731,7 @@ export function Workspace() {
           }}
         />
         <div className={`overflow-hidden pl-4 transition-[max-height,opacity] duration-300 ease-premium ${collapsed ? "max-h-0 opacity-0" : "max-h-[720px] opacity-100"}`}>
-          <div className="ml-2 mt-1 space-y-1 border-l border-ink-700/70 pl-2">
+          <div className="ml-2 mt-1 space-y-1 border-l border-graphite-rail pl-2">
             {childFolders.map((child) => renderFolderNode(child, depth + 1))}
             {folderNotes.map((note) => (
               <NoteRow
@@ -1806,7 +1806,7 @@ export function Workspace() {
           style={{ ...workspaceGridStyle, height: isMobile ? "calc(100vh - 56px)" : "100vh" }}
         >
         <aside className={`panel-shell relative flex min-h-0 flex-col overflow-hidden border-r transition-opacity duration-200 ${leftOpen && !zenMode ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "vault" ? "hidden" : ""}`}>
-          <div className="shrink-0 border-b border-white/[0.06] px-3 pb-2.5 pt-2.5">
+          <div className="shrink-0 border-b border-graphite-rail px-3 pb-2.5 pt-2.5">
             {/* Workspace › Folder breadcrumb + actions */}
             <div className="flex min-w-0 items-center gap-1">
               {activeWorkspace ? <Users className="h-3 w-3 shrink-0 text-accent-400" /> : <BookOpen className="h-3 w-3 shrink-0 text-accent-400" />}
@@ -1834,19 +1834,19 @@ export function Workspace() {
                 ))}
               </select>
               <div className="ml-1 flex shrink-0 items-center gap-0.5">
-                <button title="New note" aria-label="New note" onClick={() => createNote()} className="grid h-6 w-6 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+                <button title="New note" aria-label="New note" onClick={() => createNote()} className="grid h-6 w-6 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
                   <FilePlus className="h-3.5 w-3.5" />
                 </button>
-                <button title="New folder" aria-label="New folder" onClick={() => createFolder()} className="grid h-6 w-6 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+                <button title="New folder" aria-label="New folder" onClick={() => createFolder()} className="grid h-6 w-6 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
                   <FolderPlus className="h-3.5 w-3.5" />
                 </button>
-                <button title="Export vault as zip" aria-label="Export vault as zip" onClick={() => void exportVaultAsZip()} className="grid h-6 w-6 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+                <button title="Export vault as zip" aria-label="Export vault as zip" onClick={() => void exportVaultAsZip()} className="grid h-6 w-6 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
                   <Download className="h-3.5 w-3.5" />
                 </button>
               </div>
             </div>
             {/* Search — inline below breadcrumb */}
-            <div className="mt-2 flex items-center gap-2 rounded-lg border border-ink-700/40 bg-ink-900/50 px-2.5 py-1.5">
+            <div className="mt-2 flex items-center gap-2 rounded-lg border border-graphite-rail bg-ink-900/50 px-2.5 py-1.5">
               <Search className="h-3.5 w-3.5 shrink-0 text-ink-500" />
               <input
                 type="text"
@@ -1887,7 +1887,7 @@ export function Workspace() {
                     <button
                       key={tag}
                       onClick={() => setSelectedTag(tag)}
-                      className="flex items-center gap-1 rounded-full border border-ink-700/60 bg-ink-900/40 px-2 py-0.5 text-xs text-ink-400 hover:border-accent-500/30 hover:text-ink-200"
+                      className="flex items-center gap-1 rounded-full border border-graphite-rail bg-ink-900/40 px-2 py-0.5 text-xs text-ink-400 hover:border-accent-500/30 hover:text-ink-200"
                     >
                       <Tag className="h-3 w-3" />
                       {tag}
@@ -1957,7 +1957,7 @@ export function Workspace() {
                   onClick={() => setScope({ type: "all" })}
                   className={`group mb-4 flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm ${
                     scope.type === "all"
-                      ? "border border-accent-500/30 bg-accent-500/10 text-accent-300 shadow-glow"
+                      ? "border border-accent-500/30 bg-accent-500/10 text-accent-300 "
                       : "control-soft text-ink-300"
                   }`}
                 >
@@ -2010,7 +2010,7 @@ export function Workspace() {
                           className={`flex w-full min-w-0 items-center gap-2 rounded-lg px-2.5 py-2 text-left text-xs ${
                             activeNoteId === note.id
                               ? "bg-accent-500/10 text-accent-200"
-                              : "text-ink-500 hover:bg-white/[0.04] hover:text-ink-200"
+                              : "text-ink-500 hover:bg-graphite-rail/20 hover:text-ink-200"
                           }`}
                         >
                           <Clock3 className="h-3.5 w-3.5 shrink-0" />
@@ -2035,7 +2035,7 @@ export function Workspace() {
                               className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-all ${
                                 activeNoteId === note.id
                                   ? "border-accent-500/30 bg-accent-500/10 text-ink-100"
-                                  : "border-transparent text-ink-300 hover:bg-white/[0.04] hover:text-ink-100"
+                                  : "border-transparent text-ink-300 hover:bg-graphite-rail/20 hover:text-ink-100"
                               }`}
                             >
                               <FileText className="h-3.5 w-3.5 shrink-0 text-ink-500" />
@@ -2114,7 +2114,7 @@ export function Workspace() {
             )}
           </div>
           {/* Documents section */}
-          <div className="mt-5 border-t border-white/[0.06] pt-4">
+          <div className="mt-5 border-t border-graphite-rail pt-4">
             <button
               onClick={() => setDocsOpen((o) => !o)}
               className="flex w-full items-center gap-1.5 px-1 pb-2 text-[11px] font-medium text-ink-400 hover:text-ink-200"
@@ -2132,7 +2132,7 @@ export function Workspace() {
                   <div className="px-2 py-3 text-center text-xs text-ink-500">No documents yet.</div>
                 )}
                 {data.documents.map((doc) => (
-                  <div key={doc.id} className="group flex items-center gap-1.5 rounded-lg px-2 py-1.5 hover:bg-white/[0.04]">
+                  <div key={doc.id} className="group flex items-center gap-1.5 rounded-lg px-2 py-1.5 hover:bg-graphite-rail/20">
                     <FileText className="h-3.5 w-3.5 shrink-0 text-ink-500" />
                     <span className="min-w-0 flex-1 truncate text-xs text-ink-300" title={doc.title}>{doc.title}</span>
                     {doc.pageCount != null && (
@@ -2168,7 +2168,7 @@ export function Workspace() {
                     </div>
                   </div>
                 ))}
-                <label className="mt-1 flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-ink-500 hover:bg-white/[0.04] hover:text-ink-300">
+                <label className="mt-1 flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-ink-500 hover:bg-graphite-rail/20 hover:text-ink-300">
                   {docUploading ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> : <Upload className="h-3.5 w-3.5 shrink-0" />}
                   {docUploading ? "Uploading…" : "Upload file"}
                   <input
@@ -2210,10 +2210,10 @@ export function Workspace() {
           <ResizeHandle side="left" onPointerDown={(event) => resizePanel("left", event)} />
         </aside>
 
-        <section className={`grid min-h-0 min-w-0 grid-rows-[auto_42px_45px_minmax(0,1fr)_auto] overflow-hidden bg-ink-925 ${isMobile && mobileTab !== "editor" ? "hidden" : ""}`}>
+        <section className={`grid min-h-0 min-w-0 grid-rows-[auto_42px_45px_minmax(0,1fr)_auto] overflow-hidden bg-[#0b0e14] ${isMobile && mobileTab !== "editor" ? "hidden" : ""}`}>
           {activeNote ? (
             <>
-              <div className="min-w-0 border-b border-white/[0.06] px-5 py-3">
+              <div className="min-w-0 border-b border-graphite-rail px-5 py-3">
                 <div className="flex min-w-0 items-center gap-1">
                   <input
                     value={draftTitle}
@@ -2241,7 +2241,7 @@ export function Workspace() {
                   </select>
                   <SaveBadge saving={saving} stale={data.indexStatus.staleNotes > 0} preparing={reindexingAll} onPrepare={reindexAll} />
                   <span className="mx-1.5 h-4 w-px shrink-0 bg-ink-700/60" />
-                  <button title="Export as Markdown" aria-label="Export as Markdown" onClick={exportActiveNote} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+                  <button title="Export as Markdown" aria-label="Export as Markdown" onClick={exportActiveNote} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
                     <Download className="h-3.5 w-3.5" />
                   </button>
                   <button
@@ -2255,7 +2255,7 @@ export function Workspace() {
                         void togglePublicLink();
                       }
                     }}
-                    className={`grid h-7 w-7 place-items-center rounded hover:bg-white/[0.06] ${publicToken ? "text-accent-300" : "text-ink-500 hover:text-ink-200"}`}
+                    className={`grid h-7 w-7 place-items-center rounded hover:bg-graphite-rail/30 ${publicToken ? "text-accent-300" : "text-ink-500 hover:text-ink-200"}`}
                   >
                     <Link className="h-3.5 w-3.5" />
                   </button>
@@ -2266,12 +2266,12 @@ export function Workspace() {
                   )}
                   <span className="mx-1.5 h-4 w-px shrink-0 bg-ink-700/60" />
                   <div className="relative">
-                    <button title={tocOpen ? "Close table of contents" : "Table of contents"} aria-label={tocOpen ? "Close table of contents" : "Table of contents"} onClick={() => setTocOpen((o) => !o)} className={`grid h-7 w-7 place-items-center rounded hover:bg-white/[0.06] ${tocOpen ? "text-accent-300" : "text-ink-500 hover:text-ink-200"}`}>
+                    <button title={tocOpen ? "Close table of contents" : "Table of contents"} aria-label={tocOpen ? "Close table of contents" : "Table of contents"} onClick={() => setTocOpen((o) => !o)} className={`grid h-7 w-7 place-items-center rounded hover:bg-graphite-rail/30 ${tocOpen ? "text-accent-300" : "text-ink-500 hover:text-ink-200"}`}>
                       <List className="h-3.5 w-3.5" />
                     </button>
                     {tocOpen && tocHeadings.length > 0 ? (
-                      <div className="absolute right-0 top-[calc(100%+6px)] z-40 w-64 overflow-hidden rounded-xl border border-ink-700/90 bg-ink-925 shadow-panel">
-                        <div className="border-b border-ink-700/80 px-3 py-2 text-xs font-semibold text-ink-400">
+                      <div className="absolute right-0 top-[calc(100%+6px)] z-40 w-64 overflow-hidden rounded-xl border border-graphite-rail bg-[#0b0e14]">
+                        <div className="border-b border-graphite-rail px-3 py-2 text-xs font-semibold text-ink-400">
                           Table of contents
                         </div>
                         <div className="max-h-72 overflow-auto p-2">
@@ -2279,7 +2279,7 @@ export function Workspace() {
                             <button
                               key={i}
                               onClick={() => jumpToHeading(h.pos)}
-                              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-ink-300 hover:bg-white/[0.05] hover:text-ink-100"
+                              className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-xs text-ink-300 hover:bg-graphite-rail/20 hover:text-ink-100"
                               style={{ paddingLeft: `${(h.level - 1) * 12 + 8}px` }}
                             >
                               <span className="shrink-0 font-mono text-[10px] text-ink-600">{"#".repeat(h.level)}</span>
@@ -2289,19 +2289,19 @@ export function Workspace() {
                         </div>
                       </div>
                     ) : tocOpen && tocHeadings.length === 0 ? (
-                      <div className="absolute right-0 top-[calc(100%+6px)] z-40 w-56 rounded-xl border border-ink-700/90 bg-ink-925 p-3 shadow-panel">
+                      <div className="absolute right-0 top-[calc(100%+6px)] z-40 w-56 rounded-xl border border-graphite-rail bg-[#0b0e14] p-3 ">
                         <div className="text-xs text-ink-500">No headings found. Add <code className="text-ink-400">## Heading</code> to your note.</div>
                       </div>
                     ) : null}
                   </div>
                   {/* Symbol picker */}
                   <div className="relative">
-                    <button title="Insert symbol" aria-label="Insert symbol" onClick={(e) => { e.stopPropagation(); if (editorView) symbolInsertPosRef.current = editorView.state.selection.main.from; setSymbolsOpen((o) => !o); setSymbolsQuery(""); }} className={`grid h-7 w-7 place-items-center rounded hover:bg-white/[0.06] ${symbolsOpen ? "text-accent-300" : "text-ink-500 hover:text-ink-200"}`}>
+                    <button title="Insert symbol" aria-label="Insert symbol" onClick={(e) => { e.stopPropagation(); if (editorView) symbolInsertPosRef.current = editorView.state.selection.main.from; setSymbolsOpen((o) => !o); setSymbolsQuery(""); }} className={`grid h-7 w-7 place-items-center rounded hover:bg-graphite-rail/30 ${symbolsOpen ? "text-accent-300" : "text-ink-500 hover:text-ink-200"}`}>
                       <span className="font-serif text-sm leading-none">∑</span>
                     </button>
                     {symbolsOpen && (
-                      <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-[calc(100%+6px)] z-50 w-80 overflow-hidden rounded-xl border border-ink-700/90 bg-ink-925 shadow-panel">
-                        <div className="border-b border-ink-700/80 p-2">
+                      <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-[calc(100%+6px)] z-50 w-80 overflow-hidden rounded-xl border border-graphite-rail bg-[#0b0e14]">
+                        <div className="border-b border-graphite-rail p-2">
                           <input
                             autoFocus
                             value={symbolsQuery}
@@ -2349,7 +2349,7 @@ export function Workspace() {
                       </div>
                     )}
                   </div>
-                  <button title={zenMode ? "Exit zen mode (Ctrl+Shift+Z)" : "Zen mode (Ctrl+Shift+Z)"} aria-label={zenMode ? "Exit zen mode" : "Zen mode"} onClick={() => setZenMode((z) => !z)} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+                  <button title={zenMode ? "Exit zen mode (Ctrl+Shift+Z)" : "Zen mode (Ctrl+Shift+Z)"} aria-label={zenMode ? "Exit zen mode" : "Zen mode"} onClick={() => setZenMode((z) => !z)} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
                     {zenMode ? <Minimize2 className="h-3.5 w-3.5" /> : <Maximize2 className="h-3.5 w-3.5" />}
                   </button>
                   <span className="mx-1.5 h-4 w-px shrink-0 bg-ink-700/60" />
@@ -2362,19 +2362,19 @@ export function Workspace() {
                       setHistoryVersions(await res.json() as typeof historyVersions);
                       setHistoryOpen(true);
                     }}
-                    className={`grid h-7 w-7 place-items-center rounded hover:bg-white/[0.06] ${historyOpen ? "text-accent-300" : "text-ink-500 hover:text-ink-200"}`}
+                    className={`grid h-7 w-7 place-items-center rounded hover:bg-graphite-rail/30 ${historyOpen ? "text-accent-300" : "text-ink-500 hover:text-ink-200"}`}
                   >
                     <RotateCw className="h-3.5 w-3.5" />
                   </button>
                   {activeNote.userId === data.user.id ? (
-                    <button title="Share note" aria-label="Share note" onClick={() => void openShareModal(activeNote.id)} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+                    <button title="Share note" aria-label="Share note" onClick={() => void openShareModal(activeNote.id)} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
                       <UserPlus className="h-3.5 w-3.5" />
                     </button>
                   ) : (
                     <span className={`rounded-lg border px-2 py-1 text-xs font-semibold ${
                       activeNote.sharePermission === "edit"
                         ? "border-accent-500/30 bg-accent-500/10 text-accent-300"
-                        : "border-ink-700/60 bg-ink-800/50 text-ink-400"
+                        : "border-graphite-rail bg-ink-800/50 text-ink-400"
                     }`}>
                       {activeNote.sharePermission === "edit" ? "Can edit" : "View only"}
                     </span>
@@ -2386,7 +2386,7 @@ export function Workspace() {
                   ) : null}
                 </div>
                 {historyOpen && activeNote ? (
-                  <div className="mx-4 mb-2 rounded-xl border border-ink-700/80 bg-ink-900 p-3 text-sm">
+                  <div className="mx-4 mb-2 rounded-xl border border-graphite-rail bg-ink-900 p-3 text-sm">
                     <div className="mb-2 flex items-center justify-between">
                       <span className="text-xs font-semibold text-ink-400">Version history</span>
                       <button onClick={() => setHistoryOpen(false)} className="text-ink-500 hover:text-ink-200"><X className="h-3.5 w-3.5" /></button>
@@ -2394,7 +2394,7 @@ export function Workspace() {
                     {historyVersions.length === 0 ? (
                       <div className="text-xs text-ink-500">No saved versions yet. Versions are captured automatically when content changes.</div>
                     ) : historyVersions.map((v) => (
-                      <div key={v.id} className="flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-ink-800/60">
+                      <div key={v.id} className="flex items-center justify-between rounded-lg px-2 py-1.5 hover:bg-graphite-rail/40/60">
                         <div className="text-xs text-ink-300">{new Date(v.createdAt).toLocaleString()}</div>
                         <button
                           disabled={historyRestoring}
@@ -2443,12 +2443,12 @@ export function Workspace() {
                     <span className="group relative flex shrink-0 cursor-pointer items-center gap-1 hover:text-ink-200">
                       <Link className="h-3 w-3 shrink-0" />
                       {backlinks.length} backlink{backlinks.length !== 1 ? "s" : ""}
-                      <div className="pointer-events-none absolute left-0 top-full z-30 mt-1 hidden min-w-[180px] rounded-xl border border-ink-700/80 bg-ink-900 p-2 shadow-panel group-hover:pointer-events-auto group-hover:block">
+                      <div className="pointer-events-none absolute left-0 top-full z-30 mt-1 hidden min-w-[180px] rounded-xl border border-graphite-rail bg-[#0b0e14] p-2 group-hover:pointer-events-auto group-hover:block">
                         {backlinks.map((bl) => (
                           <button
                             key={bl.id}
                             onClick={() => selectNote(bl.id)}
-                            className="block w-full truncate rounded px-2 py-1 text-left text-xs text-ink-200 hover:bg-white/[0.06]"
+                            className="block w-full truncate rounded px-2 py-1 text-left text-xs text-ink-200 hover:bg-graphite-rail/30"
                           >
                             {bl.title}
                           </button>
@@ -2460,13 +2460,13 @@ export function Workspace() {
                     <span className="group relative flex shrink-0 cursor-pointer items-center gap-1 hover:text-ink-200">
                       <Sparkles className="h-3 w-3 shrink-0" />
                       {relatedNotes.length} related
-                      <div className="pointer-events-none absolute left-0 top-full z-30 mt-1 hidden min-w-[200px] rounded-xl border border-ink-700/80 bg-ink-900 p-2 shadow-panel group-hover:pointer-events-auto group-hover:block">
+                      <div className="pointer-events-none absolute left-0 top-full z-30 mt-1 hidden min-w-[200px] rounded-xl border border-graphite-rail bg-[#0b0e14] p-2 group-hover:pointer-events-auto group-hover:block">
                         <div className="mb-1.5 px-2 text-[10px] font-semibold text-ink-500">Related notes</div>
                         {relatedNotes.map((r) => (
                           <button
                             key={r.noteId}
                             onClick={() => selectNote(r.noteId)}
-                            className="flex w-full items-center justify-between gap-2 truncate rounded px-2 py-1 text-left text-xs text-ink-200 hover:bg-white/[0.06]"
+                            className="flex w-full items-center justify-between gap-2 truncate rounded px-2 py-1 text-left text-xs text-ink-200 hover:bg-graphite-rail/30"
                           >
                             <span className="truncate">{r.title}</span>
                             <span className="shrink-0 text-[10px] text-ink-500">{Math.round(r.score * 100)}%</span>
@@ -2485,7 +2485,7 @@ export function Workspace() {
                       {suggestingTags ? "Thinking…" : "Suggest tags"}
                     </button>
                     {suggestTagsOpen && suggestedTagsState && (
-                      <div className="absolute left-0 top-full z-40 mt-1 min-w-[200px] rounded-xl border border-ink-700/80 bg-ink-900 p-3 shadow-panel">
+                      <div className="absolute left-0 top-full z-40 mt-1 min-w-[200px] rounded-xl border border-graphite-rail bg-[#0b0e14] p-3">
                         <div className="mb-2 flex items-center justify-between">
                           <span className="flex items-center gap-1.5 text-[10px] font-semibold text-ink-400">
                             <Sparkles className="h-3 w-3" />
@@ -2551,7 +2551,7 @@ export function Workspace() {
               <div className={`h-full min-h-0 min-w-0 overflow-hidden ${noteView === "split" ? "grid grid-cols-2" : "grid grid-cols-1"}`}>
                 {(noteView === "write" || noteView === "split") ? (
                 <div
-                  className={`h-full min-h-0 min-w-0 overflow-hidden bg-ink-900/50 ${noteView === "split" ? "border-r border-ink-700/80" : ""}`}
+                  className={`h-full min-h-0 min-w-0 overflow-hidden bg-ink-900/50 ${noteView === "split" ? "border-r border-graphite-rail" : ""}`}
                   onFocus={() => {
                     const isStarter = draftMarkdownRef.current.trimEnd() === "# Untitled document\n\nAdd your content here. Index this document to make it queryable by the AI tools.";
                     if (isStarter) void replaceActiveMarkdown("");
@@ -2584,7 +2584,7 @@ export function Workspace() {
                   </div>
                 ) : null}
                 {(noteView === "preview" || noteView === "split") ? (
-                <div className="min-h-0 min-w-0 overflow-hidden bg-ink-925">
+                <div className="min-h-0 min-w-0 overflow-hidden bg-[#0b0e14]">
                   <MarkdownPreview
                     markdown={draftMarkdown}
                     onWikilinkClick={(title) => {
@@ -2597,7 +2597,7 @@ export function Workspace() {
                 ) : null}
               </div>
               {noteView !== "code" && (
-                <div className="flex items-center gap-4 border-t border-ink-700/30 px-4 py-1 text-[11px] text-ink-600">
+                <div className="flex items-center gap-4 border-t border-graphite-rail px-4 py-1 text-[11px] text-ink-600">
                   <span>{wordCount.toLocaleString()} words</span>
                   <span>{readingMinutes} min read</span>
                   <span>{draftMarkdown.length.toLocaleString()} chars</span>
@@ -2616,7 +2616,7 @@ export function Workspace() {
                   <div className="relative grid grid-cols-2 gap-4">
                     <button
                       onClick={() => void handleChoiceSample()}
-                      className="group flex flex-col gap-3 rounded-2xl border border-ink-700/60 bg-ink-900/60 p-6 text-left transition-all hover:border-accent-500/40 hover:bg-accent-500/5"
+                      className="group flex flex-col gap-3 rounded-2xl border border-graphite-rail bg-ink-900/60 p-6 text-left transition-all hover:border-accent-500/40 hover:bg-accent-500/5"
                     >
                       <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-accent-500/30 bg-accent-500/15">
                         <BookOpen className="h-5 w-5 text-accent-400" />
@@ -2631,9 +2631,9 @@ export function Workspace() {
                     </button>
                     <button
                       onClick={handleChoiceEmpty}
-                      className="group flex flex-col gap-3 rounded-2xl border border-ink-700/60 bg-ink-900/60 p-6 text-left transition-all hover:border-ink-600 hover:bg-ink-800/40"
+                      className="group flex flex-col gap-3 rounded-2xl border border-graphite-rail bg-ink-900/60 p-6 text-left transition-all hover:border-graphite-rail hover:bg-graphite-rail/40/40"
                     >
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-ink-700/40 bg-ink-800/60">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-graphite-rail bg-ink-800/60">
                         <FilePlus className="h-5 w-5 text-ink-400" />
                       </div>
                       <div>
@@ -2654,7 +2654,7 @@ export function Workspace() {
               ) : data.notes.length === 0 && onboardingChoice === "empty" ? (
                 <div className="relative w-full max-w-md text-center">
                   <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-500/10 blur-[80px]" />
-                  <div className="relative mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-500/30 bg-accent-500/15 shadow-glow">
+                  <div className="relative mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-500/30 bg-accent-500/15 ">
                     <Sparkles className="h-6 w-6 text-accent-400" />
                   </div>
                   <div className="relative text-xl font-bold tracking-tight text-ink-100">Your workspace is ready</div>
@@ -2678,7 +2678,7 @@ export function Workspace() {
                 <div className="relative w-full max-w-sm">
                   <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-500/8 blur-[80px]" />
                   <div className="relative text-center">
-                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-ink-700/60 bg-ink-875/80">
+                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-graphite-rail bg-ink-875/80">
                       <BookOpen className="h-5 w-5 text-ink-400" />
                     </div>
                     <div className="text-base font-semibold tracking-tight text-ink-100">No note open</div>
@@ -2701,7 +2701,7 @@ export function Workspace() {
                           <button
                             key={note.id}
                             onClick={() => selectNote(note.id)}
-                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-white/[0.05]"
+                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-graphite-rail/20"
                           >
                             <FileText className="h-3.5 w-3.5 shrink-0 text-ink-600" />
                             <span className="min-w-0 flex-1 truncate text-sm text-ink-300">{note.title}</span>
@@ -2721,7 +2721,7 @@ export function Workspace() {
                     </button>
                   </div>
                   <div className="relative mt-4 flex items-center justify-center gap-1.5 text-[11px] text-ink-600">
-                    <kbd className="rounded border border-ink-700/80 bg-ink-875 px-1.5 py-0.5 font-mono text-[10px] text-ink-500">Ctrl K</kbd>
+                    <kbd className="rounded border border-graphite-rail bg-ink-875 px-1.5 py-0.5 font-mono text-[10px] text-ink-500">Ctrl K</kbd>
                     <span>to search all notes</span>
                   </div>
                 </div>
@@ -2733,10 +2733,10 @@ export function Workspace() {
         {inlineAI && (
           <div
             style={{ position: "fixed", top: inlineAI.y, left: inlineAI.x, zIndex: 60, minWidth: 340, maxWidth: 460 }}
-            className="rounded-xl border border-accent-500/30 bg-ink-925 shadow-panel"
+            className="rounded-xl border border-accent-500/30 bg-[#0b0e14]"
             onKeyDown={(e) => e.stopPropagation()}
           >
-            <div className="border-b border-ink-700/60 px-3 py-2 text-xs font-semibold text-accent-300">Ask AI — inserts answer at cursor (Ctrl+/)</div>
+            <div className="border-b border-graphite-rail px-3 py-2 text-xs font-semibold text-accent-300">Ask AI — inserts answer at cursor (Ctrl+/)</div>
             {inlineAI.preview == null ? (
               <>
                 <textarea
@@ -2752,7 +2752,7 @@ export function Workspace() {
                   disabled={inlineAI.loading}
                   className="w-full resize-none bg-transparent p-3 text-sm text-ink-100 outline-none placeholder:text-ink-500"
                 />
-                <div className="flex items-center justify-end gap-3 border-t border-ink-700/60 px-3 py-2">
+                <div className="flex items-center justify-end gap-3 border-t border-graphite-rail px-3 py-2">
                   {inlineAI.loading && <span className="text-xs text-ink-500">Generating…</span>}
                   <button onClick={() => setInlineAI(null)} className="text-xs text-ink-500 hover:text-ink-300">Cancel</button>
                   <button
@@ -2767,7 +2767,7 @@ export function Workspace() {
                 <div className="max-h-48 overflow-y-auto p-3 text-sm text-ink-200 whitespace-pre-wrap">
                   {inlineAI.preview || <span className="text-ink-500 animate-pulse">Generating…</span>}
                 </div>
-                <div className="flex items-center justify-between gap-3 border-t border-ink-700/60 px-3 py-2">
+                <div className="flex items-center justify-between gap-3 border-t border-graphite-rail px-3 py-2">
                   <button
                     onClick={() => setInlineAI((s) => s ? { ...s, preview: undefined } : null)}
                     className="text-xs text-ink-500 hover:text-ink-300"
@@ -2976,7 +2976,7 @@ export function Workspace() {
       ) : null}
       {toast ? <ToastView toast={toast} /> : null}
       {isMobile ? (
-        <nav className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-ink-700/80 bg-ink-950/95 pb-safe backdrop-blur-lg">
+        <nav className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-graphite-rail bg-ink-950/95 pb-safe backdrop-blur-lg">
           {([ ["vault", BookOpen, "Docs"], ["editor", FileText, "Editor"], ["study", Brain, "Tools"] ] as const).map(([id, Icon, label]) => (
             <button
               key={id}
@@ -3040,10 +3040,10 @@ function SideRail(props: {
           onClick={onClick}
           className={`grid h-11 w-11 place-items-center rounded-full border text-sm transition-colors ${
             active
-              ? "border-accent-500/35 bg-accent-500/15 text-accent-200 shadow-glow"
+              ? "border-accent-500/35 bg-accent-500/15 text-accent-200 "
               : tone === "danger"
-                ? "border-ink-800/70 bg-white/[0.02] text-ink-400 hover:border-danger-400/30 hover:bg-danger-400/10 hover:text-danger-300"
-                : "border-ink-800/70 bg-white/[0.02] text-ink-200 hover:border-accent-500/25 hover:bg-white/[0.05] hover:text-ink-100"
+                ? "border-graphite-rail bg-black/20 text-ink-400 hover:border-danger-400/30 hover:bg-danger-400/10 hover:text-danger-300"
+                : "border-graphite-rail bg-black/20 text-ink-200 hover:border-accent-500/25 hover:bg-graphite-rail/20 hover:text-ink-100"
           }`}
         >
           {children}
@@ -3051,8 +3051,8 @@ function SideRail(props: {
 
         <div className="pointer-events-none absolute left-[56px] top-1/2 z-50 hidden -translate-y-1/2 whitespace-nowrap sm:block">
           <div className="relative translate-x-[-6px] opacity-0 transition-all duration-150 ease-out group-hover:translate-x-0 group-hover:opacity-100">
-            <div className="absolute -left-1 top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 border border-ink-700/80 bg-ink-925" />
-            <div className="rounded-xl border border-ink-700/80 bg-ink-925 px-3 py-1.5 text-xs font-semibold text-ink-100 shadow-panel">
+            <div className="absolute -left-1 top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 border border-graphite-rail bg-[#0b0e14]" />
+            <div className="rounded-xl border border-graphite-rail bg-[#0b0e14] px-3 py-1.5 text-xs font-semibold text-ink-100 ">
               {label}
             </div>
           </div>
@@ -3071,12 +3071,12 @@ function SideRail(props: {
     <aside
       onMouseEnter={() => setHovering(true)}
       onMouseLeave={() => setHovering(false)}
-      className={`z-20 flex h-screen shrink-0 flex-col border-r border-ink-700/80 bg-ink-950/95 py-3 backdrop-blur-xl transition-[width] duration-200 ease-premium ${
+      className={`z-20 flex h-screen shrink-0 flex-col border-r border-graphite-rail bg-ink-950/95 py-3 backdrop-blur-xl transition-[width] duration-200 ease-premium ${
         expanded ? "w-[232px]" : "w-[64px]"
       }`}
     >
       <div className={`flex shrink-0 items-center gap-3 px-2 ${expanded ? "" : "justify-center"}`}>
-        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-accent-500/35 bg-gradient-to-br from-accent-500/20 to-accent-600/10 text-accent-300 shadow-glow">
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-accent-500/35 bg-gradient-to-br from-accent-500/20 to-accent-600/10 text-accent-300 ">
           <Sparkles className="h-4 w-4" />
         </div>
         {expanded ? (
@@ -3113,7 +3113,7 @@ function SideRail(props: {
           </RailIconButton>
         </div>
         {/* Divider */}
-        <div className={`my-3 border-t border-ink-700/50 ${expanded ? "" : "mx-2"}`} />
+        <div className={`my-3 border-t border-graphite-rail ${expanded ? "" : "mx-2"}`} />
         {/* AI tools panel toggle */}
         <div className={`flex flex-col gap-1 ${expanded ? "" : "items-center"}`}>
           <RailIconButton label={props.rightOpen ? "Hide AI tools" : "AI tools"} onClick={props.onToggleRight} active={props.rightOpen}>
@@ -3122,7 +3122,7 @@ function SideRail(props: {
         </div>
       </div>
 
-      <div className={`w-full shrink-0 border-t border-ink-700/70 pt-3 ${expanded ? "px-3" : "px-2"}`}>
+      <div className={`w-full shrink-0 border-t border-graphite-rail pt-3 ${expanded ? "px-3" : "px-2"}`}>
         <div className={`flex flex-col gap-1 ${expanded ? "" : "items-center"}`}>
           <RailIconButton
             label={props.reindexing ? "Indexing…" : "Index notes"}
@@ -3143,7 +3143,7 @@ function SideRail(props: {
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Discord community"
-              className="grid h-11 w-11 place-items-center rounded-full border border-ink-800/70 bg-white/[0.02] text-ink-200 transition-colors hover:border-[#5865F2]/40 hover:bg-[#5865F2]/10 hover:text-[#5865F2]"
+              className="grid h-11 w-11 place-items-center rounded-full border border-graphite-rail bg-black/20 text-ink-200 transition-colors hover:border-[#5865F2]/40 hover:bg-[#5865F2]/10 hover:text-[#5865F2]"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.462-.62.874-1.275 1.226-1.963.021-.04.001-.088-.041-.104a13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
@@ -3151,8 +3151,8 @@ function SideRail(props: {
             </a>
             <div className="pointer-events-none absolute left-[56px] top-1/2 z-50 hidden -translate-y-1/2 whitespace-nowrap sm:block">
               <div className="relative translate-x-[-6px] opacity-0 transition-all duration-150 ease-out group-hover:translate-x-0 group-hover:opacity-100">
-                <div className="absolute -left-1 top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 border border-ink-700/80 bg-ink-925" />
-                <div className="rounded-xl border border-ink-700/80 bg-ink-925 px-3 py-1.5 text-xs font-semibold text-ink-100 shadow-panel">
+                <div className="absolute -left-1 top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 border border-graphite-rail bg-[#0b0e14]" />
+                <div className="rounded-xl border border-graphite-rail bg-[#0b0e14] px-3 py-1.5 text-xs font-semibold text-ink-100 ">
                   Discord community
                 </div>
               </div>
@@ -3191,7 +3191,7 @@ function EditorNoteTabs({
   onTogglePin: (note: Note) => void;
 }) {
   return (
-    <div className="flex min-w-0 items-end gap-1 overflow-x-auto border-b border-white/[0.06] bg-ink-950/50 px-3 pt-1">
+    <div className="flex min-w-0 items-end gap-1 overflow-x-auto border-b border-graphite-rail bg-ink-950/50 px-3 pt-1">
       {notes.map((note) => {
         const active = note.id === activeNoteId;
         const pinned = pinnedNoteIds.includes(note.id);
@@ -3199,7 +3199,7 @@ function EditorNoteTabs({
           <div
             key={note.id}
             className={`group flex h-9 min-w-[140px] max-w-[220px] items-center gap-2 rounded-t-lg border border-b-0 px-2.5 ${
-              active ? "border-accent-500/30 border-b-transparent bg-ink-900/80 text-ink-100 shadow-[0_0_12px_rgba(139,92,246,0.08)]" : "border-white/[0.06] bg-ink-900/30 text-ink-500 hover:bg-ink-900/60 hover:text-ink-200"
+              active ? "border-accent-500/30 border-b-transparent bg-ink-900/80 text-ink-100 shadow-[0_0_12px_rgba(139,92,246,0.08)]" : "border-graphite-rail bg-ink-900/30 text-ink-500 hover:bg-ink-900/60 hover:text-ink-200"
             }`}
           >
             <button onClick={() => onTogglePin(note)} aria-label={pinned ? `Unpin ${note.title}` : `Pin ${note.title}`} className="shrink-0 text-ink-500 hover:text-accent-300">
@@ -3208,7 +3208,7 @@ function EditorNoteTabs({
             <button onClick={() => onSelect(note.id)} className="min-w-0 flex-1 truncate text-left text-xs font-medium">
               {note.title}
             </button>
-            <button onClick={() => onClose(note.id)} aria-label={`Close ${note.title}`} className="grid h-5 w-5 shrink-0 place-items-center rounded text-ink-500 opacity-0 hover:bg-white/8 hover:text-ink-100 group-hover:opacity-100">
+            <button onClick={() => onClose(note.id)} aria-label={`Close ${note.title}`} className="grid h-5 w-5 shrink-0 place-items-center rounded text-ink-500 opacity-0 hover:bg-graphite-rail/30 hover:text-ink-100 group-hover:opacity-100">
               <X className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -3270,7 +3270,7 @@ function NoteViewTabs({
   ];
 
   return (
-    <div className="flex min-w-0 items-center justify-between gap-3 overflow-x-auto overflow-y-hidden border-b border-white/[0.06] bg-ink-950/30 px-5">
+    <div className="flex min-w-0 items-center justify-between gap-3 overflow-x-auto overflow-y-hidden border-b border-graphite-rail bg-ink-950/30 px-5">
       <div className="flex h-full min-w-max items-center gap-1 py-1.5">
         {tabs.map((tab) => (
           <button
@@ -3315,37 +3315,37 @@ function NoteViewTabs({
             ) : null}
           </>
         ) : null}
-        <button title="Insert heading" onClick={onInsertHeading} className="grid h-7 w-7 place-items-center rounded text-[11px] font-bold text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+        <button title="Insert heading" onClick={onInsertHeading} className="grid h-7 w-7 place-items-center rounded text-[11px] font-bold text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
           H2
         </button>
-        <button title="Insert list" onClick={onInsertList} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+        <button title="Insert list" onClick={onInsertList} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
           <List className="h-3.5 w-3.5" />
         </button>
-        <button title="Insert blockquote" onClick={onInsertQuote} className="grid h-7 w-7 place-items-center rounded font-serif text-base text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+        <button title="Insert blockquote" onClick={onInsertQuote} className="grid h-7 w-7 place-items-center rounded font-serif text-base text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
           &ldquo;
         </button>
         {onInsertCallout ? (
-          <button title="Insert callout box" onClick={onInsertCallout} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+          <button title="Insert callout box" onClick={onInsertCallout} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
             <Info className="h-3.5 w-3.5" />
           </button>
         ) : null}
-        <button title="Insert code block" onClick={onInsertCode} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+        <button title="Insert code block" onClick={onInsertCode} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
           <Code2 className="h-3.5 w-3.5" />
         </button>
-        <button title="Insert table" onClick={onInsertTable} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+        <button title="Insert table" onClick={onInsertTable} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
           <Table2 className="h-3.5 w-3.5" />
         </button>
         {onAddTableRow ? (
-          <button title="Add table row" onClick={onAddTableRow} className="grid h-7 place-items-center rounded px-1.5 text-[11px] font-semibold text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">+R</button>
+          <button title="Add table row" onClick={onAddTableRow} className="grid h-7 place-items-center rounded px-1.5 text-[11px] font-semibold text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">+R</button>
         ) : null}
         {onDeleteTableRow ? (
-          <button title="Delete table row" onClick={onDeleteTableRow} className="grid h-7 place-items-center rounded px-1.5 text-[11px] font-semibold text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">−R</button>
+          <button title="Delete table row" onClick={onDeleteTableRow} className="grid h-7 place-items-center rounded px-1.5 text-[11px] font-semibold text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">−R</button>
         ) : null}
         {onAddTableColumn ? (
-          <button title="Add table column" onClick={onAddTableColumn} className="grid h-7 place-items-center rounded px-1.5 text-[11px] font-semibold text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">+C</button>
+          <button title="Add table column" onClick={onAddTableColumn} className="grid h-7 place-items-center rounded px-1.5 text-[11px] font-semibold text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">+C</button>
         ) : null}
         {onDeleteTableColumn ? (
-          <button title="Delete table column" onClick={onDeleteTableColumn} className="grid h-7 place-items-center rounded px-1.5 text-[11px] font-semibold text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">−C</button>
+          <button title="Delete table column" onClick={onDeleteTableColumn} className="grid h-7 place-items-center rounded px-1.5 text-[11px] font-semibold text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">−C</button>
         ) : null}
         {onUploadImage ? (
           <>
@@ -3353,7 +3353,7 @@ function NoteViewTabs({
               title="Upload image"
               onClick={() => fileInputRef.current?.click()}
               disabled={uploadingImage}
-              className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200 disabled:opacity-50"
+              className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200 disabled:opacity-50"
             >
               {uploadingImage ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ImagePlus className="h-3.5 w-3.5" />}
             </button>
@@ -3371,7 +3371,7 @@ function NoteViewTabs({
           </>
         ) : null}
         {onFormat ? (
-          <button title="Auto-format note" onClick={onFormat} disabled={formatting} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200 disabled:opacity-50">
+          <button title="Auto-format note" onClick={onFormat} disabled={formatting} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200 disabled:opacity-50">
             {formatting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
           </button>
         ) : null}
@@ -3409,19 +3409,19 @@ function AssistantPanel(props: {
 
   return (
     <aside className="panel-shell flex h-full min-h-0 flex-col overflow-hidden border-l">
-      <div className="shrink-0 border-b border-white/[0.06] px-4 py-3">
+      <div className="shrink-0 border-b border-graphite-rail px-4 py-3">
         <div className="flex min-w-0 items-center gap-2">
           <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-accent-500/30 bg-accent-500/15">
             <Sparkles className="h-3.5 w-3.5 text-accent-400" />
           </div>
           <span className="min-w-0 flex-1 text-sm font-semibold text-ink-100">Study tools</span>
           <ScopeSelect {...props} />
-          <button title="Hide tools panel" aria-label="Hide tools panel" onClick={props.onHide} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-200">
+          <button title="Hide tools panel" aria-label="Hide tools panel" onClick={props.onHide} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
             <PanelRightClose className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
-      <div className="shrink-0 flex overflow-x-auto border-b border-white/[0.06]">
+      <div className="shrink-0 flex overflow-x-auto border-b border-graphite-rail">
         {tabs.map(([id, fullLabel, , icon]) => (
           <button
             key={id}
@@ -3621,8 +3621,8 @@ function SearchableScopePicker({
         <ChevronDown className={`h-3.5 w-3.5 shrink-0 text-ink-500 transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open ? (
-        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-40 overflow-hidden rounded-xl border border-ink-700/90 bg-ink-925 shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
-          <div className="border-b border-ink-700/80 p-3">
+        <div className="absolute left-0 right-0 top-[calc(100%+0.5rem)] z-40 overflow-hidden rounded-xl border border-graphite-rail bg-[#0b0e14] shadow-[0_24px_60px_rgba(0,0,0,0.45)]">
+          <div className="border-b border-graphite-rail p-3">
             <div className="control-soft flex items-center gap-2 rounded-lg px-3 py-2">
               <Search className="h-4 w-4 text-ink-500" />
               <input
@@ -3649,7 +3649,7 @@ function SearchableScopePicker({
                           type="button"
                           onClick={() => choose(option.scope)}
                           className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm ${
-                            active ? "bg-accent-500/14 text-accent-200" : "text-ink-200 hover:bg-white/[0.04]"
+                            active ? "bg-accent-500/14 text-accent-200" : "text-ink-200 hover:bg-graphite-rail/20"
                           }`}
                         >
                           <div className="min-w-0">
@@ -3846,13 +3846,13 @@ function AskTool({
           className="control-soft h-32 w-full resize-none rounded-xl p-3 text-sm leading-6 text-ink-100 outline-none placeholder:text-ink-500"
         />
         {showRecent && recentQueries.length > 0 ? (
-          <div className="absolute left-0 right-0 top-full z-30 mt-1 rounded-xl border border-ink-700/80 bg-ink-900 p-1 shadow-panel">
+          <div className="absolute left-0 right-0 top-full z-30 mt-1 rounded-xl border border-graphite-rail bg-[#0b0e14] p-1">
             <div className="px-2 pb-1 pt-1 text-[11px] font-semibold text-ink-500">Recent</div>
             {recentQueries.map((q) => (
               <button
                 key={q}
                 onMouseDown={(e) => { e.preventDefault(); setQuestion(q); setShowRecent(false); }}
-                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-ink-200 hover:bg-white/[0.05]"
+                className="flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-left text-sm text-ink-200 hover:bg-graphite-rail/20"
               >
                 <RotateCw className="h-3 w-3 shrink-0 text-ink-500" />
                 <span className="truncate">{q}</span>
@@ -3874,7 +3874,7 @@ function AskTool({
             <button
               key={q}
               onClick={() => setQuestion(q)}
-              className="flex w-full items-start gap-2.5 rounded-xl border border-ink-700/40 bg-ink-900/30 px-3.5 py-3 text-left text-sm text-ink-300 transition-all hover:border-accent-500/30 hover:bg-accent-500/[0.06] hover:text-ink-100"
+              className="flex w-full items-start gap-2.5 rounded-xl border border-graphite-rail bg-ink-900/30 px-3.5 py-3 text-left text-sm text-ink-300 transition-all hover:border-accent-500/30 hover:bg-accent-500/[0.06] hover:text-ink-100"
             >
               <ChevronRight className="mt-0.5 h-3.5 w-3.5 shrink-0 text-accent-400" />
               {q}
@@ -3896,7 +3896,7 @@ function AskTool({
           ) : null}
           {streamedText ? (
             unsupported ? (
-              <div className="rounded-xl border border-ink-700/60 bg-ink-850/60 p-4 text-sm text-ink-400">{displayAnswer}</div>
+              <div className="rounded-xl border border-graphite-rail bg-ink-850/60 p-4 text-sm text-ink-400">{displayAnswer}</div>
             ) : (
               <div className="rounded-xl border border-accent-500/20 bg-gradient-to-b from-accent-500/[0.07] to-transparent p-4">
                 <div className="mb-3 flex items-center gap-1.5">
@@ -4080,7 +4080,7 @@ function QuizTool({
                   type="button"
                   onClick={() => void rerun()}
                   disabled={busy}
-                  className="rounded-xl border border-ink-700 bg-ink-950/40 px-4 py-2 text-sm font-semibold text-ink-200 hover:border-accent-500/30 hover:bg-accent-500/10 hover:text-ink-100 disabled:opacity-60"
+                  className="rounded-xl border border-graphite-rail bg-black/40 px-4 py-2 text-sm font-semibold text-ink-200 hover:border-accent-500/30 hover:bg-accent-500/10 hover:text-ink-100 disabled:opacity-60"
                 >
                   New question
                 </button>
@@ -4099,7 +4099,7 @@ function QuizTool({
                 ) : null}
               </div>
               {results[currentIndex] ? (
-                <div className="mt-3 rounded-lg border border-ink-700/80 bg-ink-950/40 p-3 text-sm leading-6 text-ink-300">
+                <div className="mt-3 rounded-lg border border-graphite-rail bg-ink-950/40 p-3 text-sm leading-6 text-ink-300">
                   <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-accent-300">
                     <MessageSquareText className="h-3.5 w-3.5" />
                     Feedback
@@ -4108,7 +4108,7 @@ function QuizTool({
                 </div>
               ) : null}
               {results[currentIndex] ? (
-                <div className="mt-3 rounded-lg border border-ink-700/80 bg-ink-950/30 p-3">
+                <div className="mt-3 rounded-lg border border-graphite-rail bg-ink-950/30 p-3">
                   <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-ink-400">
                     <BookOpen className="h-3.5 w-3.5" />
                     Source answer
@@ -4253,7 +4253,7 @@ function FlashcardTool({
             onClick={() => setDueOpen((v) => !v)}
             className={`mt-4 w-full rounded-lg border py-2 text-sm font-semibold transition-colors ${
               dueOpen
-                ? "border-ink-700/60 text-ink-400 hover:border-ink-600 hover:text-ink-200"
+                ? "border-graphite-rail text-ink-400 hover:border-graphite-rail hover:text-ink-200"
                 : "border-accent-500/30 bg-accent-500/10 text-accent-300 hover:bg-accent-500/15"
             }`}
           >
@@ -4320,7 +4320,7 @@ function FlashcardTool({
                 onClick={() => setOpen((v) => !v)}
                 className={`mt-4 w-full rounded-lg border py-2 text-sm font-semibold transition-colors ${
                   open
-                    ? "border-ink-700/60 text-ink-400 hover:border-ink-600 hover:text-ink-200"
+                    ? "border-graphite-rail text-ink-400 hover:border-graphite-rail hover:text-ink-200"
                     : "border-accent-500/30 bg-accent-500/10 text-accent-300 hover:bg-accent-500/15"
                 }`}
               >
@@ -4332,7 +4332,7 @@ function FlashcardTool({
                 </div>
               </div>
               <div className="mt-4 flex flex-wrap gap-2">
-                <button type="button" onClick={() => void rerun()} disabled={busy} className="rounded-xl border border-ink-700 bg-ink-950/40 px-4 py-2 text-sm font-semibold text-ink-200 hover:border-accent-500/30 hover:bg-accent-500/10 hover:text-ink-100 disabled:opacity-60">
+                <button type="button" onClick={() => void rerun()} disabled={busy} className="rounded-xl border border-graphite-rail bg-black/40 px-4 py-2 text-sm font-semibold text-ink-200 hover:border-accent-500/30 hover:bg-accent-500/10 hover:text-ink-100 disabled:opacity-60">
                   New card
                 </button>
                 <button type="button" onClick={() => void saveToDecк(currentItem)} disabled={saving} className="rounded-xl border border-accent-500/30 bg-accent-500/10 px-4 py-2 text-sm font-semibold text-accent-300 hover:bg-accent-500/20 disabled:opacity-60">
@@ -4455,7 +4455,7 @@ function StudyPlanTool({ notify }: { notify: (m: string, tone?: Toast["tone"]) =
     <div className="space-y-4">
       <ToolHeader title="Work Planner" description="Recommended items based on due cards, weak areas, and fresh content." />
       {perf && perf.totalAttempts > 0 ? (
-        <div className="flex gap-3 rounded-xl border border-ink-700/80 bg-ink-900/50 p-3 text-xs">
+        <div className="flex gap-3 rounded-xl border border-graphite-rail bg-ink-900/50 p-3 text-xs">
           <div className="flex flex-col items-center gap-0.5">
             <span className="font-bold text-accent-300">{Math.round(perf.avgScore * 100)}%</span>
             <span className="text-ink-500">avg score</span>
@@ -4472,7 +4472,7 @@ function StudyPlanTool({ notify }: { notify: (m: string, tone?: Toast["tone"]) =
       ) : null}
       {loading ? <SkeletonStack /> : null}
       {!loading && visible.length === 0 ? (
-        <div className="rounded-xl border border-ink-700/60 bg-ink-900/30 p-4 text-center text-sm text-ink-500">
+        <div className="rounded-xl border border-graphite-rail bg-ink-900/30 p-4 text-center text-sm text-ink-500">
           {items === null ? "Loading…" : "Nothing due — index documents and use Training Cards to build your review queue."}
         </div>
       ) : null}
@@ -4498,7 +4498,7 @@ function StudyPlanTool({ notify }: { notify: (m: string, tone?: Toast["tone"]) =
         ))}
       </div>
       {!loading ? (
-        <button onClick={() => void load()} className="w-full rounded-lg border border-ink-700/60 py-2 text-xs text-ink-400 hover:text-ink-200">
+        <button onClick={() => void load()} className="w-full rounded-lg border border-graphite-rail py-2 text-xs text-ink-400 hover:text-ink-200">
           Refresh plan
         </button>
       ) : null}
@@ -4669,7 +4669,7 @@ function ExamTool({
         <div className="space-y-3">
           <div>
             <label className="mb-1 block text-xs text-ink-400">Scope</label>
-            <div className="rounded-lg border border-ink-700/60 bg-ink-900/40 px-3 py-2 text-sm text-ink-200">
+            <div className="rounded-lg border border-graphite-rail bg-ink-900/40 px-3 py-2 text-sm text-ink-200">
               {buildScopeLabel()}
             </div>
           </div>
@@ -4683,7 +4683,7 @@ function ExamTool({
                   className={`flex-1 rounded-lg border py-1.5 text-sm font-medium transition-colors ${
                     questionCount === n
                       ? "border-accent-500/40 bg-accent-500/15 text-accent-200"
-                      : "border-ink-700/60 text-ink-400 hover:text-ink-200"
+                      : "border-graphite-rail text-ink-400 hover:text-ink-200"
                   }`}
                 >
                   {n}
@@ -4720,7 +4720,7 @@ function ExamTool({
         {question.noteTitle ? (
           <div className="text-xs text-ink-500">From: {question.noteTitle}</div>
         ) : null}
-        <div className="rounded-xl border border-ink-700/60 bg-ink-900/50 p-3 text-sm leading-relaxed text-ink-100">
+        <div className="rounded-xl border border-graphite-rail bg-ink-900/50 p-3 text-sm leading-relaxed text-ink-100">
           {question.question}
         </div>
         <textarea
@@ -4728,7 +4728,7 @@ function ExamTool({
           onChange={(e) => setAnswer(e.target.value)}
           placeholder="Type your answer…"
           rows={4}
-          className="w-full resize-none rounded-xl border border-ink-700/60 bg-ink-900/40 p-3 text-sm text-ink-100 placeholder-ink-600 focus:border-accent-500/50 focus:outline-none"
+          className="w-full resize-none rounded-xl border border-graphite-rail bg-ink-900/40 p-3 text-sm text-ink-100 placeholder-ink-600 focus:border-accent-500/50 focus:outline-none"
           onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void submitAnswer(); }}
         />
         <div>
@@ -4756,7 +4756,7 @@ function ExamTool({
           <button
             onClick={() => void finishExam()}
             disabled={submitting}
-            className="rounded-xl border border-ink-700/60 px-3 py-2.5 text-xs text-ink-500 hover:text-ink-200 disabled:opacity-50"
+            className="rounded-xl border border-graphite-rail px-3 py-2.5 text-xs text-ink-500 hover:text-ink-200 disabled:opacity-50"
           >
             End exam
           </button>
@@ -4770,7 +4770,7 @@ function ExamTool({
     const scoreColor = pct >= 80 ? "text-emerald-400" : pct >= 50 ? "text-amber-400" : "text-danger-400";
     return (
       <div className="space-y-4">
-        <div className="rounded-xl border border-ink-700/60 bg-ink-900/50 p-4 text-center">
+        <div className="rounded-xl border border-graphite-rail bg-ink-900/50 p-4 text-center">
           <div className={`mb-1 text-4xl font-bold ${scoreColor}`}>{pct}%</div>
           <div className="text-xs text-ink-400">
             {session.correctCount} / {session.totalQuestions} correct
@@ -4823,7 +4823,7 @@ function ExamTool({
         </div>
         <button
           onClick={() => { setPhase("setup"); setSession(null); setQuestion(null); setReview([]); }}
-          className="w-full rounded-xl border border-ink-700/60 py-2.5 text-sm text-ink-300 hover:text-ink-100"
+          className="w-full rounded-xl border border-graphite-rail py-2.5 text-sm text-ink-300 hover:text-ink-100"
         >
           New exam
         </button>
@@ -4905,7 +4905,7 @@ function SourceList({
   return (
     <div className={`space-y-2 ${compact ? "mt-2" : ""}`}>
       {sources.map((source, index) => (
-        <div key={`${source.chunkId}-${index}`} className="rounded-xl border border-ink-700/60 bg-ink-900/60 p-3">
+        <div key={`${source.chunkId}-${index}`} className="rounded-xl border border-graphite-rail bg-ink-900/60 p-3">
           <div className="flex items-start gap-2.5">
             <span className="mt-px flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-accent-500/15 text-[10px] font-bold text-accent-300">
               {index + 1}
@@ -5004,7 +5004,7 @@ function FolderRow({
       onDrop={(event) => { event.preventDefault(); onDrop(); }}
       onContextMenu={onMenu}
       className={`group flex h-9 items-center rounded-lg border ${
-        active ? "border-accent-500/25 bg-accent-500/10" : dragActive ? "border-transparent hover:border-accent-500/30 hover:bg-accent-500/8" : "border-transparent hover:bg-white/[0.04]"
+        active ? "border-accent-500/25 bg-accent-500/10" : dragActive ? "border-transparent hover:border-accent-500/30 hover:bg-accent-500/8" : "border-transparent hover:bg-graphite-rail/20"
       }`}
     >
       {/* Chevron — fixed 28 px, never shrinks */}
@@ -5033,7 +5033,7 @@ function FolderRow({
         <button
           onClick={(event) => { event.stopPropagation(); onMenu(event); }}
           aria-label={`More actions for ${folder.name}`}
-          className="hidden h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-100 group-hover:grid"
+          className="hidden h-7 w-7 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-100 group-hover:grid"
         >
           <MoreVertical className="h-3.5 w-3.5" />
         </button>
@@ -5079,7 +5079,7 @@ function NoteRow({
       onDragStart={onDragStart}
       onContextMenu={onMenu}
       className={`group flex h-8 w-full items-center rounded-lg border transition-colors duration-150 ${
-        bulkSelected ? "border-accent-500/40 bg-accent-500/12" : active ? "border-accent-500/25 bg-accent-500/10 text-ink-100 shadow-[0_0_12px_rgba(139,92,246,0.08)]" : "border-transparent text-ink-300 hover:border-white/[0.05] hover:bg-white/[0.035] hover:text-ink-100"
+        bulkSelected ? "border-accent-500/40 bg-accent-500/12" : active ? "border-accent-500/25 bg-accent-500/10 text-ink-100" : "border-transparent text-ink-300 hover:border-graphite-rail hover:bg-graphite-rail/10 hover:text-ink-100"
       }`}
     >
       {/* Bulk checkbox */}
@@ -5110,7 +5110,7 @@ function NoteRow({
         <button
           onClick={(event) => { event.stopPropagation(); onMenu(event); }}
           aria-label={`More actions for ${note.title}`}
-          className="hidden h-7 w-7 place-items-center rounded text-ink-500 hover:bg-white/[0.06] hover:text-ink-100 group-hover:grid"
+          className="hidden h-7 w-7 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-100 group-hover:grid"
         >
           <MoreVertical className="h-3.5 w-3.5" />
         </button>
@@ -5173,10 +5173,10 @@ function VaultContextMenu({
   return (
     <div
       onClick={(event) => event.stopPropagation()}
-      className="fixed z-[80] w-56 rounded-xl border border-ink-700 bg-ink-900/98 p-1.5 shadow-panel backdrop-blur"
+      className="fixed z-[80] w-56 rounded-xl border border-graphite-rail bg-[#0b0e14]/98 p-1.5 backdrop-blur"
       style={{ left, top }}
     >
-      <div className="border-b border-ink-700/70 px-3 py-2">
+      <div className="border-b border-graphite-rail px-3 py-2">
         <div className="truncate text-xs font-semibold text-ink-100">{folder?.name ?? note?.title}</div>
         <div className="mt-0.5 text-[11px] font-medium text-ink-500">{folder ? "Folder" : "Note"}</div>
       </div>
@@ -5412,11 +5412,11 @@ function CommandPalette({
         data-cmd-idx={idx}
         onClick={run}
         disabled={item.kind === "folder"}
-        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${isActive ? "bg-accent-500/12 text-ink-100" : "text-ink-300 hover:bg-white/[0.04] hover:text-ink-100"} ${item.kind === "folder" ? "cursor-default opacity-50" : ""}`}
+        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${isActive ? "bg-accent-500/12 text-ink-100" : "text-ink-300 hover:bg-graphite-rail/20 hover:text-ink-100"} ${item.kind === "folder" ? "cursor-default opacity-50" : ""}`}
       >
         <span className={`flex h-5 w-5 shrink-0 items-center justify-center ${isActive ? "text-accent-400" : "text-ink-500"}`}>{icon}</span>
         <span className="min-w-0 flex-1 truncate">{item.label}</span>
-        {isActive && <kbd className="shrink-0 rounded border border-ink-700/80 bg-ink-875 px-1.5 py-0.5 font-mono text-[10px] text-ink-500">↵</kbd>}
+        {isActive && <kbd className="shrink-0 rounded border border-graphite-rail bg-ink-875 px-1.5 py-0.5 font-mono text-[10px] text-ink-500">↵</kbd>}
       </button>
     );
   }
@@ -5424,10 +5424,10 @@ function CommandPalette({
   return (
     <div className="fixed inset-0 z-[75] bg-black/60 backdrop-blur-sm" onClick={onClose}>
       <div
-        className="mx-auto mt-[12vh] w-full max-w-xl rounded-2xl border border-ink-700/80 bg-ink-925 shadow-[0_32px_80px_rgba(0,0,0,0.5)]"
+        className="mx-auto mt-[12vh] w-full max-w-xl rounded-2xl border border-graphite-rail bg-[#0b0e14] shadow-[0_32px_80px_rgba(0,0,0,0.5)]"
         onClick={(event) => event.stopPropagation()}
       >
-        <div className="flex items-center gap-3 border-b border-ink-700/60 px-4 py-3.5">
+        <div className="flex items-center gap-3 border-b border-graphite-rail px-4 py-3.5">
           <Search className="h-4 w-4 shrink-0 text-ink-500" />
           <input
             autoFocus
@@ -5450,7 +5450,7 @@ function CommandPalette({
             placeholder="Jump to a note or run a command…"
             className="min-w-0 flex-1 bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500"
           />
-          <kbd className="shrink-0 rounded border border-ink-700/80 bg-ink-875 px-1.5 py-0.5 font-mono text-[10px] text-ink-500">Esc</kbd>
+          <kbd className="shrink-0 rounded border border-graphite-rail bg-ink-875 px-1.5 py-0.5 font-mono text-[10px] text-ink-500">Esc</kbd>
         </div>
         <div ref={listRef} className="max-h-[60vh] overflow-auto p-2">
           {actions.length > 0 ? (
@@ -5484,13 +5484,13 @@ function CommandPalette({
             <div className="py-8 text-center text-sm text-ink-500">No results for &ldquo;{query}&rdquo;</div>
           ) : null}
         </div>
-        <div className="flex items-center gap-4 border-t border-ink-700/60 px-4 py-2">
+        <div className="flex items-center gap-4 border-t border-graphite-rail px-4 py-2">
           <span className="flex items-center gap-1.5 text-[11px] text-ink-600">
-            <kbd className="rounded border border-ink-700/60 bg-ink-875 px-1 py-0.5 font-mono text-[10px] text-ink-500">↑↓</kbd>
+            <kbd className="rounded border border-graphite-rail bg-ink-875 px-1 py-0.5 font-mono text-[10px] text-ink-500">↑↓</kbd>
             navigate
           </span>
           <span className="flex items-center gap-1.5 text-[11px] text-ink-600">
-            <kbd className="rounded border border-ink-700/60 bg-ink-875 px-1 py-0.5 font-mono text-[10px] text-ink-500">↵</kbd>
+            <kbd className="rounded border border-graphite-rail bg-ink-875 px-1 py-0.5 font-mono text-[10px] text-ink-500">↵</kbd>
             open
           </span>
         </div>
@@ -5526,13 +5526,13 @@ function FeedbackModal({ onClose, onSent }: { onClose: () => void; onSent: () =>
 
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-lg rounded-2xl border border-ink-700 bg-ink-900 shadow-panel">
-        <div className="flex items-center justify-between border-b border-ink-700/80 px-5 py-4">
+      <div className="w-full max-w-lg rounded-2xl border border-graphite-rail bg-[#0b0e14]">
+        <div className="flex items-center justify-between border-b border-graphite-rail px-5 py-4">
           <div>
             <div className="text-lg font-semibold text-ink-100">Send feedback</div>
             <div className="mt-0.5 text-xs text-ink-500">Help us improve — your message goes directly to the team.</div>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-500 hover:bg-ink-800 hover:text-ink-200">
+          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-500 hover:bg-graphite-rail/40 hover:text-ink-200">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -5549,7 +5549,7 @@ function FeedbackModal({ onClose, onSent }: { onClose: () => void; onSent: () =>
                       ? cat === "bug" ? "border-danger-400/50 bg-danger-400/15 text-danger-300"
                         : cat === "feature" ? "border-accent-500/50 bg-accent-500/15 text-accent-300"
                         : "border-ink-500/50 bg-ink-700 text-ink-200"
-                      : "border-ink-700 text-ink-500 hover:border-ink-600 hover:text-ink-300"
+                      : "border-graphite-rail text-ink-500 hover:border-graphite-rail hover:text-ink-300"
                   }`}
                 >
                   {cat === "bug" ? "Bug report" : cat === "feature" ? "Feature request" : "General"}
@@ -5575,7 +5575,7 @@ function FeedbackModal({ onClose, onSent }: { onClose: () => void; onSent: () =>
           </div>
           {error ? <div className="rounded-lg border border-danger-400/30 bg-danger-400/10 px-3 py-2 text-xs text-danger-400">{error}</div> : null}
         </div>
-        <div className="flex items-center justify-between border-t border-ink-700/80 px-5 py-4">
+        <div className="flex items-center justify-between border-t border-graphite-rail px-5 py-4">
           <a
             href="https://discord.gg/6hhxtpzkAE"
             target="_blank"
@@ -5591,7 +5591,7 @@ function FeedbackModal({ onClose, onSent }: { onClose: () => void; onSent: () =>
             <button
               onClick={onClose}
               disabled={busy}
-              className="rounded-lg border border-ink-700/80 px-4 py-2 text-sm font-medium text-ink-300 hover:bg-ink-800 disabled:opacity-60"
+              className="rounded-lg border border-graphite-rail px-4 py-2 text-sm font-medium text-ink-300 hover:bg-graphite-rail/40 disabled:opacity-60"
             >
               Cancel
             </button>
@@ -5637,8 +5637,8 @@ function TextInputModal({
 
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl border border-ink-700 bg-ink-900 shadow-panel">
-        <div className="border-b border-ink-700/80 px-5 py-4">
+      <div className="w-full max-w-md rounded-2xl border border-graphite-rail bg-[#0b0e14]">
+        <div className="border-b border-graphite-rail px-5 py-4">
           <div className="text-lg font-semibold text-ink-100">{draft.title}</div>
         </div>
         <div className="px-5 py-4">
@@ -5660,11 +5660,11 @@ function TextInputModal({
             />
           </label>
         </div>
-        <div className="flex items-center justify-end gap-3 border-t border-ink-700/80 px-5 py-4">
+        <div className="flex items-center justify-end gap-3 border-t border-graphite-rail px-5 py-4">
           <button
             onClick={onClose}
             disabled={busy}
-            className="rounded-lg border border-ink-700/80 px-4 py-2 text-sm font-medium text-ink-300 hover:bg-ink-800 disabled:opacity-60"
+            className="rounded-lg border border-graphite-rail px-4 py-2 text-sm font-medium text-ink-300 hover:bg-graphite-rail/40 disabled:opacity-60"
           >
             Cancel
           </button>
@@ -5707,8 +5707,8 @@ function MoveTargetModal({
 
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl border border-ink-700 bg-ink-900 shadow-panel">
-        <div className="border-b border-ink-700/80 px-5 py-4">
+      <div className="w-full max-w-md rounded-2xl border border-graphite-rail bg-[#0b0e14]">
+        <div className="border-b border-graphite-rail px-5 py-4">
           <div className="text-lg font-semibold text-ink-100">{dialog.title}</div>
           <div className="mt-1 text-sm text-ink-500">{dialog.description}</div>
         </div>
@@ -5716,7 +5716,7 @@ function MoveTargetModal({
           <button
             onClick={() => setSelectedId("__root__")}
             className={`flex w-full items-center justify-between rounded-lg border px-3 py-3 text-left text-sm ${
-              selectedId === "__root__" ? "border-accent-500/40 bg-accent-500/10 text-accent-200" : "border-ink-700/80 bg-ink-950/35 text-ink-300 hover:bg-ink-850"
+              selectedId === "__root__" ? "border-accent-500/40 bg-accent-500/10 text-accent-200" : "border-graphite-rail bg-ink-950/35 text-ink-300 hover:bg-graphite-rail/30"
             }`}
           >
             <span>{dialog.allowRootLabel}</span>
@@ -5727,7 +5727,7 @@ function MoveTargetModal({
               key={folder.id}
               onClick={() => setSelectedId(folder.id)}
               className={`flex w-full items-center justify-between rounded-lg border px-3 py-3 text-left text-sm ${
-                selectedId === folder.id ? "border-accent-500/40 bg-accent-500/10 text-accent-200" : "border-ink-700/80 bg-ink-950/35 text-ink-300 hover:bg-ink-850"
+                selectedId === folder.id ? "border-accent-500/40 bg-accent-500/10 text-accent-200" : "border-graphite-rail bg-ink-950/35 text-ink-300 hover:bg-graphite-rail/30"
               }`}
             >
               <span className="truncate">{folder.name}</span>
@@ -5735,11 +5735,11 @@ function MoveTargetModal({
             </button>
           ))}
         </div>
-        <div className="flex items-center justify-end gap-3 border-t border-ink-700/80 px-5 py-4">
+        <div className="flex items-center justify-end gap-3 border-t border-graphite-rail px-5 py-4">
           <button
             onClick={onClose}
             disabled={busy}
-            className="rounded-lg border border-ink-700/80 px-4 py-2 text-sm font-medium text-ink-300 hover:bg-ink-800 disabled:opacity-60"
+            className="rounded-lg border border-graphite-rail px-4 py-2 text-sm font-medium text-ink-300 hover:bg-graphite-rail/40 disabled:opacity-60"
           >
             Cancel
           </button>
@@ -5779,8 +5779,8 @@ function ConfirmModal({
 
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl border border-ink-700 bg-ink-900 shadow-panel">
-        <div className="border-b border-ink-700/80 px-5 py-4">
+      <div className="w-full max-w-md rounded-2xl border border-graphite-rail bg-[#0b0e14]">
+        <div className="border-b border-graphite-rail px-5 py-4">
           <div className="text-lg font-semibold text-ink-100">{confirmState.title}</div>
           <div className="mt-1 text-sm leading-6 text-ink-400">{confirmState.description}</div>
         </div>
@@ -5791,7 +5791,7 @@ function ConfirmModal({
               onClose();
             }}
             disabled={busy}
-            className="rounded-lg border border-ink-700/80 px-4 py-2 text-sm font-medium text-ink-300 hover:bg-ink-800 disabled:opacity-60"
+            className="rounded-lg border border-graphite-rail px-4 py-2 text-sm font-medium text-ink-300 hover:bg-graphite-rail/40 disabled:opacity-60"
           >
             Cancel
           </button>
@@ -5836,8 +5836,8 @@ function TableInsertModal({
 
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-black/70 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-md rounded-2xl border border-ink-700 bg-ink-900 shadow-panel">
-        <div className="border-b border-ink-700/80 px-5 py-4">
+      <div className="w-full max-w-md rounded-2xl border border-graphite-rail bg-[#0b0e14]">
+        <div className="border-b border-graphite-rail px-5 py-4">
           <div className="text-lg font-semibold text-ink-100">Insert table</div>
           <div className="mt-1 text-sm text-ink-500">Choose the starting size. You can add or remove rows and columns later from the editor toolbar.</div>
         </div>
@@ -5866,8 +5866,8 @@ function TableInsertModal({
             />
           </label>
         </div>
-        <div className="flex items-center justify-end gap-3 border-t border-ink-700/80 px-5 py-4">
-          <button onClick={onClose} disabled={busy} className="rounded-lg border border-ink-700/80 px-4 py-2 text-sm font-medium text-ink-300 hover:bg-ink-800 disabled:opacity-60">
+        <div className="flex items-center justify-end gap-3 border-t border-graphite-rail px-5 py-4">
+          <button onClick={onClose} disabled={busy} className="rounded-lg border border-graphite-rail px-4 py-2 text-sm font-medium text-ink-300 hover:bg-graphite-rail/40 disabled:opacity-60">
             Cancel
           </button>
           <button onClick={() => void handleSubmit()} disabled={busy} className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-ink-100 hover:bg-accent-400 disabled:opacity-60">
@@ -5898,13 +5898,13 @@ function ShareModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className="relative w-full max-w-md rounded-2xl border border-ink-700/80 bg-ink-900 p-6 shadow-panel" onClick={(e) => e.stopPropagation()}>
+      <div className="relative w-full max-w-md rounded-2xl border border-graphite-rail bg-[#0b0e14] p-6" onClick={(e) => e.stopPropagation()}>
         <div className="mb-5 flex items-start justify-between">
           <div>
             <h2 className="text-base font-semibold text-ink-100">Share note</h2>
             <p className="mt-0.5 truncate text-sm text-ink-500">{note.title}</p>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-500 hover:bg-white/5 hover:text-ink-200">
+          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -5917,12 +5917,12 @@ function ShareModal({
             onKeyDown={(e) => e.key === "Enter" && onShare()}
             placeholder="Email address"
             type="email"
-            className="flex-1 rounded-xl border border-ink-700/80 bg-ink-950/60 px-3 py-2 text-sm text-ink-100 placeholder-ink-600 outline-none focus:border-accent-500/50"
+            className="flex-1 rounded-xl border border-graphite-rail bg-ink-950/60 px-3 py-2 text-sm text-ink-100 placeholder-ink-600 outline-none focus:border-accent-500/50"
           />
           <select
             value={permission}
             onChange={(e) => onPermissionChange(e.target.value as NoteSharePermission)}
-            className="rounded-xl border border-ink-700/80 bg-ink-950/60 px-2 py-2 text-sm text-ink-200 outline-none"
+            className="rounded-xl border border-graphite-rail bg-ink-950/60 px-2 py-2 text-sm text-ink-200 outline-none"
           >
             <option value="edit">Can edit</option>
             <option value="view">Can view</option>
@@ -5943,7 +5943,7 @@ function ShareModal({
             <div className="mb-2 text-xs font-semibold text-ink-500">People with access</div>
             <div className="space-y-2">
               {shares.map((share) => (
-                <div key={share.sharedWithUserId} className="flex items-center gap-3 rounded-xl border border-ink-700/60 bg-ink-800/40 px-3 py-2.5">
+                <div key={share.sharedWithUserId} className="flex items-center gap-3 rounded-xl border border-graphite-rail bg-ink-800/40 px-3 py-2.5">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-500/20 text-sm font-semibold text-accent-300">
                     {share.sharedWithName.charAt(0).toUpperCase()}
                   </div>
@@ -5954,7 +5954,7 @@ function ShareModal({
                   <select
                     value={share.permission}
                     onChange={(e) => onUpdatePermission(share.sharedWithUserId, e.target.value as NoteSharePermission)}
-                    className="rounded-lg border border-ink-700/60 bg-ink-900 px-2 py-1 text-xs text-ink-200 outline-none"
+                    className="rounded-lg border border-graphite-rail bg-ink-900 px-2 py-1 text-xs text-ink-200 outline-none"
                   >
                     <option value="edit">Can edit</option>
                     <option value="view">Can view</option>
@@ -5997,8 +5997,8 @@ function WorkspaceCreateModal({
 
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl border border-ink-700 bg-ink-900 shadow-panel" onClick={(e) => e.stopPropagation()}>
-        <div className="border-b border-ink-700/80 px-5 py-4">
+      <div className="w-full max-w-md rounded-2xl border border-graphite-rail bg-[#0b0e14]" onClick={(e) => e.stopPropagation()}>
+        <div className="border-b border-graphite-rail px-5 py-4">
           <div className="flex items-center gap-2">
             <Users className="h-5 w-5 text-accent-400" />
             <div className="text-lg font-semibold text-ink-100">Create team workspace</div>
@@ -6027,8 +6027,8 @@ function WorkspaceCreateModal({
             />
           </label>
         </div>
-        <div className="flex items-center justify-end gap-3 border-t border-ink-700/80 px-5 py-4">
-          <button onClick={onClose} disabled={busy} className="rounded-lg border border-ink-700/80 px-4 py-2 text-sm font-medium text-ink-300 hover:bg-ink-800 disabled:opacity-60">Cancel</button>
+        <div className="flex items-center justify-end gap-3 border-t border-graphite-rail px-5 py-4">
+          <button onClick={onClose} disabled={busy} className="rounded-lg border border-graphite-rail px-4 py-2 text-sm font-medium text-ink-300 hover:bg-graphite-rail/40 disabled:opacity-60">Cancel</button>
           <button onClick={() => void handleSubmit()} disabled={busy || !name.trim()} className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-ink-100 hover:bg-accent-400 disabled:opacity-60">
             {busy ? "Creating..." : "Create workspace"}
           </button>
@@ -6068,8 +6068,8 @@ function WorkspaceManageModal({
 
   return (
     <div className="fixed inset-0 z-[70] grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-2xl border border-ink-700 bg-ink-900 shadow-panel" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-ink-700/80 px-5 py-4">
+      <div className="w-full max-w-lg rounded-2xl border border-graphite-rail bg-[#0b0e14]" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-graphite-rail px-5 py-4">
           <div>
             <div className="flex items-center gap-2">
               <Users className="h-5 w-5 text-accent-400" />
@@ -6077,12 +6077,12 @@ function WorkspaceManageModal({
             </div>
             {workspace.description ? <div className="mt-0.5 text-sm text-ink-500">{workspace.description}</div> : null}
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-500 hover:bg-ink-800 hover:text-ink-200"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-500 hover:bg-graphite-rail/40 hover:text-ink-200"><X className="h-4 w-4" /></button>
         </div>
 
         <div className="max-h-[60vh] overflow-y-auto">
           {isOwner ? (
-            <div className="border-b border-ink-700/40 px-5 py-4">
+            <div className="border-b border-graphite-rail px-5 py-4">
               <div className="mb-3 text-xs font-medium text-ink-500">Invite member</div>
               {inviteToken ? (
                 <div className="rounded-lg border border-accent-500/20 bg-accent-500/10 p-3">
@@ -6150,13 +6150,13 @@ function WorkspaceManageModal({
         </div>
 
         {isOwner ? (
-          <div className="flex items-center justify-between border-t border-ink-700/80 px-5 py-4">
+          <div className="flex items-center justify-between border-t border-graphite-rail px-5 py-4">
             <button onClick={onDeleteWorkspace} className="text-xs font-medium text-danger-500 hover:text-danger-400">Delete workspace</button>
-            <button onClick={onClose} className="rounded-lg border border-ink-700/80 px-4 py-2 text-sm font-medium text-ink-300 hover:bg-ink-800">Done</button>
+            <button onClick={onClose} className="rounded-lg border border-graphite-rail px-4 py-2 text-sm font-medium text-ink-300 hover:bg-graphite-rail/40">Done</button>
           </div>
         ) : (
-          <div className="flex justify-end border-t border-ink-700/80 px-5 py-4">
-            <button onClick={onClose} className="rounded-lg border border-ink-700/80 px-4 py-2 text-sm font-medium text-ink-300 hover:bg-ink-800">Close</button>
+          <div className="flex justify-end border-t border-graphite-rail px-5 py-4">
+            <button onClick={onClose} className="rounded-lg border border-graphite-rail px-4 py-2 text-sm font-medium text-ink-300 hover:bg-graphite-rail/40">Close</button>
           </div>
         )}
       </div>
@@ -6166,7 +6166,7 @@ function WorkspaceManageModal({
 
 function EmptyToolState({ message }: { message: string }) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-ink-700/40 bg-ink-900/30 px-4 py-3.5">
+    <div className="flex items-start gap-3 rounded-xl border border-graphite-rail bg-ink-900/30 px-4 py-3.5">
       <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-accent-400/50" />
       <span className="text-sm leading-6 text-ink-400">{message}</span>
     </div>
@@ -6189,7 +6189,7 @@ function ResizeHandle({ side, onPointerDown }: { side: "left" | "right"; onPoint
 
 function MetricPill({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-white/[0.07] bg-white/[0.025] px-2.5 py-2">
+    <div className="rounded-lg border border-graphite-rail bg-black/20 px-2.5 py-2">
       <div className="text-[10px] font-medium text-ink-500">{label}</div>
       <div className="mt-0.5 truncate text-xs font-semibold text-ink-200">{value}</div>
     </div>
@@ -6212,10 +6212,10 @@ function IconButton({
       title={label}
       aria-label={label}
       onClick={onClick}
-      className={`grid h-9 w-9 place-items-center rounded-lg border bg-white/[0.03] ${
+      className={`grid h-9 w-9 place-items-center rounded-lg border bg-black/20 ${
         tone === "danger"
           ? "border-danger-400/20 text-ink-400 hover:bg-danger-400/10 hover:text-danger-400"
-          : "border-ink-700/80 text-ink-300 hover:border-accent-500/30 hover:bg-white/[0.06] hover:text-ink-100"
+          : "border-graphite-rail text-ink-300 hover:border-accent-500/30 hover:bg-graphite-rail/30 hover:text-ink-100"
       }`}
     >
       {children}
@@ -6238,7 +6238,7 @@ function ToolHeader({ title, description }: { title: string; description: string
 
 function EmptyState({ children, action, onAction }: { children: React.ReactNode; action: string; onAction: () => void }) {
   return (
-    <div className="rounded-xl border border-white/[0.07] bg-white/[0.025] p-4 text-sm leading-6 text-ink-400">
+    <div className="rounded-xl border border-graphite-rail bg-black/20 p-4 text-sm leading-6 text-ink-400">
       <div>{children}</div>
       <button onClick={onAction} className="mt-3 rounded-lg border border-accent-500/30 bg-accent-500/12 px-3 py-1.5 text-xs font-semibold text-accent-300 transition-colors hover:bg-accent-500/20">
         {action}
@@ -6249,7 +6249,7 @@ function EmptyState({ children, action, onAction }: { children: React.ReactNode;
 
 function Pill({ icon, label, accent = false }: { icon: React.ReactNode; label: string; accent?: boolean }) {
   return (
-    <span className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 ${accent ? "border-accent-500/25 bg-accent-500/10 text-accent-300" : "border-ink-700/80 bg-ink-850/70 text-ink-400"}`}>
+    <span className={`inline-flex max-w-full items-center gap-1.5 rounded-full border px-2.5 py-1 ${accent ? "border-accent-500/25 bg-accent-500/10 text-accent-300" : "border-graphite-rail bg-ink-850/70 text-ink-400"}`}>
       <span className="shrink-0">{icon}</span>
       <span className="truncate">{label}</span>
     </span>
@@ -6290,9 +6290,9 @@ function IndexBadge({ status, busy }: { status: Bootstrap["indexStatus"]; busy: 
 function SkeletonStack() {
   return (
     <div className="space-y-2">
-      <div className="shimmer h-16 rounded-xl bg-white/[0.04]" />
-      <div className="shimmer h-24 rounded-xl bg-white/[0.035]" />
-      <div className="shimmer h-12 rounded-xl bg-white/[0.03]" />
+      <div className="shimmer h-16 rounded-xl bg-black/25" />
+      <div className="shimmer h-24 rounded-xl bg-black/20" />
+      <div className="shimmer h-12 rounded-xl bg-black/20" />
     </div>
   );
 }
@@ -6310,7 +6310,7 @@ function ToastView({ toast }: { toast: Toast }) {
         ? "border-danger-400/25 bg-danger-400/10 text-danger-400"
         : "border-accent-500/25 bg-accent-500/10 text-accent-300";
   return (
-    <div className={`fixed bottom-4 right-4 z-50 flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm shadow-panel animate-[toastIn_220ms_ease-out] ${tone}`}>
+    <div className={`fixed bottom-4 right-4 z-50 flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm animate-[toastIn_220ms_ease-out] ${tone}`}>
       {icon}
       {toast.message}
     </div>

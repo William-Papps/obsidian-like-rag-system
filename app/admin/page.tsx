@@ -35,7 +35,7 @@ const navItems: { id: Section; label: string; icon: string }[] = [
 
 function StatCard({ label, value, sub, accent }: { label: string; value: string | number; sub?: string; accent?: boolean }) {
   return (
-    <div className="rounded-2xl border border-ink-700/80 bg-ink-900 p-5">
+    <div className="rounded-2xl border border-graphite-rail bg-[#0b0e14] p-5">
       <div className="text-xs font-semibold uppercase tracking-widest text-ink-500">{label}</div>
       <div className={`mt-2 text-3xl font-bold tabular-nums ${accent ? "text-accent-300" : "text-ink-100"}`}>
         {typeof value === "number" ? value.toLocaleString() : value}
@@ -119,7 +119,7 @@ export default function AdminPage() {
 
   if (error) return (
     <div className="flex min-h-screen items-center justify-center bg-ink-950 text-ink-300">
-      <div className="rounded-2xl border border-ink-700 bg-ink-900 p-8 text-center">
+      <div className="rounded-2xl border border-graphite-rail bg-[#0b0e14] p-8 text-center">
         <div className="mb-2 text-lg font-semibold text-danger-400">{error}</div>
         <a href="/" className="text-sm text-accent-300 underline">Go home</a>
       </div>
@@ -156,10 +156,13 @@ export default function AdminPage() {
     <div className="flex min-h-screen bg-ink-950 text-ink-100">
 
       {/* Sidebar */}
-      <aside className="flex w-56 shrink-0 flex-col border-r border-ink-700/60 bg-ink-950/95">
+      <aside className="flex w-56 shrink-0 flex-col border-r border-graphite-rail bg-black">
         {/* Logo */}
-        <div className="flex items-center gap-2.5 px-5 py-5 border-b border-ink-700/40">
-          <div className="flex h-6 w-6 items-center justify-center rounded-md bg-accent-500">
+        <div className="flex items-center gap-2.5 px-5 py-5 border-b border-graphite-rail">
+          <div
+            className="flex h-6 w-6 items-center justify-center rounded-md"
+            style={{ background: "linear-gradient(to right bottom in oklab, rgb(146,129,247) 0%, rgb(154,84,220) 100%)" }}
+          >
             <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
               <path d="M3 3h4v10H3zM9 3h4v4H9zM9 9h4v4H9z" fill="white" fillOpacity="0.9" />
             </svg>
@@ -194,7 +197,7 @@ export default function AdminPage() {
         </nav>
 
         {/* Footer actions */}
-        <div className="space-y-1 border-t border-ink-700/40 px-3 py-4">
+        <div className="space-y-1 border-t border-graphite-rail px-3 py-4">
           <button
             onClick={() => void load()}
             className="flex w-full items-center gap-2 rounded-xl px-3 py-2 text-xs font-medium text-ink-500 hover:bg-ink-800/60 hover:text-ink-200 transition-colors"
@@ -248,7 +251,7 @@ export default function AdminPage() {
                         <h2 className="text-sm font-semibold text-ink-300">Recent activity</h2>
                         <button onClick={() => setSection("audit")} className="text-xs text-accent-400 hover:text-accent-300">View all →</button>
                       </div>
-                      <div className="divide-y divide-ink-800 rounded-2xl border border-ink-700/80 bg-ink-900">
+                      <div className="divide-y divide-graphite-rail rounded-2xl border border-graphite-rail bg-[#0b0e14]">
                         {data.logs.length === 0 ? (
                           <div className="px-4 py-3 text-sm text-ink-500">No events yet.</div>
                         ) : data.logs.slice(0, 6).map((log) => (
@@ -271,7 +274,7 @@ export default function AdminPage() {
                         <h2 className="text-sm font-semibold text-ink-300">Latest feedback</h2>
                         <button onClick={() => setSection("feedback")} className="text-xs text-accent-400 hover:text-accent-300">View all →</button>
                       </div>
-                      <div className="divide-y divide-ink-800 rounded-2xl border border-ink-700/80 bg-ink-900">
+                      <div className="divide-y divide-graphite-rail rounded-2xl border border-graphite-rail bg-[#0b0e14]">
                         {feedback.length === 0 ? (
                           <div className="px-4 py-3 text-sm text-ink-500">No feedback yet.</div>
                         ) : feedback.slice(0, 4).map((item) => (
@@ -301,7 +304,7 @@ export default function AdminPage() {
                         ["selfSignupEnabled", "Self-signup"],
                         ["emailVerificationEnabled", "Email verification"],
                       ] as [keyof RuntimeSettings, string][]).map(([key, label]) => (
-                        <div key={key} className="flex items-center gap-3 rounded-xl border border-ink-700/80 bg-ink-900 px-4 py-3">
+                        <div key={key} className="flex items-center gap-3 rounded-xl border border-graphite-rail bg-[#0b0e14] px-4 py-3">
                           <span className="text-sm text-ink-300">{label}</span>
                           <Toggle checked={data.runtime[key]} onChange={() => void toggleSetting(key)} disabled={saving} />
                         </div>
@@ -320,16 +323,16 @@ export default function AdminPage() {
                 <h1 className="text-2xl font-bold text-ink-100">Users</h1>
                 <p className="mt-1 text-sm text-ink-400">{data?.users.length ?? 0} registered</p>
               </div>
-              <div className="overflow-x-auto rounded-2xl border border-ink-700/80 bg-ink-900">
+              <div className="overflow-x-auto rounded-2xl border border-graphite-rail bg-[#0b0e14]">
                 <table className="w-full text-sm">
-                  <thead className="border-b border-ink-700 bg-ink-850/60">
+                  <thead className="border-b border-graphite-rail bg-black/60">
                     <tr>
                       {["User", "Role", "Notes", "Verified", "Joined", "Actions"].map((h) => (
                         <th key={h} className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-ink-400">{h}</th>
                       ))}
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-ink-800">
+                  <tbody className="divide-y divide-graphite-rail">
                     {(data?.users ?? []).map((u) => {
                       const nc = noteCountMap.get(u.id);
                       return (
@@ -343,7 +346,7 @@ export default function AdminPage() {
                               value={u.role}
                               disabled={!!actionBusy}
                               onChange={(e) => void userAction(u.id, { role: e.target.value })}
-                              className="rounded-lg bg-ink-800 px-2 py-1 text-xs border border-ink-700"
+                              className="rounded-lg bg-graphite-rail/30 px-2 py-1 text-xs border border-graphite-rail"
                             >
                               <option value="user">user</option>
                               <option value="admin">admin</option>
@@ -355,7 +358,7 @@ export default function AdminPage() {
                           </td>
                           <td className="px-4 py-3">
                             {u.emailVerifiedAt
-                              ? <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs font-medium text-emerald-400">Yes</span>
+                              ? <span className="rounded-full bg-delivered-green/10 px-2 py-0.5 text-xs font-medium text-delivered-green">Yes</span>
                               : <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-medium text-amber-400">No</span>}
                           </td>
                           <td className="px-4 py-3 text-xs text-ink-500">{u.createdAt.slice(0, 10)}</td>
@@ -364,14 +367,14 @@ export default function AdminPage() {
                               <button
                                 disabled={!!actionBusy}
                                 onClick={() => void userAction(u.id, { disabled: !u.disabledAt })}
-                                className="rounded-lg border border-ink-700 px-2.5 py-1 text-xs font-medium text-ink-400 hover:border-amber-400/50 hover:text-amber-400 transition-colors"
+                                className="rounded-lg border border-graphite-rail px-2.5 py-1 text-xs font-medium text-ink-400 hover:border-amber-400/50 hover:text-amber-400 transition-colors"
                               >
                                 {u.disabledAt ? "Enable" : "Disable"}
                               </button>
                               <button
                                 disabled={!!actionBusy}
                                 onClick={() => void deleteUser(u.id, u.name)}
-                                className="rounded-lg border border-ink-700 px-2.5 py-1 text-xs font-medium text-ink-400 hover:border-danger-400/50 hover:text-danger-400 transition-colors"
+                                className="rounded-lg border border-graphite-rail px-2.5 py-1 text-xs font-medium text-ink-400 hover:border-danger-400/50 hover:text-danger-400 transition-colors"
                               >
                                 Delete
                               </button>
@@ -394,16 +397,16 @@ export default function AdminPage() {
                 <p className="mt-1 text-sm text-ink-400">Last 6 months</p>
               </div>
 
-              <div className="overflow-x-auto rounded-2xl border border-ink-700/80 bg-ink-900">
+              <div className="overflow-x-auto rounded-2xl border border-graphite-rail bg-[#0b0e14]">
                 <table className="w-full text-sm">
-                  <thead className="border-b border-ink-700 bg-ink-850/60">
+                  <thead className="border-b border-graphite-rail bg-black/60">
                     <tr>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-ink-400">Period</th>
                       {features.map((f) => <th key={f} className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-ink-400">{featureLabel[f]}</th>)}
                       <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-ink-400">Total</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-ink-800">
+                  <tbody className="divide-y divide-graphite-rail">
                     {(data?.periods ?? []).map((period) => {
                       const row = usageMap.get(period);
                       const rowTotal = features.reduce((s, f) => s + (row?.get(f) ?? 0), 0);
@@ -422,7 +425,7 @@ export default function AdminPage() {
                         </tr>
                       );
                     })}
-                    <tr className="border-t-2 border-ink-600 bg-ink-850/40">
+                    <tr className="border-t-2 border-graphite-rail bg-black/40">
                       <td className="px-4 py-3 text-xs font-semibold text-ink-300">6-month total</td>
                       {features.map((f) => (
                         <td key={f} className="px-4 py-3 text-right font-semibold tabular-nums text-ink-200">{(grandTotals.get(f) ?? 0).toLocaleString() || "—"}</td>
@@ -436,19 +439,19 @@ export default function AdminPage() {
               </div>
 
               {perUserMap.size > 0 ? (
-                <div className="overflow-x-auto rounded-2xl border border-ink-700/80 bg-ink-900">
-                  <div className="border-b border-ink-700 px-4 py-3 text-xs font-semibold uppercase tracking-wider text-ink-400">
+                <div className="overflow-x-auto rounded-2xl border border-graphite-rail bg-[#0b0e14]">
+                  <div className="border-b border-graphite-rail px-4 py-3 text-xs font-semibold uppercase tracking-wider text-ink-400">
                     Per-user — {currentPeriod}
                   </div>
                   <table className="w-full text-sm">
-                    <thead className="border-b border-ink-700 bg-ink-850/40">
+                    <thead className="border-b border-graphite-rail bg-black/40">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-ink-400">User</th>
                         {features.map((f) => <th key={f} className="px-4 py-3 text-right text-xs font-semibold text-ink-400">{featureLabel[f]}</th>)}
                         <th className="px-4 py-3 text-right text-xs font-semibold text-ink-400">Total</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-ink-800">
+                    <tbody className="divide-y divide-graphite-rail">
                       {[...perUserMap.entries()].map(([userId, { name, email, features: fMap }]) => {
                         const total = features.reduce((s, f) => s + (fMap.get(f) ?? 0), 0);
                         return (
@@ -469,7 +472,7 @@ export default function AdminPage() {
                   </table>
                 </div>
               ) : (
-                <div className="rounded-xl border border-ink-700/60 bg-ink-900/50 px-4 py-3 text-sm text-ink-500">No usage recorded this month.</div>
+                <div className="rounded-xl border border-graphite-rail bg-[#0b0e14]/80 px-4 py-3 text-sm text-ink-500">No usage recorded this month.</div>
               )}
             </>
           )}
@@ -481,7 +484,7 @@ export default function AdminPage() {
                 <h1 className="text-2xl font-bold text-ink-100">Feedback</h1>
                 <p className="mt-1 text-sm text-ink-400">{feedback.length} submission{feedback.length !== 1 ? "s" : ""}</p>
               </div>
-              <div className="divide-y divide-ink-800 rounded-2xl border border-ink-700/80 bg-ink-900">
+              <div className="divide-y divide-graphite-rail rounded-2xl border border-graphite-rail bg-[#0b0e14]">
                 {feedback.length === 0 ? (
                   <div className="px-5 py-6 text-sm text-ink-500">No feedback submitted yet.</div>
                 ) : feedback.map((item) => (
@@ -512,12 +515,12 @@ export default function AdminPage() {
                 <button
                   onClick={() => void purgeLogs()}
                   disabled={purgingLogs}
-                  className="rounded-xl border border-ink-700 px-4 py-2 text-sm font-medium text-ink-400 hover:border-amber-400/50 hover:text-amber-400 transition-colors disabled:opacity-50"
+                  className="rounded-xl border border-graphite-rail px-4 py-2 text-sm font-medium text-ink-400 hover:border-amber-400/50 hover:text-amber-400 transition-colors disabled:opacity-50"
                 >
                   {purgingLogs ? "Purging…" : "Purge logs > 90 days"}
                 </button>
               </div>
-              <div className="divide-y divide-ink-800 rounded-2xl border border-ink-700/80 bg-ink-900">
+              <div className="divide-y divide-graphite-rail rounded-2xl border border-graphite-rail bg-[#0b0e14]">
                 {(data?.logs ?? []).length === 0 ? (
                   <div className="px-5 py-6 text-sm text-ink-500">No audit events yet.</div>
                 ) : (data?.logs ?? []).map((log) => (
@@ -543,7 +546,7 @@ export default function AdminPage() {
                 <h1 className="text-2xl font-bold text-ink-100">Settings</h1>
                 <p className="mt-1 text-sm text-ink-400">Runtime controls for this instance</p>
               </div>
-              <div className="divide-y divide-ink-800 rounded-2xl border border-ink-700/80 bg-ink-900">
+              <div className="divide-y divide-graphite-rail rounded-2xl border border-graphite-rail bg-[#0b0e14]">
                 {([
                   ["selfSignupEnabled", "Self-signup", "Allow new users to register accounts"],
                   ["emailVerificationEnabled", "Email verification", "Require email verification before users can sign in"],

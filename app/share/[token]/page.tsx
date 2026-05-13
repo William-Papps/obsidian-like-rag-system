@@ -44,7 +44,7 @@ export default function PublicSharePage({ params }: { params: Promise<{ token: s
 
   return (
     <div className="min-h-screen bg-ink-950 text-ink-100">
-      <header className="border-b border-ink-800 px-6 py-4">
+      <header className="border-b border-graphite-rail px-6 py-4">
         <h1 className="text-2xl font-bold text-ink-100">{note.title}</h1>
         <p className="mt-1 text-xs text-ink-500">
           Last updated {new Date(note.updatedAt).toLocaleDateString()}
