@@ -159,6 +159,22 @@ const SYMBOL_GROUPS: { label: string; symbols: string[] }[] = [
   { label: "Fractions",     symbols: ["½","⅓","¼","¾","⅔","⅛","⅜","⅝","⅞","⅙","⅚","⅟"] },
   { label: "Geometry",      symbols: ["∠","∡","∢","⊾","⊿","△","▲","▽","▼","◇","◆","□","■","○","●","⊙","⊚"] },
   { label: "Misc",          symbols: ["©","®","™","€","£","¥","¢","§","¶","†","‡","•","…","″","′","℃","℉","Å"] },
+  { label: "Crow's Foot",  symbols: [
+    // Lines
+    "─","│","═","║","━","┃",
+    // Corners
+    "┌","┐","└","┘","╔","╗","╚","╝",
+    // T-junctions
+    "├","┤","┬","┴","╠","╣","╦","╩",
+    // Crossings
+    "┼","╬",
+    // One (tack) — mandatory end
+    "⊢","⊣","⊤","⊥","‖","∥",
+    // Zero — optional end
+    "○","◯",
+    // Many — crow's foot end
+    "≺","≻","⋈","⊳","⊲",
+  ]},
 ];
 
 export function Workspace() {
