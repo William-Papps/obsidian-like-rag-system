@@ -119,7 +119,7 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
       <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={isLoading ? undefined : onClose} />
 
       {/* Modal */}
-      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-graphite-rail bg-[#0b0e14]">
+      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-graphite-rail bg-[#0b0e14] flex flex-col max-h-[calc(100vh-2rem)]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-graphite-rail px-6 py-4">
           <div>
@@ -178,7 +178,7 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
         ) : (
           <>
             {/* Content */}
-            <div className="space-y-4 px-6 py-4">
+            <div className="space-y-4 overflow-y-auto flex-1 px-6 py-4">
               {/* Import mode */}
               <div>
                 <label className="mb-2 block text-sm font-medium text-ink-300">Import mode</label>
