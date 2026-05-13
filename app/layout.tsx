@@ -1,6 +1,27 @@
 import type { Metadata, Viewport } from "next";
+import { Inter, Playfair_Display, JetBrains_Mono } from "next/font/google";
 import { DemoBanner } from "@/components/demo-banner";
 import "./globals.css";
+
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap"
+});
+
+const playfair = Playfair_Display({
+  subsets: ["latin"],
+  variable: "--font-playfair",
+  display: "swap",
+  weight: "400"
+});
+
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-mono",
+  display: "swap",
+  weight: ["400", "700"]
+});
 
 export const metadata: Metadata = {
   title: "EternalNotes",
@@ -14,14 +35,14 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#8B5CF6",
+  themeColor: "#000000",
   width: "device-width",
   initialScale: 1
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${playfair.variable} ${mono.variable}`}>
       <head>
         <link rel="apple-touch-icon" href="/icon-192.png" />
         {/* Apply theme before first paint to prevent flash */}

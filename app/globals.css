@@ -11,36 +11,39 @@
    ───────────────────────────────────────────────────────────────────────── */
 
 /* ─────────────────────────────────────────────
-   THEME: Purple (default)
+   THEME: Obsidian / default (Resend-inspired)
+   Pure black canvas, graphite borders, frost text
    ───────────────────────────────────────────── */
 :root,
 [data-theme="purple"] {
   color-scheme: dark;
 
-  /* Palette — space-separated RGB channels */
-  --ink-950: 15 13 21;
-  --ink-925: 20 17 29;
-  --ink-900: 25 21 38;
-  --ink-875: 30 25 48;
-  --ink-850: 35 29 56;
-  --ink-800: 45 37 71;
-  --ink-750: 55 45 86;
-  --ink-700: 70 59 101;
-  --ink-600: 94 82 125;
-  --ink-500: 138 128 163;
-  --ink-400: 168 158 192;
-  --ink-300: 195 187 214;
-  --ink-200: 222 216 239;
-  --ink-100: 245 241 255;
+  /* Palette — space-separated RGB channels
+     Mapped to the Resend obsidian design system:
+     950 = void black, 750 = graphite rail, 200 = frost, 100 = pure white */
+  --ink-950: 0 0 0;           /* #000000  void black — canvas */
+  --ink-925: 11 14 20;        /* #0b0e14  card surface */
+  --ink-900: 17 18 22;        /* #111216 */
+  --ink-875: 22 22 26;        /* #16161a */
+  --ink-850: 27 27 31;        /* #1b1b1f  overlay */
+  --ink-800: 32 36 38;        /* #202426 */
+  --ink-750: 41 45 48;        /* #292d30  graphite rail — borders */
+  --ink-700: 54 58 62;        /* #363a3e */
+  --ink-600: 70 74 77;        /* #464a4d  smoke */
+  --ink-500: 110 114 122;     /* #6e727a  steel */
+  --ink-400: 161 164 165;     /* #a1a4a5  fog */
+  --ink-300: 171 175 180;     /* #abafb4  mist */
+  --ink-200: 240 240 240;     /* #f0f0f0  frost — primary text */
+  --ink-100: 255 255 255;     /* #ffffff  pure white */
 
-  --accent-600: 124 58 237;
+  --accent-600: 124 58 237;   /* violet */
   --accent-500: 139 92 246;
   --accent-400: 167 139 250;
   --accent-300: 196 181 253;
 
   /* Semantic tokens — complete CSS values */
-  --prose-body:   rgb(223 216 237);
-  --prose-muted:  rgb(184 176 205);
+  --prose-body:  rgb(240 240 240);   /* frost */
+  --prose-muted: rgb(161 164 165);   /* fog */
 
   --body-gradient-from: rgb(var(--ink-875) / 0.98);
   --body-gradient-to:   rgb(var(--ink-950));
@@ -49,16 +52,16 @@
   --cm-focused-ring:  rgb(var(--accent-400) / 0.42);
   --selection-bg:     rgb(var(--accent-400) / 0.36);
 
-  --cm-active-line:      rgb(var(--accent-400) / 0.08);
-  --cm-gutter-border:    rgb(var(--ink-500) / 0.22);
-  --cm-gutter-color:     rgb(var(--ink-500));
-  --cm-text:             rgb(var(--ink-100));
+  --cm-active-line:           rgb(var(--accent-400) / 0.08);
+  --cm-gutter-border:         rgb(var(--ink-750) / 0.6);
+  --cm-gutter-color:          rgb(var(--ink-500));
+  --cm-text:                  rgb(var(--ink-100));
   --cm-source-highlight-bg:   rgb(246 192 86 / 0.16);
   --cm-source-highlight-ring: rgb(246 192 86 / 0.26);
 
   --blockquote-border: rgb(var(--accent-400) / 0.78);
   --blockquote-bg:     rgb(var(--accent-500) / 0.09);
-  --blockquote-color:  rgb(219 226 236);
+  --blockquote-color:  rgb(240 240 240);
   --table-th-bg:       rgb(var(--accent-500) / 0.12);
   --table-th-color:    rgb(var(--accent-300));
   --table-td-color:    var(--prose-body);
@@ -66,51 +69,51 @@
   --link-hover:        rgb(var(--accent-300));
   --wikilink-color:    rgb(103 232 249);
   --wikilink-hover:    rgb(165 243 252);
-  --code-border:       rgb(var(--ink-500) / 0.34);
-  --code-bg:           rgb(255 255 255 / 0.055);
-  --pre-border:        rgb(var(--ink-500) / 0.32);
-  --pre-bg:            rgb(8 10 14 / 0.6);
-  --hr-color:          rgb(var(--ink-500) / 0.28);
+  --code-border:       rgb(var(--ink-750) / 0.7);
+  --code-bg:           rgb(255 255 255 / 0.04);
+  --pre-border:        rgb(var(--ink-750) / 0.6);
+  --pre-bg:            rgb(0 0 0 / 0.8);
+  --hr-color:          rgb(var(--ink-750) / 0.8);
 
-  --callout-border: rgb(var(--ink-500) / 0.28);
-  --callout-bg:     rgb(255 255 255 / 0.03);
-  --callout-title:  rgb(226 232 240 / 0.96);
-  --callout-body:   rgb(148 163 184 / 0.95);
+  --callout-border: rgb(var(--ink-750) / 0.7);
+  --callout-bg:     rgb(255 255 255 / 0.025);
+  --callout-title:  rgb(var(--ink-200) / 0.96);
+  --callout-body:   rgb(var(--ink-400) / 0.95);
 
-  --table-border:     rgb(var(--ink-500) / 0.28);
-  --table-row-border: rgb(var(--ink-500) / 0.14);
-  --table-row-hover:  rgb(255 255 255 / 0.03);
+  --table-border:     rgb(var(--ink-750) / 0.7);
+  --table-row-border: rgb(var(--ink-750) / 0.35);
+  --table-row-hover:  rgb(255 255 255 / 0.025);
 
-  --panel-shell-bg:     rgb(var(--ink-900) / 0.94);
-  --panel-shell-border: rgb(var(--ink-700) / 0.86);
-  --panel-shell-sheen:  rgb(var(--accent-300) / 0.055);
+  --panel-shell-bg:     rgb(var(--ink-925) / 0.97);
+  --panel-shell-border: rgb(var(--ink-750) / 1);
+  --panel-shell-sheen:  rgb(var(--accent-300) / 0.04);
 
-  --surface-soft-border: rgb(var(--ink-700) / 0.82);
-  --surface-soft-bg:     rgb(var(--ink-850) / 0.78);
+  --surface-soft-border: rgb(var(--ink-750) / 0.9);
+  --surface-soft-bg:     rgb(var(--ink-875) / 0.85);
 
-  --control-soft-border:       rgb(var(--ink-700) / 0.9);
-  --control-soft-bg:           rgb(var(--ink-900) / 0.88);
+  --control-soft-border:       rgb(var(--ink-750) / 0.9);
+  --control-soft-bg:           rgb(var(--ink-950) / 0.95);
   --control-soft-hover-border: rgb(var(--accent-400) / 0.42);
-  --control-soft-hover-bg:     rgb(var(--ink-800) / 0.92);
+  --control-soft-hover-bg:     rgb(var(--ink-900) / 0.92);
 
   --primary-action-bg:    rgb(var(--accent-500));
-  --primary-action-color: rgb(var(--ink-100));
+  --primary-action-color: rgb(255 255 255);
   --primary-action-ring:  rgb(var(--accent-400) / 0.3);
   --primary-action-hover: rgb(var(--accent-400));
 
-  --study-card-border: rgb(var(--ink-700) / 0.82);
-  --study-card-bg:     rgb(var(--ink-850) / 0.76);
+  --study-card-border: rgb(var(--ink-750) / 0.9);
+  --study-card-bg:     rgb(var(--ink-900) / 0.85);
 
-  --md-code-head-bg:         rgb(8 10 14 / 0.48);
-  --md-code-head-border:     rgb(var(--ink-500) / 0.22);
-  --md-code-wrap-bg:         rgb(255 255 255 / 0.03);
-  --md-code-lang-color:      rgb(226 232 240 / 0.92);
-  --md-code-copy-border:     rgb(var(--ink-500) / 0.24);
-  --md-code-copy-bg:         rgb(255 255 255 / 0.02);
-  --md-code-copy-color:      rgb(148 163 184 / 0.92);
-  --md-code-copy-hover-bg:   rgb(255 255 255 / 0.05);
-  --md-code-copy-hover-color:rgb(226 232 240 / 0.96);
-  --md-img-border:           rgb(var(--ink-500) / 0.22);
+  --md-code-head-bg:          rgb(0 0 0 / 0.5);
+  --md-code-head-border:      rgb(var(--ink-750) / 0.5);
+  --md-code-wrap-bg:          rgb(255 255 255 / 0.025);
+  --md-code-lang-color:       rgb(var(--ink-200) / 0.92);
+  --md-code-copy-border:      rgb(var(--ink-750) / 0.5);
+  --md-code-copy-bg:          rgb(255 255 255 / 0.02);
+  --md-code-copy-color:       rgb(var(--ink-400) / 0.92);
+  --md-code-copy-hover-bg:    rgb(255 255 255 / 0.05);
+  --md-code-copy-hover-color: rgb(var(--ink-200) / 0.96);
+  --md-img-border:            rgb(var(--ink-750) / 0.6);
 }
 
 /* ─────────────────────────────────────────────

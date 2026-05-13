@@ -29,7 +29,6 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
     return () => clearTimeout(id);
   }, [retryAfter]);
 
-  // Handle ?reset=token&email=... from the reset link
   useEffect(() => {
     const token = searchParams.get("reset");
     const emailParam = searchParams.get("email");
@@ -79,7 +78,6 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
         setInfo("Account created. Enter the verification code we sent to your email.");
         return;
       }
-
       window.location.replace("/");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed");
@@ -182,117 +180,216 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
     }
   }
 
-  const stageTitle = stage === "verify" ? "Verify email" : stage === "forgot" ? "Forgot password" : stage === "reset" ? "Reset password" : mode === "login" ? "Sign in" : "Create account";
+  const stageTitle =
+    stage === "verify" ? "Verify email"
+    : stage === "forgot" ? "Forgot password"
+    : stage === "reset"  ? "Reset password"
+    : mode === "login"   ? "Sign in"
+    : "Create account";
+
   const stageSubtitle =
     stage === "verify" ? `Enter the verification code for ${pendingEmail || email}.`
     : stage === "forgot" ? "Enter your email and we'll send you a reset link."
-    : stage === "reset" ? "Enter your new password below."
-    : mode === "login" ? "Sign in to your study workspace."
+    : stage === "reset"  ? "Enter your new password below."
+    : mode === "login"   ? "Sign in to your study workspace."
     : "Create your personal study workspace.";
 
   return (
-    <main className="grid min-h-screen place-items-center bg-[radial-gradient(circle_at_top,rgba(139,92,246,0.18),transparent_34%),linear-gradient(180deg,#171221,#0f0d15)] px-4 py-10 text-ink-100">
-      <div className="w-full max-w-md rounded-2xl border border-ink-700/80 bg-ink-900/95 p-6 shadow-[0_32px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+    <main className="grid min-h-screen place-items-center bg-black px-4 py-10 text-frost">
+      <div className="w-full max-w-md rounded-[16px] border border-graphite-rail bg-[#0b0e14] p-8">
+
+        {/* Header */}
         <div className="mb-6">
           <div className="mb-5 flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-500/20">
-              <BookOpen className="h-3.5 w-3.5 text-accent-400" />
+            <div
+              className="flex h-7 w-7 items-center justify-center rounded-lg"
+              style={{ background: "linear-gradient(to right bottom in oklab, rgb(146,129,247) 0%, rgb(154,84,220) 100%)" }}
+            >
+              <BookOpen className="h-3.5 w-3.5 text-white" />
             </div>
-            <span className="text-sm font-semibold text-ink-200">EternalNotes</span>
+            <span className="text-[14px] font-medium text-frost">EternalNotes</span>
           </div>
-          <h1 className="text-2xl font-semibold text-ink-100">{stageTitle}</h1>
-          <p className="mt-1.5 text-sm leading-6 text-ink-400">{stageSubtitle}</p>
+          <h1 className="text-[22px] font-semibold text-white">{stageTitle}</h1>
+          <p className="mt-1.5 text-[14px] leading-[1.5] text-fog">{stageSubtitle}</p>
         </div>
 
+        {/* Tab switcher */}
         {stage === "auth" ? (
-          <div className="mb-4 flex gap-2 rounded-xl border border-ink-700/80 bg-ink-950/60 p-1">
+          <div className="mb-5 flex gap-1 rounded-[8px] border border-graphite-rail p-1">
             <TabBtn active={mode === "login"} onClick={() => { setMode("login"); reset(); }}>Sign in</TabBtn>
-            {allowSignup ? <TabBtn active={mode === "signup"} onClick={() => { setMode("signup"); reset(); }}>Create account</TabBtn> : null}
+            {allowSignup ? (
+              <TabBtn active={mode === "signup"} onClick={() => { setMode("signup"); reset(); }}>
+                Create account
+              </TabBtn>
+            ) : null}
           </div>
         ) : null}
 
+        {/* Auth stage */}
         {stage === "auth" ? (
           <>
             <div className="space-y-3">
               {mode === "signup" ? (
                 <Field icon={<User2 className="h-4 w-4" />} label="Name">
-                  <input value={name} onChange={(e) => setName(e.target.value)} className="w-full bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500" placeholder="Your name" />
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="w-full bg-transparent text-[14px] text-frost outline-none placeholder:text-steel"
+                    placeholder="Your name"
+                  />
                 </Field>
               ) : null}
               <Field icon={<Mail className="h-4 w-4" />} label="Email">
-                <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500" placeholder="you@example.com" autoComplete="email" type="email" />
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-transparent text-[14px] text-frost outline-none placeholder:text-steel"
+                  placeholder="you@example.com"
+                  autoComplete="email"
+                  type="email"
+                />
               </Field>
               <Field icon={<LockKeyhole className="h-4 w-4" />} label="Password">
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500" placeholder="12+ chars, 1 uppercase, 1 number" autoComplete={mode === "login" ? "current-password" : "new-password"} onKeyDown={(e) => e.key === "Enter" && void submit()} />
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full bg-transparent text-[14px] text-frost outline-none placeholder:text-steel"
+                  placeholder="12+ chars, 1 uppercase, 1 number"
+                  autoComplete={mode === "login" ? "current-password" : "new-password"}
+                  onKeyDown={(e) => e.key === "Enter" && void submit()}
+                />
               </Field>
             </div>
             {info ? <InfoBanner>{info}</InfoBanner> : null}
             {retryAfter > 0 ? <RateLimitBanner seconds={retryAfter} /> : error ? <ErrorBanner>{error}</ErrorBanner> : null}
-            <button type="button" onClick={() => void submit()} disabled={busy || retryAfter > 0 || !email.trim() || password.trim().length < 8 || (mode === "signup" && !name.trim())} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-accent-400 disabled:opacity-60">
+            <button
+              type="button"
+              onClick={() => void submit()}
+              disabled={busy || retryAfter > 0 || !email.trim() || password.trim().length < 8 || (mode === "signup" && !name.trim())}
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-[6px] border border-electric-blue py-3 text-[14px] font-medium text-white transition-colors hover:bg-electric-blue/10 disabled:cursor-not-allowed disabled:opacity-40"
+            >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               {mode === "login" ? "Sign in" : "Create account"}
             </button>
             {mode === "login" ? (
-              <button type="button" onClick={() => { reset(); setStage("forgot"); }} className="mt-3 block w-full text-center text-sm text-accent-300 hover:text-accent-200">
+              <button
+                type="button"
+                onClick={() => { reset(); setStage("forgot"); }}
+                className="mt-3 block w-full text-center text-[13px] text-fog transition-colors hover:text-frost"
+              >
                 Forgot password?
               </button>
             ) : null}
             {mode === "signup" ? (
-              <p className="mt-3 text-center text-xs leading-5 text-ink-500">
+              <p className="mt-3 text-center text-[12px] leading-[1.5] text-steel">
                 By creating an account you agree to our{" "}
-                <a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="underline hover:text-ink-300">Terms of Service</a>
+                <a href="/legal/terms" target="_blank" rel="noopener noreferrer" className="text-fog underline hover:text-frost">Terms</a>
                 {" "}and{" "}
-                <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" className="underline hover:text-ink-300">Privacy Policy</a>.
+                <a href="/legal/privacy" target="_blank" rel="noopener noreferrer" className="text-fog underline hover:text-frost">Privacy Policy</a>.
               </p>
             ) : null}
-            {!allowSignup ? <div className="mt-4 text-xs leading-5 text-ink-500">Registration is disabled on this instance. Use an existing account.</div> : null}
+            {!allowSignup ? (
+              <p className="mt-4 text-[12px] leading-[1.5] text-steel">
+                Registration is disabled on this instance. Use an existing account.
+              </p>
+            ) : null}
           </>
         ) : stage === "verify" ? (
           <>
             <div className="space-y-3">
               <Field icon={<Mail className="h-4 w-4" />} label="Email">
-                <input value={pendingEmail} readOnly className="w-full bg-transparent text-sm text-ink-300 outline-none" />
+                <input value={pendingEmail} readOnly className="w-full bg-transparent text-[14px] text-fog outline-none" />
               </Field>
               <Field icon={<KeyRound className="h-4 w-4" />} label="Verification code">
-                <input value={code} onChange={(e) => setCode(e.target.value)} className="w-full bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500" placeholder="6-digit code" inputMode="numeric" autoComplete="one-time-code" onKeyDown={(e) => e.key === "Enter" && void verify()} />
+                <input
+                  value={code}
+                  onChange={(e) => setCode(e.target.value)}
+                  className="w-full bg-transparent text-[14px] text-frost outline-none placeholder:text-steel"
+                  placeholder="6-digit code"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  onKeyDown={(e) => e.key === "Enter" && void verify()}
+                />
               </Field>
             </div>
             {info ? <InfoBanner>{info}</InfoBanner> : null}
             {retryAfter > 0 ? <RateLimitBanner seconds={retryAfter} /> : error ? <ErrorBanner>{error}</ErrorBanner> : null}
-            <button type="button" onClick={() => void verify()} disabled={busy || retryAfter > 0 || code.trim().length < 4} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-accent-400 disabled:opacity-60">
+            <button
+              type="button"
+              onClick={() => void verify()}
+              disabled={busy || retryAfter > 0 || code.trim().length < 4}
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-[6px] border border-electric-blue py-3 text-[14px] font-medium text-white transition-colors hover:bg-electric-blue/10 disabled:opacity-40"
+            >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Verify email
             </button>
             <div className="mt-3 flex items-center justify-between gap-3">
-              <button type="button" onClick={() => void resend()} disabled={busy} className="text-sm font-medium text-accent-300 hover:text-accent-200 disabled:opacity-60">Resend code</button>
-              <button type="button" onClick={() => { setStage("auth"); setCode(""); reset(); }} disabled={busy} className="text-sm font-medium text-ink-500 hover:text-ink-300 disabled:opacity-60">Back</button>
+              <button type="button" onClick={() => void resend()} disabled={busy} className="text-[13px] font-medium text-fog transition-colors hover:text-frost disabled:opacity-40">
+                Resend code
+              </button>
+              <button type="button" onClick={() => { setStage("auth"); setCode(""); reset(); }} disabled={busy} className="text-[13px] text-steel transition-colors hover:text-fog disabled:opacity-40">
+                Back
+              </button>
             </div>
           </>
         ) : stage === "forgot" ? (
           <>
             <div className="space-y-3">
               <Field icon={<Mail className="h-4 w-4" />} label="Email">
-                <input value={email} onChange={(e) => setEmail(e.target.value)} className="w-full bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500" placeholder="you@example.com" type="email" autoComplete="email" onKeyDown={(e) => e.key === "Enter" && void sendForgotPassword()} />
+                <input
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full bg-transparent text-[14px] text-frost outline-none placeholder:text-steel"
+                  placeholder="you@example.com"
+                  type="email"
+                  autoComplete="email"
+                  onKeyDown={(e) => e.key === "Enter" && void sendForgotPassword()}
+                />
               </Field>
             </div>
             {info ? <InfoBanner>{info}</InfoBanner> : null}
             {retryAfter > 0 ? <RateLimitBanner seconds={retryAfter} /> : error ? <ErrorBanner>{error}</ErrorBanner> : null}
-            <button type="button" onClick={() => void sendForgotPassword()} disabled={busy || retryAfter > 0 || !email.trim()} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-accent-400 disabled:opacity-60">
+            <button
+              type="button"
+              onClick={() => void sendForgotPassword()}
+              disabled={busy || retryAfter > 0 || !email.trim()}
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-[6px] border border-electric-blue py-3 text-[14px] font-medium text-white transition-colors hover:bg-electric-blue/10 disabled:opacity-40"
+            >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Send reset link
             </button>
-            <button type="button" onClick={() => { setStage("auth"); reset(); }} className="mt-3 block w-full text-center text-sm text-ink-500 hover:text-ink-300">Back to sign in</button>
+            <button
+              type="button"
+              onClick={() => { setStage("auth"); reset(); }}
+              className="mt-3 block w-full text-center text-[13px] text-steel transition-colors hover:text-fog"
+            >
+              Back to sign in
+            </button>
           </>
         ) : (
           <>
             <div className="space-y-3">
               <Field icon={<LockKeyhole className="h-4 w-4" />} label="New password">
-                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500" placeholder="12+ chars, 1 uppercase, 1 number" autoComplete="new-password" onKeyDown={(e) => e.key === "Enter" && void submitReset()} />
+                <input
+                  type="password"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  className="w-full bg-transparent text-[14px] text-frost outline-none placeholder:text-steel"
+                  placeholder="12+ chars, 1 uppercase, 1 number"
+                  autoComplete="new-password"
+                  onKeyDown={(e) => e.key === "Enter" && void submitReset()}
+                />
               </Field>
             </div>
             {info ? <InfoBanner>{info}</InfoBanner> : null}
             {retryAfter > 0 ? <RateLimitBanner seconds={retryAfter} /> : error ? <ErrorBanner>{error}</ErrorBanner> : null}
-            <button type="button" onClick={() => void submitReset()} disabled={busy || retryAfter > 0 || newPassword.length < 12} className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-accent-500 px-4 py-3 text-sm font-semibold text-ink-950 hover:bg-accent-400 disabled:opacity-60">
+            <button
+              type="button"
+              onClick={() => void submitReset()}
+              disabled={busy || retryAfter > 0 || newPassword.length < 12}
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-[6px] border border-electric-blue py-3 text-[14px] font-medium text-white transition-colors hover:bg-electric-blue/10 disabled:opacity-40"
+            >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
               Set new password
             </button>
@@ -303,9 +400,17 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
   );
 }
 
-function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+function TabBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: ReactNode }) {
   return (
-    <button type="button" onClick={onClick} className={`flex-1 rounded-lg px-3 py-2 text-sm font-semibold ${active ? "bg-accent-500 text-ink-950" : "text-ink-400 hover:text-ink-100"}`}>
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 rounded-[6px] px-3 py-2 text-[13px] font-medium transition-colors ${
+        active
+          ? "bg-white/[0.08] text-white"
+          : "text-fog hover:text-frost"
+      }`}
+    >
       {children}
     </button>
   );
@@ -314,18 +419,29 @@ function TabBtn({ active, onClick, children }: { active: boolean; onClick: () =>
 function Field({ icon, label, children }: { icon: ReactNode; label: string; children: ReactNode }) {
   return (
     <label className="block">
-      <div className="mb-1.5 text-xs font-medium text-ink-500">{label}</div>
-      <div className="flex items-center gap-2 rounded-xl border border-ink-700/80 bg-ink-950/60 px-3 py-3 text-ink-400">{icon}{children}</div>
+      <div className="mb-1.5 text-[12px] font-medium text-steel">{label}</div>
+      <div className="flex items-center gap-2 rounded-[8px] border border-graphite-rail bg-black px-3 py-3 text-fog">
+        {icon}
+        {children}
+      </div>
     </label>
   );
 }
 
 function InfoBanner({ children }: { children: ReactNode }) {
-  return <div className="mt-4 rounded-xl border border-accent-500/25 bg-accent-500/10 px-3 py-2 text-sm text-accent-200">{children}</div>;
+  return (
+    <div className="mt-4 rounded-[8px] border border-electric-blue/20 bg-electric-blue/5 px-3 py-2 text-[13px] text-electric-blue">
+      {children}
+    </div>
+  );
 }
 
 function ErrorBanner({ children }: { children: ReactNode }) {
-  return <div className="mt-4 rounded-xl border border-danger-400/30 bg-danger-400/10 px-3 py-2 text-sm text-danger-400">{children}</div>;
+  return (
+    <div className="mt-4 rounded-[8px] border border-bounced-red/25 bg-bounced-red/5 px-3 py-2 text-[13px] text-bounced-red">
+      {children}
+    </div>
+  );
 }
 
 function RateLimitBanner({ seconds }: { seconds: number }) {
@@ -333,8 +449,9 @@ function RateLimitBanner({ seconds }: { seconds: number }) {
   const s = seconds % 60;
   const display = m > 0 ? `${m}:${String(s).padStart(2, "0")}` : `${s}s`;
   return (
-    <div className="mt-4 rounded-xl border border-amber-400/25 bg-amber-400/10 px-3 py-2 text-sm text-amber-300">
-      Too many attempts. Try again in <span className="font-semibold tabular-nums">{display}</span>.
+    <div className="mt-4 rounded-[8px] border border-complained-yellow/20 bg-complained-yellow/5 px-3 py-2 text-[13px] text-complained-yellow">
+      Too many attempts. Try again in{" "}
+      <span className="font-semibold tabular-nums">{display}</span>.
     </div>
   );
 }

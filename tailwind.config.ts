@@ -29,6 +29,22 @@ const config: Config = {
           400: "rgb(var(--accent-400) / <alpha-value>)",
           300: "rgb(var(--accent-300) / <alpha-value>)"
         },
+        // Resend design system tokens
+        "graphite-rail": "#292d30",
+        "smoke":          "#464a4d",
+        "ash":            "#6c6c6c",
+        "steel":          "#6e727a",
+        "fog":            "#a1a4a5",
+        "mist":           "#abafb4",
+        "frost":          "#f0f0f0",
+        "electric-blue":  "#3b9eff",
+        "resend-violet":  "#9281f7",
+        "delivered-green":"#3ad389",
+        "bounced-red":    "#ff9592",
+        "complained-yellow":"#ffca16",
+        "opened-blue":    "#70b8ff",
+        "clicked-lavender":"#baa7ff",
+        // existing utilities
         blue:    { 400: "#93C5FD" },
         violet:  { 500: "#8B5CF6", 400: "#A78BFA", 300: "#C4B5FD" },
         amber:   { 400: "#F6C85F" },
@@ -36,8 +52,9 @@ const config: Config = {
         danger:  { 400: "#F87171" }
       },
       fontFamily: {
-        sans: ["Inter", "ui-sans-serif", "system-ui", "sans-serif"],
-        mono: ["JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"]
+        sans:    ["var(--font-inter)", "Inter", "ui-sans-serif", "system-ui", "sans-serif"],
+        mono:    ["var(--font-mono)", "JetBrains Mono", "ui-monospace", "SFMono-Regular", "monospace"],
+        display: ["var(--font-playfair)", "Playfair Display", "Georgia", "serif"]
       },
       boxShadow: {
         panel: "0 24px 80px rgba(0, 0, 0, 0.32)",
