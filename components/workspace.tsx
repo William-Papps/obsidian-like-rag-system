@@ -1540,6 +1540,7 @@ export function Workspace() {
 
   const [publicToken, setPublicToken] = useState<string | null>(null);
   const [publicLinkLoading, setPublicLinkLoading] = useState(false);
+  const [folderShareModal, setFolderShareModal] = useState<{ folder: FolderType; token: string | null; loading: boolean } | null>(null);
 
   useEffect(() => {
     setPublicToken(null);
@@ -1566,6 +1567,35 @@ export function Workspace() {
       }
     } finally {
       setPublicLinkLoading(false);
+    }
+  }
+
+  async function openFolderShare(folder: FolderType) {
+    setFolderShareModal({ folder, token: null, loading: true });
+    const res = await fetch(`/api/folders/${folder.id}/public-link`);
+    if (res.ok) {
+      const d = await res.json() as { token: string | null };
+      setFolderShareModal({ folder, token: d.token ?? null, loading: false });
+    } else {
+      setFolderShareModal(null);
+    }
+  }
+
+  async function toggleFolderPublicLink() {
+    if (!folderShareModal) return;
+    const { folder, token } = folderShareModal;
+    setFolderShareModal({ ...folderShareModal, loading: true });
+    if (token) {
+      await fetch(`/api/folders/${folder.id}/public-link`, { method: "DELETE" });
+      setFolderShareModal({ folder, token: null, loading: false });
+      notify("Folder public link disabled", "info");
+    } else {
+      const res = await fetch(`/api/folders/${folder.id}/public-link`, { method: "POST" });
+      const d = await res.json() as { token: string };
+      const url = `${window.location.origin}/share/folder/${d.token}`;
+      await navigator.clipboard.writeText(url);
+      setFolderShareModal({ folder, token: d.token, loading: false });
+      notify("Folder link copied to clipboard", "success");
     }
   }
 
@@ -2937,7 +2967,22 @@ export function Workspace() {
         onReindexNote={(note) => reindexScope({ noteId: note.id }, note.title)}
         onTogglePinNote={togglePinNote}
         pinnedNoteIds={pinnedNoteIds}
+        onShareFolder={openFolderShare}
       />
+      {folderShareModal && (
+        <FolderShareModal
+          folder={folderShareModal.folder}
+          token={folderShareModal.token}
+          loading={folderShareModal.loading}
+          onClose={() => setFolderShareModal(null)}
+          onToggle={() => void toggleFolderPublicLink()}
+          onCopy={() => {
+            if (!folderShareModal.token) return;
+            void navigator.clipboard.writeText(`${window.location.origin}/share/folder/${folderShareModal.token}`);
+            notify("Link copied", "success");
+          }}
+        />
+      )}
       {workspaceModal === "create" ? (
         <WorkspaceCreateModal
           onClose={() => setWorkspaceModal(null)}
@@ -5167,7 +5212,8 @@ function VaultContextMenu({
   onDeleteNote,
   onReindexNote,
   onTogglePinNote,
-  pinnedNoteIds
+  pinnedNoteIds,
+  onShareFolder
 }: {
   menu: VaultMenu;
   folders: FolderType[];
@@ -5187,6 +5233,7 @@ function VaultContextMenu({
   onReindexNote: (note: Note) => void;
   onTogglePinNote: (note: Note) => void;
   pinnedNoteIds: string[];
+  onShareFolder: (folder: FolderType) => void;
 }) {
   if (!menu) return null;
   const folder = menu.kind === "folder" ? folders.find((item) => item.id === menu.id) : null;
@@ -5271,6 +5318,16 @@ function VaultContextMenu({
           >
             <RotateCw className="h-4 w-4 text-accent-300" />
             Reindex folder
+          </button>
+          <button
+            className={itemClass}
+            onClick={() => {
+              onClose();
+              onShareFolder(folder);
+            }}
+          >
+            <Link className="h-4 w-4 text-accent-300" />
+            Share folder...
           </button>
           <button
             className={dangerClass}
@@ -6842,4 +6899,80 @@ function splitImportedMarkdown(markdown: string, fallbackTitle: string) {
 
   if (buffer.length) sections.push({ title: currentTitle, markdownContent: buffer.join("\n").trim() });
   return sections.filter((section) => section.markdownContent.trim());
+}
+
+function FolderShareModal({
+  folder,
+  token,
+  loading,
+  onClose,
+  onToggle,
+  onCopy
+}: {
+  folder: FolderType;
+  token: string | null;
+  loading: boolean;
+  onClose: () => void;
+  onToggle: () => void;
+  onCopy: () => void;
+}) {
+  const shareUrl = token ? `${typeof window !== "undefined" ? window.location.origin : ""}/share/folder/${token}` : null;
+
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-graphite-rail bg-[#0b0e14]">
+        <div className="flex items-center justify-between border-b border-graphite-rail px-5 py-4">
+          <div>
+            <h2 className="text-sm font-semibold text-ink-100">Share Folder</h2>
+            <p className="mt-0.5 truncate text-xs text-ink-500">{folder.name}</p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-500 hover:bg-graphite-rail/40 hover:text-ink-200">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="px-5 py-4 space-y-4">
+          {token ? (
+            <>
+              <div className="rounded-lg border border-graphite-rail bg-black px-3 py-2">
+                <p className="truncate text-xs text-ink-400 font-mono">{shareUrl}</p>
+              </div>
+              <p className="text-xs text-ink-500 leading-5">
+                Anyone with this link can view all notes in this folder and its subfolders.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={onCopy}
+                  className="flex-1 rounded-[6px] border border-electric-blue px-3 py-2 text-sm font-semibold text-white hover:bg-electric-blue/10 transition-colors"
+                >
+                  Copy link
+                </button>
+                <button
+                  onClick={onToggle}
+                  disabled={loading}
+                  className="rounded-[6px] border border-graphite-rail px-3 py-2 text-sm text-ink-400 hover:bg-graphite-rail/30 transition-colors disabled:opacity-50"
+                >
+                  {loading ? "…" : "Disable"}
+                </button>
+              </div>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-ink-500 leading-5">
+                Create a public link to share this folder and all its notes with anyone — no account required.
+              </p>
+              <button
+                onClick={onToggle}
+                disabled={loading}
+                className="w-full rounded-[6px] border border-electric-blue px-4 py-2 text-sm font-semibold text-white hover:bg-electric-blue/10 transition-colors disabled:opacity-50"
+              >
+                {loading ? "Creating…" : "Create public link"}
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </>
+  );
 }

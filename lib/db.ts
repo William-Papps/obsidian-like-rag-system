@@ -468,6 +468,7 @@ function migrate(database: Database.Database) {
   `);
 
   ensureColumn(database, "notes", "source_document_id", "text");
+  ensureColumn(database, "folders", "public_token", "text");
   ensureColumn(database, "chunks", "page_number", "integer");
   ensureColumn(database, "chunks", "source_document_id", "text");
 
