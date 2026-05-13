@@ -533,6 +533,16 @@ export function Workspace() {
     setDraftMarkdown(md);
     setEditorSeed(md);
     setHistoryOpen(false);
+    // Always sync the editor imperatively so note switches are correct even when
+    // editorSeed doesn't change (e.g. switching between two empty notes — React
+    // bails out of the state update and @uiw/react-codemirror never re-renders).
+    const view = editorViewRef.current;
+    if (view) {
+      const current = view.state.doc.toString();
+      if (current !== md) {
+        view.dispatch({ changes: { from: 0, to: current.length, insert: md } });
+      }
+    }
   }, [activeNote?.id]);
   const openNoteFromSource = useCallback(
     (source: SourceRef) => {
