@@ -1,6 +1,6 @@
 "use client";
 
-import { FileText, Upload, X } from "lucide-react";
+import { FileText, Sparkles, Upload, X } from "lucide-react";
 import { useRef, useState } from "react";
 
 type DocumentImportModalProps = {
@@ -23,6 +23,7 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
   const [title, setTitle] = useState("");
   const [selectedFile, setSelectedFile] = useState<{ name: string; size: number; isPdf: boolean } | null>(null);
   const [statusText, setStatusText] = useState("");
+  const [enhanceStructure, setEnhanceStructure] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
@@ -32,13 +33,17 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
     if (!file) return;
 
     const isPdf = file.name.toLowerCase().endsWith(".pdf") || file.type === "application/pdf";
+    const isImage = file.type.startsWith("image/") || /\.(png|jpg|jpeg|webp|gif|bmp|tif|tiff)$/i.test(file.name.toLowerCase());
+    const isDocx = file.name.toLowerCase().endsWith(".docx");
     setSelectedFile({ name: file.name, size: file.size, isPdf });
     setIsLoading(true);
-    setStatusText(isPdf ? "Extracting text from PDF…" : "Converting document…");
+    const applyEnhance = enhanceStructure && !isPdf && !isImage && !isDocx;
+    setStatusText(applyEnhance ? "Converting and enhancing structure…" : isPdf ? "Extracting text from PDF…" : "Converting document…");
 
     try {
       const formData = new FormData();
       formData.append("file", file);
+      if (applyEnhance) formData.append("enhanceStructure", "true");
 
       const response = await fetch("/api/convert", {
         method: "POST",
@@ -76,10 +81,11 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
     }
 
     setIsLoading(true);
-    setStatusText("Converting text…");
+    setStatusText(enhanceStructure ? "Converting and enhancing structure…" : "Converting text…");
     try {
       const formData = new FormData();
       formData.append("text", text);
+      if (enhanceStructure) formData.append("enhanceStructure", "true");
 
       const response = await fetch("/api/convert", {
         method: "POST",
@@ -193,6 +199,28 @@ export function DocumentImportModal({ isOpen, onClose, onImport, notify }: Docum
                   </button>
                 </div>
               </div>
+
+              {/* AI structure toggle */}
+              <button
+                type="button"
+                onClick={() => setEnhanceStructure((v) => !v)}
+                className={`flex w-full items-center gap-3 rounded-lg border px-3 py-2.5 text-left transition-colors ${
+                  enhanceStructure
+                    ? "border-accent-500/40 bg-accent-500/8"
+                    : "border-ink-700/50 hover:border-ink-600/60 hover:bg-ink-800/40"
+                }`}
+              >
+                <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${enhanceStructure ? "bg-accent-500/20" : "bg-ink-800"}`}>
+                  <Sparkles className={`h-4 w-4 ${enhanceStructure ? "text-accent-400" : "text-ink-500"}`} />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className={`text-sm font-medium ${enhanceStructure ? "text-accent-200" : "text-ink-300"}`}>Detect structure with AI</div>
+                  <div className="text-xs text-ink-500">Adds headings, lists, and tables to plain text. Skipped for PDF, DOCX, and images.</div>
+                </div>
+                <div className={`h-4 w-7 shrink-0 rounded-full transition-colors ${enhanceStructure ? "bg-accent-500" : "bg-ink-700"}`}>
+                  <div className={`mt-0.5 h-3 w-3 rounded-full bg-white shadow transition-transform ${enhanceStructure ? "translate-x-3.5" : "translate-x-0.5"}`} />
+                </div>
+              </button>
 
               <div>
                 <label className="mb-2 block text-sm font-medium text-ink-300">Note title override</label>

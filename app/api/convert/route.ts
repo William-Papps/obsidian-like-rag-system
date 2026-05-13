@@ -5,6 +5,7 @@ import { pathToFileURL } from "url";
 import mammoth from "mammoth";
 import { withAuthenticatedUser } from "@/lib/auth";
 import { extractTextFromImage } from "@/lib/import/vision";
+import { enhanceTextStructure } from "@/lib/import/structure";
 import { ProPlanRequiredError, requireProAccess, resolveAiContext } from "@/lib/services/ai-access";
 import type { AiContext } from "@/lib/types";
 
@@ -326,11 +327,17 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "No file or text provided" }, { status: 400 });
       }
 
+      const enhanceStructure = formData.get("enhanceStructure") === "true";
       let markdown = "";
       const warnings: string[] = [];
 
       if (textContent) {
         markdown = await convertTextToMarkdown(textContent);
+        if (enhanceStructure) {
+          const result = await enhanceTextStructure(user.id, markdown);
+          markdown = result.text;
+          if (result.warning) warnings.push(result.warning);
+        }
       } else if (file) {
         const buffer = Buffer.from(await file.arrayBuffer());
         const fileName = file.name.toLowerCase();
@@ -377,6 +384,11 @@ export async function POST(request: NextRequest) {
           file.type.startsWith("text/")
         ) {
           markdown = await convertTextToMarkdown(buffer.toString("utf-8"));
+          if (enhanceStructure) {
+            const result = await enhanceTextStructure(user.id, markdown);
+            markdown = result.text;
+            if (result.warning) warnings.push(result.warning);
+          }
         } else {
           try {
             markdown = await convertTextToMarkdown(buffer.toString("utf-8"));
