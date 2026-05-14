@@ -84,7 +84,7 @@ function Hero() {
 
         {/* Sub-copy */}
         <p className="mx-auto mb-10 max-w-lg text-[18px] leading-[1.6] text-fog">
-          Add documents, index once, ask in plain English. Every answer cites the exact source — no hallucinations, ever.
+          Add documents, index once, ask in plain English. Every answer links to the exact source passage — click any citation to verify it yourself.
         </p>
 
         {/* CTAs */}
@@ -109,59 +109,69 @@ function Hero() {
 
 /* ─── App preview mockup ─── */
 function AppPreview() {
-  const files = ["Q3 Strategy", "Onboarding SOPs", "Product Roadmap", "Market Research"];
+  const files = [
+    { name: "Q3 Strategy", active: true },
+    { name: "Onboarding SOPs", active: false },
+    { name: "Product Roadmap", active: false },
+    { name: "Market Research", active: false }
+  ];
   return (
     <section className="mx-auto max-w-[1200px] px-6 pb-24">
-      <div className="overflow-hidden rounded-[16px] border border-graphite-rail">
+      <div className="overflow-hidden rounded-[16px] border border-graphite-rail select-none">
         {/* Window chrome */}
         <div className="flex items-center gap-2 border-b border-graphite-rail bg-black px-4 py-3">
           <div className="h-3 w-3 rounded-full bg-bounced-red/50" />
           <div className="h-3 w-3 rounded-full bg-complained-yellow/50" />
           <div className="h-3 w-3 rounded-full bg-delivered-green/50" />
-          <div className="ml-3 h-4 w-48 rounded-[4px] bg-graphite-rail" />
+          <div className="ml-3 rounded-[4px] bg-graphite-rail px-3 py-0.5 text-[11px] text-steel">eternalnotes.app</div>
         </div>
         {/* Three-pane layout */}
-        <div className="grid grid-cols-[180px_1fr_260px] bg-black">
+        <div className="grid grid-cols-[190px_1fr_270px] bg-[#0b0e14] min-h-[320px]">
           {/* Sidebar */}
-          <div className="border-r border-graphite-rail p-4 space-y-1">
-            {files.map((name, i) => (
+          <div className="border-r border-graphite-rail p-3 space-y-0.5">
+            <div className="mb-3 px-2 text-[10px] font-semibold uppercase tracking-wider text-steel">My Vault</div>
+            {files.map((f) => (
               <div
-                key={i}
-                className={`flex items-center gap-2 rounded-[6px] px-2 py-1.5 ${i === 0 ? "bg-white/[0.05]" : ""}`}
+                key={f.name}
+                className={`flex items-center gap-2 rounded-[6px] px-2 py-1.5 ${f.active ? "bg-white/[0.06] text-frost" : "text-fog"}`}
               >
-                <div className="h-3 w-3 shrink-0 rounded-[3px] border border-graphite-rail" />
-                <div
-                  className={`h-2.5 rounded-[3px] ${i === 0 ? "bg-frost/50" : "bg-fog/20"}`}
-                  style={{ width: `${48 + i * 14}px` }}
-                />
+                <svg className="h-3 w-3 shrink-0 opacity-50" viewBox="0 0 16 16" fill="currentColor"><rect x="2" y="2" width="12" height="12" rx="2" fillOpacity="0.4"/></svg>
+                <span className="truncate text-[12px]">{f.name}</span>
               </div>
             ))}
           </div>
           {/* Editor */}
-          <div className="p-6 space-y-3">
-            <div className="h-4 w-44 rounded-[3px] bg-frost/[0.08]" />
-            <div className="space-y-1.5">
-              {[1, 0.8, 1].map((w, i) => (
-                <div key={i} className="h-2.5 rounded-[3px] bg-fog/[0.12]" style={{ width: `${w * 100}%` }} />
-              ))}
+          <div className="border-r border-graphite-rail px-7 py-5 space-y-3">
+            <div className="text-[15px] font-semibold text-frost/70">Q3 Strategy</div>
+            <div className="space-y-2 text-[12px] leading-relaxed text-fog/60">
+              <div>Our primary focus this quarter is expanding into the enterprise segment while maintaining our SMB retention above 94%.</div>
+              <div className="h-2.5 w-4/5 rounded-[3px] bg-fog/10" />
+              <div className="h-2.5 w-full rounded-[3px] bg-fog/10" />
+              <div className="mt-3 h-2.5 w-3/5 rounded-[3px] bg-fog/10" />
             </div>
-            <div className="mt-4 space-y-1.5">
-              {[0.6, 1, 0.75].map((w, i) => (
-                <div key={i} className="h-2.5 rounded-[3px] bg-fog/[0.12]" style={{ width: `${w * 100}%` }} />
+            <div className="mt-2 space-y-1.5">
+              {[1, 0.85].map((w, i) => (
+                <div key={i} className="h-2.5 rounded-[3px] bg-fog/8" style={{ width: `${w * 100}%` }} />
               ))}
             </div>
           </div>
           {/* Ask panel */}
-          <div className="border-l border-graphite-rail p-4 space-y-3">
-            <div className="rounded-[6px] border border-graphite-rail p-3">
-              <div className="mb-2 text-[11px] font-medium text-fog">Ask</div>
-              <div className="h-7 w-full rounded-[4px] border border-graphite-rail" />
+          <div className="flex flex-col p-4 space-y-3">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-accent-400/80">
+              <svg className="h-3 w-3" viewBox="0 0 16 16" fill="currentColor"><path d="M8 1l1.5 4.5H14l-3.7 2.7 1.4 4.3L8 9.8l-3.7 2.7 1.4-4.3L2 5.5h4.5z"/></svg>
+              Ask AI
             </div>
-            <div className="rounded-[6px] border border-graphite-rail p-3 space-y-1.5">
-              {[1, 0.8, 1].map((w, i) => (
-                <div key={i} className="h-2 rounded-[3px] bg-fog/[0.12]" style={{ width: `${w * 100}%` }} />
-              ))}
-              <div className="mt-2 h-2 w-2/3 rounded-[3px] bg-resend-violet/30" />
+            <div className="rounded-[8px] border border-graphite-rail bg-black/40 px-3 py-2 text-[12px] text-fog/50 italic">
+              What is our Q3 enterprise strategy?
+            </div>
+            <div className="flex-1 rounded-[8px] border border-graphite-rail bg-black/20 p-3 space-y-2">
+              <div className="text-[12px] leading-relaxed text-fog/80">
+                The Q3 strategy focuses on <span className="text-frost/70">enterprise expansion</span> while keeping SMB retention above 94%.
+              </div>
+              <div className="flex items-center gap-1.5 rounded-[4px] border border-resend-violet/20 bg-resend-violet/8 px-2 py-1">
+                <svg className="h-2.5 w-2.5 shrink-0 text-resend-violet/60" viewBox="0 0 16 16" fill="currentColor"><path d="M2 2h12v2H2zM2 7h8v2H2zM2 12h6v2H2z"/></svg>
+                <span className="text-[10px] text-resend-violet/60">Q3 Strategy · paragraph 1</span>
+              </div>
             </div>
           </div>
         </div>
@@ -175,7 +185,7 @@ const FEATURES: Array<{ icon: ReactNode; title: string; description: string }> =
   {
     icon: <Sparkles className="h-5 w-5" />,
     title: "Grounded AI answers",
-    description: "Ask anything in plain English. Every answer is backed by exact quotes from your documents — no hallucinations, ever."
+    description: "Ask anything in plain English. Every answer is built from exact excerpts in your documents — nothing invented, nothing missing a source."
   },
   {
     icon: <Users className="h-5 w-5" />,
@@ -200,7 +210,7 @@ const FEATURES: Array<{ icon: ReactNode; title: string; description: string }> =
   {
     icon: <ShieldCheck className="h-5 w-5" />,
     title: "Private by default",
-    description: "Your documents never leave your infrastructure. Self-hosted, fully under your control."
+    description: "Personal plan runs on your own server with your own API key. Pro plan uses our hosted AI. Either way, your notes never leave your account."
   }
 ];
 
@@ -307,7 +317,7 @@ function Pricing() {
             <span className="mb-1 text-[14px] text-fog">/ month</span>
           </div>
           <p className="mt-3 text-[14px] leading-[1.5] text-fog">
-            Full access to all features. Bring your own OpenAI API key.
+            Full access to all features. Requires your own OpenAI API key — usage costs typically $1–5/month.
           </p>
           <ul className="my-8 flex-1 space-y-3">
             {PERSONAL_FEATURES.map((f) => (

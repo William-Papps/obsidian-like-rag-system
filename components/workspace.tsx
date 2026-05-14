@@ -33,6 +33,7 @@ import {
   GripVertical,
   Info,
   ImagePlus,
+  Keyboard,
   LayoutPanelLeft,
   Layers3,
   Link,
@@ -69,6 +70,7 @@ import {
 import { Component, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MarkdownPreview } from "@/components/markdown";
 import { DocumentImportModal } from "@/components/document-import-modal";
+import { HelpWidget } from "@/components/help-widget";
 import type { AnswerResult, DocumentFile, Flashcard, Folder as FolderType, Note, NoteShare, NoteSharePermission, ProviderSettings, QuizEvaluation, QuizQuestion, WorkspaceWithMembers } from "@/lib/types";
 
 class PanelErrorBoundary extends Component<{ children: ReactNode; label: string }, { error: Error | null }> {
@@ -489,6 +491,12 @@ export function Workspace() {
       }
       if (event.key === "Escape" && zenMode) {
         setZenMode(false);
+      }
+      const active = document.activeElement;
+      const inInput = active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement || (active instanceof HTMLElement && active.isContentEditable);
+      if (event.key === "?" && !inInput && !event.metaKey && !event.ctrlKey) {
+        event.preventDefault();
+        setShortcutsOpen((o) => !o);
       }
     };
     window.addEventListener("keydown", onKeyDown);
@@ -1541,6 +1549,7 @@ export function Workspace() {
   const [publicToken, setPublicToken] = useState<string | null>(null);
   const [publicLinkLoading, setPublicLinkLoading] = useState(false);
   const [folderShareModal, setFolderShareModal] = useState<{ folder: FolderType; token: string | null; loading: boolean } | null>(null);
+  const [shortcutsOpen, setShortcutsOpen] = useState(false);
 
   useEffect(() => {
     setPublicToken(null);
@@ -1855,6 +1864,7 @@ export function Workspace() {
         onAccount={() => {
           window.location.href = "/account";
         }}
+        onShortcuts={() => setShortcutsOpen(true)}
         onLogout={async () => {
           await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
           window.location.href = "/auth";
@@ -2718,7 +2728,16 @@ export function Workspace() {
                     <Sparkles className="h-6 w-6 text-accent-400" />
                   </div>
                   <div className="relative text-xl font-bold tracking-tight text-ink-100">Your workspace is ready</div>
-                  <div className="relative mt-2 text-sm leading-6 text-ink-500">Add notes on any topic. Once you have some, use the study tools to ask questions about them.</div>
+                  <div className="relative mt-2 text-sm leading-6 text-ink-500">Create notes, then use Ask, flashcards, and quizzes to study them with AI.</div>
+                  {!data.settings.maskedKey && !data.settings.hostedKeyAvailable && (
+                    <a
+                      href="/account"
+                      className="relative mt-4 flex items-center justify-center gap-2 rounded-xl border border-amber-400/25 bg-amber-400/8 px-4 py-3 text-sm text-amber-400/90 transition-colors hover:bg-amber-400/12"
+                    >
+                      <AlertCircle className="h-4 w-4 shrink-0" />
+                      <span>Add an API key to enable AI features <span className="underline underline-offset-2">→ Account settings</span></span>
+                    </a>
+                  )}
                   <button
                     onClick={() => createNote()}
                     className="primary-action relative mt-5 inline-flex items-center gap-2"
@@ -2983,6 +3002,8 @@ export function Workspace() {
           }}
         />
       )}
+      {shortcutsOpen && <KeyboardShortcutsModal onClose={() => setShortcutsOpen(false)} />}
+      <HelpWidget />
       {workspaceModal === "create" ? (
         <WorkspaceCreateModal
           onClose={() => setWorkspaceModal(null)}
@@ -3088,6 +3109,7 @@ function SideRail(props: {
   onNewNote: () => void;
   onNewFolder: () => void;
   onAccount: () => void;
+  onShortcuts: () => void;
   onLogout: () => void | Promise<void>;
 }) {
   const [hovering, setHovering] = useState(false);
@@ -3238,6 +3260,9 @@ function SideRail(props: {
               </div>
             ) : null}
           </div>
+          <RailIconButton label="Keyboard shortcuts (?)" onClick={props.onShortcuts}>
+            <Keyboard className="h-4 w-4" />
+          </RailIconButton>
           <RailIconButton label="Account" onClick={props.onAccount}>
             <Settings className="h-4 w-4" />
           </RailIconButton>
@@ -3512,6 +3537,15 @@ function AssistantPanel(props: {
           </button>
         ))}
       </div>
+      {!props.data.settings.maskedKey && !props.data.settings.hostedKeyAvailable && (
+        <div className="shrink-0 border-b border-amber-400/20 bg-amber-400/8 px-4 py-2.5">
+          <p className="text-[11px] leading-5 text-amber-400/90">
+            <span className="font-semibold">No AI key configured.</span>{" "}
+            AI features won&apos;t work until you add an API key.{" "}
+            <a href="/account" className="underline underline-offset-2 hover:text-amber-300">Set it up →</a>
+          </p>
+        </div>
+      )}
       <div className="min-h-0 flex-1 overflow-auto p-4">
         <PanelErrorBoundary label={props.tab}>
           <div key={props.tab} className="animate-[fadeIn_220ms_ease-out]">
@@ -6352,12 +6386,12 @@ function SaveBadge({ saving, stale, preparing, onPrepare }: { saving: boolean; s
   const label = saving ? "Saving" : preparing ? "Preparing…" : stale ? "Prepare for AI" : "Indexed";
   if (stale && !busy && onPrepare) {
     return (
-      <button onClick={onPrepare} title="Make notes searchable by AI" className={cls}>
+      <button onClick={onPrepare} title="Some notes haven't been indexed yet. Click to embed them so AI tools can search your content." className={cls}>
         {icon}{label}
       </button>
     );
   }
-  return <span className={cls}>{icon}{label}</span>;
+  return <span title={stale ? "Notes need indexing" : "All notes indexed and searchable by AI"} className={cls}>{icon}{label}</span>;
 }
 
 function IndexBadge({ status, busy }: { status: Bootstrap["indexStatus"]; busy: boolean }) {
@@ -6899,6 +6933,74 @@ function splitImportedMarkdown(markdown: string, fallbackTitle: string) {
 
   if (buffer.length) sections.push({ title: currentTitle, markdownContent: buffer.join("\n").trim() });
   return sections.filter((section) => section.markdownContent.trim());
+}
+
+const SHORTCUTS: Array<{ group: string; items: Array<{ keys: string[]; label: string }> }> = [
+  {
+    group: "Navigation",
+    items: [
+      { keys: ["Ctrl", "K"], label: "Command palette" },
+      { keys: ["?"], label: "Keyboard shortcuts" },
+    ]
+  },
+  {
+    group: "Editor",
+    items: [
+      { keys: ["Ctrl", "/"], label: "Inline AI at cursor" },
+      { keys: ["Ctrl", "Shift", "Z"], label: "Zen mode" },
+      { keys: ["Ctrl", "B"], label: "Bold" },
+      { keys: ["Ctrl", "I"], label: "Italic" },
+      { keys: ["Tab"], label: "Indent list item" },
+    ]
+  },
+  {
+    group: "Workspace",
+    items: [
+      { keys: ["Esc"], label: "Close dialogs / exit zen mode" },
+      { keys: ["Double-click"], label: "Rename note or folder" },
+    ]
+  }
+];
+
+function KeyboardShortcutsModal({ onClose }: { onClose: () => void }) {
+  return (
+    <>
+      <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-graphite-rail bg-[#0b0e14]">
+        <div className="flex items-center justify-between border-b border-graphite-rail px-5 py-4">
+          <div className="flex items-center gap-2">
+            <Keyboard className="h-4 w-4 text-ink-400" />
+            <h2 className="text-sm font-semibold text-ink-100">Keyboard shortcuts</h2>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-500 hover:bg-graphite-rail/40 hover:text-ink-200">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+        <div className="max-h-[70vh] overflow-y-auto px-5 py-4 space-y-5">
+          {SHORTCUTS.map((group) => (
+            <div key={group.group}>
+              <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-ink-600">{group.group}</div>
+              <div className="space-y-2">
+                {group.items.map((item) => (
+                  <div key={item.label} className="flex items-center justify-between gap-4">
+                    <span className="text-sm text-ink-300">{item.label}</span>
+                    <div className="flex shrink-0 items-center gap-1">
+                      {item.keys.map((k, i) => (
+                        <kbd key={i} className="rounded border border-graphite-rail bg-black/60 px-1.5 py-0.5 font-mono text-[10px] text-ink-400">{k}</kbd>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="border-t border-graphite-rail px-5 py-3">
+          <p className="text-[11px] text-ink-600">Press <kbd className="rounded border border-graphite-rail bg-black/60 px-1 py-0.5 font-mono text-[10px]">?</kbd> to toggle this panel</p>
+        </div>
+      </div>
+    </>
+  );
 }
 
 function FolderShareModal({
