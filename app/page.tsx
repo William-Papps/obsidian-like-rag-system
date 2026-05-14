@@ -283,6 +283,16 @@ const PERSONAL_FEATURES = [
   "Team workspaces"
 ];
 
+const STARTER_FEATURES = [
+  "800 Ask queries / month",
+  "350 Knowledge Checks / month",
+  "350 Training Cards / month",
+  "350 Briefings / month",
+  "100 OCR scans / month",
+  "Unlimited notes & documents",
+  "Team workspaces"
+];
+
 const PRO_FEATURES = [
   "2000 Ask queries / month",
   "800 Knowledge Checks / month",
@@ -310,7 +320,7 @@ function Pricing() {
         </h2>
         <p className="mt-4 text-[16px] text-fog">Start free. Upgrade when your team grows.</p>
       </div>
-      <div className="mx-auto grid max-w-3xl gap-4 sm:grid-cols-2">
+      <div className="mx-auto grid max-w-5xl gap-4 sm:grid-cols-3">
 
         {/* Personal */}
         <div className="flex flex-col rounded-[16px] border border-graphite-rail p-8">
@@ -338,8 +348,34 @@ function Pricing() {
           </Link>
         </div>
 
-        {/* Pro */}
+        {/* Starter */}
         <div className="flex flex-col rounded-[16px] border border-graphite-rail p-8">
+          <div className="mb-2 text-[12px] font-medium text-fog">Starter</div>
+          <div className="flex items-end gap-1.5">
+            <span className="text-[48px] font-bold leading-[1] text-white">$6</span>
+            <span className="mb-1 text-[14px] text-fog">/ month</span>
+          </div>
+          <p className="mt-3 text-[14px] leading-[1.5] text-fog">
+            Double the monthly limits for growing learners.
+          </p>
+          <ul className="my-8 flex-1 space-y-3">
+            {STARTER_FEATURES.map((f) => (
+              <li key={f} className="flex items-center gap-2.5 text-[14px] text-frost">
+                <CheckIcon color="#a1a4a5" />
+                {f}
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/auth?next=%2Faccount%3Fsection%3Dbilling"
+            className="block rounded-[6px] border border-graphite-rail py-3 text-center text-[14px] font-medium text-frost transition-colors hover:border-smoke"
+          >
+            Get started →
+          </Link>
+        </div>
+
+        {/* Pro */}
+        <div className="flex flex-col rounded-[16px] border border-electric-blue/30 bg-electric-blue/[0.04] p-8">
           <div className="mb-2 flex items-center justify-between">
             <div className="text-[12px] font-medium text-fog">Pro</div>
             <span className="rounded-[6px] border border-electric-blue/30 px-2 py-0.5 text-[11px] font-medium text-electric-blue">
@@ -362,10 +398,10 @@ function Pricing() {
             ))}
           </ul>
           <Link
-            href="/auth"
+            href="/auth?next=%2Faccount%3Fsection%3Dbilling"
             className="block rounded-[6px] border border-electric-blue py-3 text-center text-[14px] font-medium text-white transition-colors hover:bg-electric-blue/10"
           >
-            Get started
+            Get started →
           </Link>
         </div>
 

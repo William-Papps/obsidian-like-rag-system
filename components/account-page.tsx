@@ -58,6 +58,8 @@ export function AccountPage({
   const [deletingAccount, setDeletingAccount] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState("");
   const [signingOut, setSigningOut] = useState(false);
+  const [checkingOut, setCheckingOut] = useState<"starter" | "pro" | null>(null);
+  const [openingPortal, setOpeningPortal] = useState(false);
   const [notice, setNotice] = useState<Notice>(null);
   const [appTheme, setAppTheme] = useState<AppTheme>(() => {
     try { return (JSON.parse(localStorage.getItem("studyos:theme") ?? '"purple"') as AppTheme) || "purple"; }
@@ -134,6 +136,59 @@ export function AccountPage({
       pushNotice(error instanceof Error ? error.message : "Unable to save billing", "error");
     } finally {
       setSavingBilling(false);
+    }
+  }
+
+  // Show success banner when Stripe redirects back with ?upgraded=1
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("upgraded") === "1") {
+      pushNotice("Your plan has been upgraded! Quota limits are now updated.", "success");
+      const url = new URL(window.location.href);
+      url.searchParams.delete("upgraded");
+      window.history.replaceState({}, "", url.toString());
+      setSection("billing");
+      // Refresh billing state from server
+      fetch("/api/billing")
+        .then((r) => r.json())
+        .then((body: { billing?: BillingState; settings?: ProviderSettings }) => {
+          if (body.billing) { setBilling(body.billing); setHostedPlan(body.billing.subscription.plan); }
+          if (body.settings) setSettings(body.settings);
+        })
+        .catch(() => {});
+    }
+    const section = params.get("section") as Section | null;
+    if (section) setSection(section);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function startCheckout(plan: "starter" | "pro") {
+    setCheckingOut(plan);
+    try {
+      const res = await fetch("/api/billing/checkout", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ plan })
+      });
+      const body = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (!res.ok || !body.url) throw new Error(body.error || "Could not start checkout");
+      window.location.href = body.url;
+    } catch (err) {
+      pushNotice(err instanceof Error ? err.message : "Checkout failed", "error");
+      setCheckingOut(null);
+    }
+  }
+
+  async function openPortal() {
+    setOpeningPortal(true);
+    try {
+      const res = await fetch("/api/billing/portal", { method: "POST" });
+      const body = (await res.json().catch(() => ({}))) as { url?: string; error?: string };
+      if (!res.ok || !body.url) throw new Error(body.error || "Could not open portal");
+      window.location.href = body.url;
+    } catch (err) {
+      pushNotice(err instanceof Error ? err.message : "Portal failed", "error");
+      setOpeningPortal(false);
     }
   }
 
@@ -340,7 +395,7 @@ export function AccountPage({
             <div className="relative mt-3 flex items-center gap-1.5">
               <div className="h-1.5 w-1.5 rounded-full bg-success-400" />
               <span className="text-xs text-ink-500">
-                {billing.subscription.plan === "free" ? "Personal plan" : "Pro plan"}
+                {billing.subscription.plan === "free" ? "Personal plan" : billing.subscription.plan === "starter" ? "Starter plan" : "Pro plan"}
               </span>
             </div>
           </div>
@@ -606,19 +661,124 @@ export function AccountPage({
                   <GlassPanel>
                     <SectionHeading
                       eyebrow="Billing"
-                      title="Plan & billing setup"
+                      title="Plan & billing"
                       icon={<CreditCard className="h-5 w-5" />}
-                      description="View your current plan and billing information."
+                      description="Upgrade, downgrade, or manage your payment details."
                     />
 
-                    <div className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-                      <div className="space-y-4">
-                        <div className="grid gap-3 sm:grid-cols-2">
-                          <MetricCard label="Current plan" value={billing.subscription.plan === "free" ? "Personal" : "Pro"} accent />
-                          <MetricCard label="Status" value={formatBillingStatus(billing.subscription.status)} />
+                    <div className="mt-6 space-y-4">
+                      {/* Current plan status */}
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <MetricCard label="Current plan" value={billing.subscription.plan === "free" ? "Personal" : billing.subscription.plan === "starter" ? "Starter" : "Pro"} accent />
+                        <MetricCard label="Status" value={formatBillingStatus(billing.subscription.status)} />
+                      </div>
+
+                      {/* Manage subscription (Stripe Portal) — only if they have an active subscription */}
+                      {billing.portalReady ? (
+                        <div className="flex items-center gap-3 rounded-xl border border-graphite-rail bg-black/20 p-4">
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-ink-200">Manage subscription</div>
+                            <div className="mt-0.5 text-xs text-ink-500">Update card, view invoices, or cancel — all via Stripe.</div>
+                          </div>
+                          <button
+                            onClick={() => void openPortal()}
+                            disabled={openingPortal}
+                            className="flex shrink-0 items-center gap-1.5 rounded-lg border border-graphite-rail px-3 py-1.5 text-xs font-medium text-ink-200 transition-colors hover:border-ink-600 hover:text-ink-100 disabled:opacity-50"
+                          >
+                            {openingPortal ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                            {openingPortal ? "Opening…" : "Billing portal →"}
+                          </button>
+                        </div>
+                      ) : null}
+
+                      {/* Plan cards */}
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        {/* Personal */}
+                        <div className={`flex flex-col rounded-xl border p-4 ${billing.subscription.plan === "free" ? "border-accent-500/30 bg-accent-500/[0.06]" : "border-graphite-rail bg-black/20"}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs font-semibold text-ink-400">Personal</div>
+                            {billing.subscription.plan === "free" && <span className="rounded-md bg-accent-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-accent-300">Current</span>}
+                          </div>
+                          <div className="mt-1.5 text-2xl font-bold text-ink-100">$0<span className="ml-1 text-sm font-normal text-ink-500">/mo</span></div>
+                          <ul className="my-3 flex-1 space-y-1.5 text-xs text-ink-400">
+                            <li>400 Ask queries / month</li>
+                            <li>200 Knowledge Checks / month</li>
+                            <li>200 Training Cards / month</li>
+                            <li>50 OCR scans / month</li>
+                          </ul>
+                          {billing.subscription.plan !== "free" ? (
+                            <div className="text-center text-xs text-ink-600">Cancel via billing portal to return to this plan.</div>
+                          ) : (
+                            <div className="rounded-lg border border-graphite-rail/50 py-1.5 text-center text-xs font-medium text-ink-500">Your current plan</div>
+                          )}
                         </div>
 
-                        <div className="grid gap-3 sm:grid-cols-2">
+                        {/* Starter */}
+                        <div className={`flex flex-col rounded-xl border p-4 ${billing.subscription.plan === "starter" ? "border-accent-500/30 bg-accent-500/[0.06]" : "border-graphite-rail bg-black/20"}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs font-semibold text-ink-400">Starter</div>
+                            {billing.subscription.plan === "starter" && <span className="rounded-md bg-accent-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-accent-300">Current</span>}
+                          </div>
+                          <div className="mt-1.5 text-2xl font-bold text-ink-100">$6<span className="ml-1 text-sm font-normal text-ink-500">/mo</span></div>
+                          <ul className="my-3 flex-1 space-y-1.5 text-xs text-ink-400">
+                            <li>800 Ask queries / month</li>
+                            <li>350 Knowledge Checks / month</li>
+                            <li>350 Training Cards / month</li>
+                            <li>100 OCR scans / month</li>
+                          </ul>
+                          {billing.subscription.plan === "starter" ? (
+                            <div className="rounded-lg border border-graphite-rail/50 py-1.5 text-center text-xs font-medium text-ink-500">Your current plan</div>
+                          ) : billing.checkoutReady ? (
+                            <button
+                              onClick={() => void startCheckout("starter")}
+                              disabled={checkingOut !== null || billing.subscription.plan === "pro"}
+                              className="rounded-lg border border-graphite-rail py-1.5 text-xs font-semibold text-ink-200 transition-colors hover:border-accent-500/40 hover:bg-accent-500/[0.06] hover:text-ink-100 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {checkingOut === "starter" ? "Redirecting…" : billing.subscription.plan === "pro" ? "Downgrade via portal" : "Upgrade to Starter →"}
+                            </button>
+                          ) : (
+                            <div className="text-center text-xs text-ink-600">Contact us to upgrade</div>
+                          )}
+                        </div>
+
+                        {/* Pro */}
+                        <div className={`flex flex-col rounded-xl border p-4 ${billing.subscription.plan === "pro" ? "border-electric-blue/40 bg-electric-blue/[0.06]" : "border-graphite-rail bg-black/20"}`}>
+                          <div className="flex items-center justify-between">
+                            <div className="text-xs font-semibold text-ink-400">Pro</div>
+                            {billing.subscription.plan === "pro"
+                              ? <span className="rounded-md bg-electric-blue/20 px-1.5 py-0.5 text-[10px] font-semibold text-electric-blue">Current</span>
+                              : <span className="rounded-md border border-electric-blue/20 px-1.5 py-0.5 text-[10px] font-medium text-electric-blue">Popular</span>}
+                          </div>
+                          <div className="mt-1.5 text-2xl font-bold text-ink-100">$12<span className="ml-1 text-sm font-normal text-ink-500">/mo</span></div>
+                          <ul className="my-3 flex-1 space-y-1.5 text-xs text-ink-400">
+                            <li>2000 Ask queries / month</li>
+                            <li>800 Knowledge Checks / month</li>
+                            <li>800 Training Cards / month</li>
+                            <li>300 OCR scans / month</li>
+                          </ul>
+                          {billing.subscription.plan === "pro" ? (
+                            <div className="rounded-lg border border-graphite-rail/50 py-1.5 text-center text-xs font-medium text-ink-500">Your current plan</div>
+                          ) : billing.checkoutReady ? (
+                            <button
+                              onClick={() => void startCheckout("pro")}
+                              disabled={checkingOut !== null}
+                              className="rounded-lg border border-electric-blue/50 bg-electric-blue/10 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-electric-blue/20 disabled:opacity-50"
+                            >
+                              {checkingOut === "pro" ? "Redirecting…" : "Upgrade to Pro →"}
+                            </button>
+                          ) : (
+                            <div className="text-center text-xs text-ink-600">Contact us to upgrade</div>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Billing contact info — used to pre-fill Stripe customer */}
+                      <details className="group">
+                        <summary className="cursor-pointer list-none text-xs text-ink-500 hover:text-ink-300">
+                          <span className="group-open:hidden">▸ Update billing name / email</span>
+                          <span className="hidden group-open:inline">▾ Update billing name / email</span>
+                        </summary>
+                        <div className="mt-3 grid gap-3 sm:grid-cols-2">
                           <Field label="Billing name">
                             <input
                               value={billingName}
@@ -637,54 +797,12 @@ export function AccountPage({
                             />
                           </Field>
                         </div>
-
-                        <Field label={`Plan${settings.hostedKeyAvailable ? "" : " (hosted AI not configured on this server)"}`}>
-                          <select
-                            value={hostedPlan === "pro" ? "starter" : hostedPlan}
-                            onChange={(event) => setHostedPlan(event.target.value as typeof hostedPlan)}
-                            className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
-                          >
-                            <option value="free">Personal — Free forever, bring your own key</option>
-                            <option value="starter">Pro — $12/mo, hosted AI included</option>
-                          </select>
-                        </Field>
-
-                        {settings.hostedKeyAvailable && hostedPlan !== "free" ? (
-                          <div className={`rounded-xl border p-4 ${billing.hostedAccessGranted ? "border-success-400/25 bg-success-400/8" : "border-graphite-rail bg-black/20"}`}>
-                            <div className="flex items-center gap-2">
-                              <div className={`h-1.5 w-1.5 rounded-full ${billing.hostedAccessGranted ? "bg-success-400" : "bg-ink-500"}`} />
-                              <div className="text-xs font-semibold text-ink-500">Hosted key access</div>
-                            </div>
-                            <div className="mt-2 text-sm leading-6 text-ink-400">
-                              {billing.hostedAccessGranted
-                                ? "This account is approved to use the server-managed key."
-                                : "Not approved yet. Save your hosted plan choice, then the owner can grant access from the admin panel."}
-                            </div>
-                          </div>
-                        ) : null}
-
-                        <PrimaryButton onClick={saveBilling} disabled={savingBilling || !billingEmail.trim()} loading={savingBilling} icon={<Save className="h-4 w-4" />}>
-                          {savingBilling ? "Saving..." : "Save billing setup"}
-                        </PrimaryButton>
-                      </div>
-
-                      <div className="space-y-3">
-                        <PlanCard
-                          title="Personal"
-                          price="$0 / month"
-                          active={hostedPlan === "free"}
-                          description="Full access to all features. Bring your own OpenAI API key."
-                          bullets={["Unlimited documents", "All AI tools (BYOK)", "Team workspaces", "No monthly cost"]}
-                        />
-                        <PlanCard
-                          title="Pro"
-                          price="$12 / month"
-                          active={hostedPlan === "starter" || hostedPlan === "pro"}
-                          description="Everything in Personal plus hosted AI — no API key needed."
-                          bullets={["1500 Ask queries / month", "600 Knowledge Checks / month", "600 Training Cards / month", "600 Briefings / month", "200 OCR scans / month", "Team workspaces"]}
-                          highlight
-                        />
-                      </div>
+                        <div className="mt-3">
+                          <PrimaryButton onClick={saveBilling} disabled={savingBilling || !billingEmail.trim()} loading={savingBilling} icon={<Save className="h-4 w-4" />}>
+                            {savingBilling ? "Saving..." : "Save contact info"}
+                          </PrimaryButton>
+                        </div>
+                      </details>
                     </div>
                   </GlassPanel>
 

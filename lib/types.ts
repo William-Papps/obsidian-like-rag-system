@@ -84,7 +84,7 @@ export type RuntimeSettings = {
 };
 
 export type HostedPlan = "free" | "starter" | "pro";
-export type BillingSubscriptionStatus = "free" | "manual" | "pending_provider" | "inactive" | "canceled";
+export type BillingSubscriptionStatus = "free" | "active" | "manual" | "pending_provider" | "inactive" | "canceled";
 
 export type BillingProfile = {
   id: string;

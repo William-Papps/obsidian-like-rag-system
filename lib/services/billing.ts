@@ -18,12 +18,14 @@ export async function getBillingState(userId: string): Promise<BillingState> {
 
   const subscriptionRow = await dbGet("select * from subscriptions where user_id = ?", [userId]);
   const subscription = subscriptionRow ? publicSubscription(subscriptionRow) : await createSubscription(userId);
+  const stripeConfigured = Boolean(process.env.STRIPE_SECRET_KEY?.trim());
+  const hasStripeCustomer = Boolean(subscription.providerCustomerId);
   return {
     profile,
     subscription,
     hostedAccessGranted: Boolean(subscription.hostedAccessGrantedAt),
-    checkoutReady: false,
-    portalReady: false
+    checkoutReady: stripeConfigured,
+    portalReady: stripeConfigured && hasStripeCustomer
   };
 }
 
@@ -143,6 +145,21 @@ async function createSubscription(userId: string): Promise<BillingSubscription> 
   return subscription;
 }
 
+export async function setStripeIds(userId: string, stripeCustomerId: string, stripeSubscriptionId: string | null) {
+  await dbRun(
+    "update subscriptions set provider_customer_id = ?, provider_subscription_id = ?, updated_at = ? where user_id = ?",
+    [stripeCustomerId, stripeSubscriptionId, now(), userId]
+  );
+}
+
+export async function getUserByStripeCustomerId(stripeCustomerId: string): Promise<string | null> {
+  const row = await dbGet<{ user_id: string }>(
+    "select user_id from subscriptions where provider_customer_id = ?",
+    [stripeCustomerId]
+  );
+  return row?.user_id ?? null;
+}
+
 export async function userCanUseHostedAi(userId: string) {
   const user = await dbGet<{ role: string }>("select role from users where id = ?", [userId]);
   if (!user) return false;
@@ -160,7 +177,8 @@ function normalizePlan(plan: HostedPlan | string | undefined | null): HostedPlan
 }
 
 function normalizeStatus(status: BillingSubscriptionStatus | string | undefined | null): BillingSubscriptionStatus {
-  return status === "manual" || status === "pending_provider" || status === "inactive" || status === "canceled" ? status : "free";
+  if (status === "active" || status === "manual" || status === "pending_provider" || status === "inactive" || status === "canceled") return status;
+  return "free";
 }
 
 function normalizeProvider(provider: string | undefined | null): BillingSubscription["provider"] {

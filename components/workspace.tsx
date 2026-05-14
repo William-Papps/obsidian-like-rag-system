@@ -1834,7 +1834,7 @@ export function Workspace() {
 
   return (
     <main className="flex h-screen overflow-hidden bg-ink-950 text-ink-100">
-      <SideRail
+      {!isMobile && <SideRail
         data={data}
         railPinned={railPinned}
         setRailPinned={setRailPinned}
@@ -1869,13 +1869,37 @@ export function Workspace() {
           await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
           window.location.href = "/auth";
         }}
-      />
+      />}
       <div className="relative flex min-w-0 flex-1 flex-col">
+        {isMobile ? (
+          <header className="flex h-11 shrink-0 items-center justify-between border-b border-graphite-rail bg-ink-950/95 px-3">
+            <div className="flex items-center gap-2">
+              <div className="grid h-7 w-7 place-items-center rounded-lg border border-accent-500/35 bg-gradient-to-br from-accent-500/20 to-accent-600/10 text-accent-300">
+                <Sparkles className="h-3.5 w-3.5" />
+              </div>
+              <span className="bg-gradient-to-r from-accent-300 to-accent-400 bg-clip-text text-sm font-bold tracking-tight text-transparent">EternalNotes</span>
+            </div>
+            <div className="flex items-center gap-0.5">
+              <button aria-label="New note" title="New note" onClick={() => createNote()} className="grid h-8 w-8 place-items-center rounded-lg text-ink-400 hover:bg-graphite-rail/30 hover:text-ink-100">
+                <FilePlus className="h-4 w-4" />
+              </button>
+              <button aria-label="Import document" title="Import document" onClick={() => setImportModalOpen(true)} className="grid h-8 w-8 place-items-center rounded-lg text-ink-400 hover:bg-graphite-rail/30 hover:text-ink-100">
+                <Upload className="h-4 w-4" />
+              </button>
+              <button aria-label={reindexingAll ? "Indexing…" : "Index notes"} title={reindexingAll ? "Indexing…" : "Index notes"} onClick={() => void reindexAll()} disabled={reindexingAll} className="grid h-8 w-8 place-items-center rounded-lg text-ink-400 hover:bg-graphite-rail/30 hover:text-ink-100 disabled:opacity-50">
+                {reindexingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              </button>
+              <a href="/account" aria-label="Account" title="Account" className="grid h-8 w-8 place-items-center rounded-lg text-ink-400 hover:bg-graphite-rail/30 hover:text-ink-100">
+                <Settings className="h-4 w-4" />
+              </a>
+            </div>
+          </header>
+        ) : null}
         <div
           className="grid flex-1 overflow-hidden transition-[grid-template-columns] duration-300 ease-premium"
-          style={{ ...workspaceGridStyle, height: isMobile ? "calc(100vh - 56px)" : "100vh" }}
+          style={{ ...workspaceGridStyle, height: isMobile ? "calc(100vh - 44px - 56px)" : "100vh" }}
         >
-        <aside className={`panel-shell relative flex min-h-0 flex-col overflow-hidden border-r transition-opacity duration-200 ${leftOpen && !zenMode ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "vault" ? "hidden" : ""}`}>
+        <aside className={`panel-shell relative flex min-h-0 flex-col overflow-hidden border-r transition-opacity duration-200 ${((leftOpen || (isMobile && mobileTab === "vault")) && !zenMode) ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "vault" ? "hidden" : ""}`}>
           <div className="shrink-0 border-b border-graphite-rail px-3 pb-2.5 pt-2.5">
             {/* Workspace › Folder breadcrumb + actions */}
             <div className="flex min-w-0 items-center gap-1">
@@ -2872,6 +2896,7 @@ export function Workspace() {
               sampleWorkspace={onboardingChoice === "sample"}
               indexingNotes={onboardingChoice === "sample" && data.indexStatus.staleNotes > 0}
               notesNeedPrep={onboardingChoice === "empty" && data.notes.length > 0 && data.indexStatus.staleNotes > 0}
+              noNotes={data.notes.length === 0}
               onPrepareNotes={reindexAll}
               preparingNotes={reindexingAll}
             />
@@ -3067,7 +3092,7 @@ export function Workspace() {
           {([ ["vault", BookOpen, "Docs"], ["editor", FileText, "Editor"], ["study", Brain, "Tools"] ] as const).map(([id, Icon, label]) => (
             <button
               key={id}
-              onClick={() => { setMobileTab(id); if (id === "study") setRightOpen(true); }}
+              onClick={() => { setMobileTab(id); if (id === "vault") setLeftOpen(true); if (id === "study") setRightOpen(true); }}
               className={`flex flex-1 flex-col items-center gap-1 pt-3 pb-4 text-xs font-medium transition-colors ${mobileTab === id ? "text-accent-300" : "text-ink-500"}`}
             >
               <Icon className="h-5 w-5" />
@@ -3485,6 +3510,7 @@ function AssistantPanel(props: {
   sampleWorkspace?: boolean;
   indexingNotes?: boolean;
   notesNeedPrep?: boolean;
+  noNotes?: boolean;
   onPrepareNotes?: () => void;
   preparingNotes?: boolean;
 }) {
@@ -3531,7 +3557,7 @@ function AssistantPanel(props: {
       <div className="min-h-0 flex-1 overflow-auto p-4">
         <PanelErrorBoundary label={props.tab}>
           <div key={props.tab} className="animate-[fadeIn_220ms_ease-out]">
-            {props.tab === "ask" ? <AskTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} sampleWorkspace={props.sampleWorkspace} indexingNotes={props.indexingNotes} notesNeedPrep={props.notesNeedPrep} onPrepareNotes={props.onPrepareNotes} preparingNotes={props.preparingNotes} /> : null}
+            {props.tab === "ask" ? <AskTool scope={props.scope} notify={props.notify} onOpenNote={props.onOpenNote} sampleWorkspace={props.sampleWorkspace} indexingNotes={props.indexingNotes} notesNeedPrep={props.notesNeedPrep} noNotes={props.noNotes} onPrepareNotes={props.onPrepareNotes} preparingNotes={props.preparingNotes} /> : null}
             {props.tab === "find" ? <FindTool onOpenNote={props.onOpenNote} /> : null}
             {props.tab === "quiz" ? (
               <QuizTool
@@ -3777,6 +3803,7 @@ function AskTool({
   sampleWorkspace,
   indexingNotes,
   notesNeedPrep,
+  noNotes,
   onPrepareNotes,
   preparingNotes,
 }: {
@@ -3786,6 +3813,7 @@ function AskTool({
   sampleWorkspace?: boolean;
   indexingNotes?: boolean;
   notesNeedPrep?: boolean;
+  noNotes?: boolean;
   onPrepareNotes?: () => void;
   preparingNotes?: boolean;
 }) {
@@ -3922,6 +3950,14 @@ function AskTool({
             ) : null}
           </div>
         </div>
+      ) : noNotes ? (
+        <div className="flex items-start gap-3 rounded-xl border border-graphite-rail bg-ink-900/40 px-4 py-3">
+          <FileText className="mt-0.5 h-4 w-4 shrink-0 text-ink-400" />
+          <div>
+            <div className="text-sm font-medium text-ink-200">No notes yet</div>
+            <div className="mt-1 text-xs leading-5 text-ink-400">Create a note or import a document, then index your vault so Ask can search it.</div>
+          </div>
+        </div>
       ) : null}
       <div className="relative">
         <textarea
@@ -3952,8 +3988,8 @@ function AskTool({
           </div>
         ) : null}
       </div>
-      <button onClick={ask} disabled={busy || !question.trim() || Boolean(indexingNotes) || Boolean(preparingNotes)} className="primary-action w-full">
-        {busy ? "Asking..." : indexingNotes ? "Notes loading…" : preparingNotes ? "Preparing…" : "Ask"}
+      <button onClick={ask} disabled={busy || !question.trim() || Boolean(indexingNotes) || Boolean(preparingNotes) || Boolean(noNotes)} className="primary-action w-full">
+        {busy ? "Asking..." : indexingNotes ? "Notes loading…" : preparingNotes ? "Preparing…" : noNotes ? "No notes to search" : "Ask"}
       </button>
       {sampleWorkspace && !indexingNotes && recentQueries.length === 0 && !question.trim() && !showResult && !busy ? (
         <div className="space-y-2">

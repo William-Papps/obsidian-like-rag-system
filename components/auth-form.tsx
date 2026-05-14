@@ -9,6 +9,7 @@ type Stage = "auth" | "verify" | "forgot" | "reset";
 
 export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
   const searchParams = useSearchParams();
+  const nextUrl = searchParams.get("next") || "/";
   const [mode, setMode] = useState<"login" | "signup">("login");
   const [stage, setStage] = useState<Stage>("auth");
   const [name, setName] = useState("");
@@ -78,7 +79,7 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
         setInfo("Account created. Enter the verification code we sent to your email.");
         return;
       }
-      window.location.replace("/");
+      window.location.replace(nextUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Authentication failed");
     } finally {
