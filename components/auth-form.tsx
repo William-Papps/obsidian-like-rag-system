@@ -34,6 +34,7 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
   const [busy, setBusy] = useState(false);
   const [retryAfter, setRetryAfter] = useState(0);
   const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileError, setTurnstileError] = useState(false);
   const turnstileRef = useRef<HTMLDivElement>(null);
   const turnstileWidgetId = useRef<string | null>(null);
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
@@ -64,9 +65,9 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
       clearInterval(interval);
       widgetId = window.turnstile.render(container, {
         sitekey: siteKey,
-        callback: (token: string) => setTurnstileToken(token),
+        callback: (token: string) => { setTurnstileToken(token); setTurnstileError(false); },
         "expired-callback": () => setTurnstileToken(""),
-        "error-callback": () => setTurnstileToken(""),
+        "error-callback": () => { setTurnstileToken(""); setTurnstileError(true); },
         theme: "dark",
       });
       turnstileWidgetId.current = widgetId;
@@ -76,6 +77,7 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
       if (widgetId && window.turnstile) window.turnstile.remove(widgetId);
       turnstileWidgetId.current = null;
       setTurnstileToken("");
+      setTurnstileError(false);
     };
   }, [siteKey, stage, mode]);
 
@@ -319,12 +321,21 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
             {siteKey && mode === "signup" && (
               <div ref={turnstileRef} className="mt-4" />
             )}
+            {turnstileError && mode === "signup" && (
+              <div className="mt-3 rounded-[8px] border border-complained-yellow/20 bg-complained-yellow/5 px-3 py-2 text-[13px] text-complained-yellow">
+                Bot verification failed to load. Please{" "}
+                <button type="button" onClick={() => window.location.reload()} className="underline">
+                  refresh the page
+                </button>{" "}
+                and try again.
+              </div>
+            )}
             {info ? <InfoBanner>{info}</InfoBanner> : null}
             {retryAfter > 0 ? <RateLimitBanner seconds={retryAfter} /> : error ? <ErrorBanner>{error}</ErrorBanner> : null}
             <button
               type="button"
               onClick={() => void submit()}
-              disabled={busy || retryAfter > 0 || !email.trim() || password.trim().length < 8 || (mode === "signup" && !name.trim()) || (mode === "signup" && !!siteKey && !turnstileToken)}
+              disabled={busy || retryAfter > 0 || !email.trim() || password.trim().length < 8 || (mode === "signup" && !name.trim()) || (mode === "signup" && !!siteKey && !turnstileToken && !turnstileError)}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-[6px] border border-electric-blue py-3 text-[14px] font-medium text-white transition-colors hover:bg-electric-blue/10 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
