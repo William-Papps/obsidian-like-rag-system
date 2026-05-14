@@ -40,7 +40,10 @@ export async function POST(request: Request) {
     await enforceRateLimit(`auth:register:${ip}`, 6, 1000 * 60 * 30);
     const body = schema.parse(await request.json());
     await enforceRateLimit(`auth:register_email:${body.email.trim().toLowerCase()}`, 6, 1000 * 60 * 30);
-    if (!await verifyTurnstile(body.turnstileToken, ip)) {
+    // Only verify the token if the client actually sent one — widget may fail
+    // to load in some browsers (Opera GX, strict privacy modes, ad blockers).
+    // Rate limiting above is the primary bot defence when Turnstile degrades.
+    if (body.turnstileToken && !await verifyTurnstile(body.turnstileToken, ip)) {
       return NextResponse.json({ error: "Bot verification failed. Please try again." }, { status: 400 });
     }
     const { session, ...result } = await registerUser(body);
