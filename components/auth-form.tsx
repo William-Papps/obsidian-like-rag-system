@@ -34,8 +34,6 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
   const [busy, setBusy] = useState(false);
   const [retryAfter, setRetryAfter] = useState(0);
   const [turnstileToken, setTurnstileToken] = useState("");
-  const [turnstileError, setTurnstileError] = useState(false);
-  const [turnstileLoading, setTurnstileLoading] = useState(false);
   const turnstileRef = useRef<HTMLDivElement>(null);
   const turnstileWidgetId = useRef<string | null>(null);
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
@@ -46,53 +44,39 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
     return () => clearTimeout(id);
   }, [retryAfter]);
 
-  // Load Turnstile script once, set error state if script fails to load
+  // Load Turnstile script once
   useEffect(() => {
     if (!siteKey) return;
     if (document.querySelector('script[src*="challenges.cloudflare.com/turnstile"]')) return;
     const s = document.createElement("script");
     s.src = "https://challenges.cloudflare.com/turnstile/v1/api.js?render=explicit";
     s.async = true;
-    s.onerror = () => setTurnstileError(true);
     document.head.appendChild(s);
   }, [siteKey]);
 
-  // Render widget when signup form is visible, clean up when leaving
+  // Render widget when signup form is visible, clean up when leaving.
+  // Fails silently — server falls back to rate-limiting when no token arrives.
   useEffect(() => {
     if (!siteKey || stage !== "auth" || mode !== "signup" || !turnstileRef.current) return;
     const container = turnstileRef.current;
     let widgetId: string | null = null;
-    let done = false;
-    setTurnstileLoading(true);
-    setTurnstileError(false);
-
-    // Auto-fail after 10 s if Turnstile never loads (ad blocker, network issue, etc.)
-    const timeout = setTimeout(() => {
-      if (!done) { done = true; setTurnstileLoading(false); setTurnstileError(true); }
-    }, 10_000);
-
     const interval = setInterval(() => {
-      if (!window.turnstile || !container || done) return;
+      if (!window.turnstile || !container) return;
       clearInterval(interval);
       widgetId = window.turnstile.render(container, {
         sitekey: siteKey,
-        callback: (token: string) => { done = true; setTurnstileLoading(false); setTurnstileToken(token); setTurnstileError(false); },
-        "expired-callback": () => { setTurnstileToken(""); setTurnstileLoading(true); },
-        "error-callback": () => { done = true; setTurnstileLoading(false); setTurnstileToken(""); setTurnstileError(true); },
+        callback: (token: string) => setTurnstileToken(token),
+        "expired-callback": () => setTurnstileToken(""),
+        "error-callback": () => setTurnstileToken(""),
         theme: "dark",
       });
       turnstileWidgetId.current = widgetId;
     }, 100);
-
     return () => {
-      done = true;
       clearInterval(interval);
-      clearTimeout(timeout);
       if (widgetId && window.turnstile) window.turnstile.remove(widgetId);
       turnstileWidgetId.current = null;
       setTurnstileToken("");
-      setTurnstileError(false);
-      setTurnstileLoading(false);
     };
   }, [siteKey, stage, mode]);
 
@@ -112,11 +96,6 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
   }
 
   async function submit() {
-    // Only block if widget is present, still loading, and hasn't errored
-    if (mode === "signup" && siteKey && !turnstileToken && !turnstileError) {
-      setError("Please wait for the bot verification to load, then try again.");
-      return;
-    }
     setBusy(true);
     reset();
     try {
@@ -346,25 +325,8 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
                 />
               </Field>
             </div>
-            {siteKey && mode === "signup" && !turnstileError && (
-              <div className="mt-4 min-h-[65px] overflow-hidden rounded-[8px]">
-                {turnstileLoading && !turnstileWidgetId.current && (
-                  <div className="flex h-[65px] items-center gap-2 rounded-[8px] border border-graphite-rail bg-black/40 px-3 text-[13px] text-steel">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Loading verification…
-                  </div>
-                )}
-                <div ref={turnstileRef} />
-              </div>
-            )}
-            {turnstileError && mode === "signup" && (
-              <div className="mt-3 rounded-[8px] border border-complained-yellow/20 bg-complained-yellow/5 px-3 py-2 text-[13px] text-complained-yellow">
-                Bot check failed to load (try disabling ad blockers).{" "}
-                <button type="button" onClick={() => window.location.reload()} className="underline">
-                  Refresh
-                </button>{" "}
-                or continue and we&apos;ll verify server-side.
-              </div>
+            {siteKey && mode === "signup" && (
+              <div ref={turnstileRef} className="mt-4" />
             )}
             {info ? <InfoBanner>{info}</InfoBanner> : null}
             {retryAfter > 0 ? <RateLimitBanner seconds={retryAfter} /> : error ? <ErrorBanner>{error}</ErrorBanner> : null}
