@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { getCurrentUser } from "@/lib/auth";
+import { enforceRateLimit, RateLimitError } from "@/lib/rate-limit";
 import { streamAnswerFromNotes } from "@/lib/rag/answer";
 import { resolveScopeTitle } from "@/lib/rag/retrieval";
 import { recordStudyActivity } from "@/lib/services/study-history";
@@ -28,6 +29,18 @@ export async function POST(request: Request) {
 
   const scope = body.scope ?? {};
   const userId = user.id;
+
+  try {
+    await enforceRateLimit(`ask:${userId}`, 30, 60_000);
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      return new Response(JSON.stringify({ error: err.message }), {
+        status: 429,
+        headers: { "content-type": "application/json", "retry-after": String(Math.ceil(err.retryAfterMs / 1000)) }
+      });
+    }
+    throw err;
+  }
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {

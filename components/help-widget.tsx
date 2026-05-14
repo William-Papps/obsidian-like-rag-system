@@ -28,7 +28,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "How much does it cost?",
-    a: "EternalNotes itself is free to use. AI features require either your own API key (BYOK) or a hosted plan configured by the instance owner."
+    a: "EternalNotes is free for basic note-taking. AI features (Ask, Knowledge Checks, Training Cards, Briefings, OCR) require a Starter or Pro plan."
   },
   {
     q: "How do I get started?",
@@ -36,7 +36,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Do I need technical skills to set this up?",
-    a: "For end users, not much: sign up and (if needed) add your API key in Account settings. Server setup is handled by whoever is running the instance."
+    a: "For end users, not much: sign up and choose a plan in Account settings to enable AI features. Server setup is handled by whoever is running the instance."
   }
 ];
 

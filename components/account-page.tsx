@@ -4,7 +4,22 @@ import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, CreditCard, Download, KeyRound, Loader2, LogOut, Palette, Save, Sparkles, User2, Activity, Zap, BarChart3, Users, Settings, Lock } from "lucide-react";
 import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useState } from "react";
-import type { AdminUserSummary, AuditLog, BillingState, ProviderSettings, RuntimeSettings, StudyActivity } from "@/lib/types";
+import type { AdminUserSummary, AiFeature, AiUsage, AuditLog, BillingState, ProviderSettings, RuntimeSettings, StudyActivity } from "@/lib/types";
+
+const FEATURE_LABELS: Record<string, string> = {
+  ask: "Ask queries",
+  quiz: "Knowledge Checks",
+  flashcards: "Training Cards",
+  summary: "Briefings",
+  ocr: "OCR scans",
+  index: "Index operations"
+};
+
+function computeResetDate(): string {
+  const now = new Date();
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  return next.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
 
 type AccountUser = {
   id: string;
@@ -36,8 +51,6 @@ export function AccountPage({
   const [section, setSection] = useState<Section>("ai");
   const [settings, setSettings] = useState(initialSettings);
   const [billing, setBilling] = useState(initialBilling);
-  const [apiKey, setApiKey] = useState("");
-  const [clearApiKey, setClearApiKey] = useState(false);
   const [projectId, setProjectId] = useState(initialSettings.projectId ?? "");
   const [embeddingModel, setEmbeddingModel] = useState(initialSettings.embeddingModel);
   const [answerModel, setAnswerModel] = useState(initialSettings.answerModel);
@@ -72,13 +85,12 @@ export function AccountPage({
   }, [appTheme]);
 
   const aiStatus = useMemo(() => {
-    if (settings.maskedKey) return "Personal key active. AI runs on your own provider account and does not consume hosted quota.";
     if (settings.hostedKeyAvailable && billing.hostedAccessGranted) return `Hosted AI active on the ${billing.subscription.plan} plan.`;
     if (settings.hostedKeyAvailable && !billing.hostedAccessGranted) {
       return "Hosted plan selected, but server-key usage is pending owner approval for this account.";
     }
     return "AI runs via local Ollama if configured on this server, otherwise notes-only mode.";
-  }, [billing.hostedAccessGranted, billing.subscription.plan, settings.hostedKeyAvailable, settings.maskedKey]);
+  }, [billing.hostedAccessGranted, billing.subscription.plan, settings.hostedKeyAvailable]);
 
   function pushNotice(message: string, tone: NonNullable<Notice>["tone"]) {
     setNotice({ message, tone });
@@ -93,13 +105,11 @@ export function AccountPage({
       const response = await fetch("/api/settings", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ apiKey, clearApiKey, projectId, embeddingModel, answerModel, visionModel })
+        body: JSON.stringify({ projectId, embeddingModel, answerModel, visionModel })
       });
       const body = (await response.json().catch(() => ({}))) as ProviderSettings & { error?: string };
       if (!response.ok) throw new Error(body.error || "Unable to save settings");
       setSettings(body as ProviderSettings);
-      setApiKey("");
-      setClearApiKey(false);
       setProjectId(body.projectId ?? "");
       setEmbeddingModel(body.embeddingModel);
       setAnswerModel(body.answerModel);
@@ -568,15 +578,13 @@ export function AccountPage({
                 <GlassPanel>
                   <SectionHeading
                     eyebrow="AI setup"
-                    title="Provider & model settings"
+                    title="Model settings"
                     icon={<Sparkles className="h-5 w-5" />}
-                    description="BYOK setup and model configuration. Billing and hosted plan selection live separately."
+                    description="Configure models used for hosted AI. Upgrade your plan in Billing to enable AI features."
                   />
 
                   <div className={`mt-5 rounded-xl border px-4 py-3 text-sm leading-6 ${
-                    settings.maskedKey
-                      ? "border-success-400/25 bg-success-400/8 text-success-300"
-                      : billing.subscription.plan !== "free" && billing.hostedAccessGranted
+                    billing.subscription.plan !== "free" && billing.hostedAccessGranted
                       ? "border-accent-500/25 bg-accent-500/8 text-accent-300"
                       : "border-graphite-rail bg-black/20 text-ink-400"
                   }`}>
@@ -587,25 +595,6 @@ export function AccountPage({
                   </div>
 
                   <div className="mt-6 space-y-4">
-                    <Field label={`OpenAI API key${settings.maskedKey ? ` (${settings.maskedKey})` : ""}`}>
-                      <input
-                        value={apiKey}
-                        type="password"
-                        placeholder="sk-..."
-                        onKeyDown={allowNativeTextShortcuts}
-                        onChange={(event) => setApiKey(event.target.value)}
-                        className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
-                      />
-                    </Field>
-
-                    {settings.maskedKey ? (
-                      <PillToggleLabel
-                        label="Clear saved personal API key and use hosted/local mode instead"
-                        checked={clearApiKey}
-                        onChange={setClearApiKey}
-                      />
-                    ) : null}
-
                     <Field label="OpenAI project ID">
                       <input
                         value={projectId}
@@ -642,10 +631,6 @@ export function AccountPage({
                           className="control-soft w-full rounded-lg px-3 py-2.5 text-sm outline-none"
                         />
                       </Field>
-                    </div>
-
-                    <div className="rounded-xl border border-amber-400/25 bg-amber-400/8 p-4 text-sm leading-6 text-amber-300">
-                      MVP local storage writes the personal key to an ignored file under <code>data/secrets</code>. Hosted deployment should replace this with encrypted per-user secret storage.
                     </div>
 
                     <PrimaryButton onClick={saveSettings} disabled={savingSettings} loading={savingSettings} icon={<Save className="h-4 w-4" />}>
@@ -808,10 +793,24 @@ export function AccountPage({
 
                   <GlassPanel>
                     <SectionHeading
+                      eyebrow="Usage"
+                      title="This month's usage"
+                      icon={<BarChart3 className="h-5 w-5" />}
+                      description={`Resets on ${computeResetDate()}. Tracks your AI feature usage against your plan quota.`}
+                    />
+                    <div className="mt-6 space-y-2">
+                      {settings.usage.map((u) => (
+                        <UsageBar key={u.feature} {...u} label={FEATURE_LABELS[u.feature] ?? u.feature} />
+                      ))}
+                    </div>
+                  </GlassPanel>
+
+                  <GlassPanel>
+                    <SectionHeading
                       eyebrow="Features"
                       title="What's included"
                       icon={<BarChart3 className="h-5 w-5" />}
-                      description="Pro features are available on the Pro plan or with a personal API key (BYOK)."
+                      description="Pro features are available on the Starter or Pro plan."
                     />
                     <div className="mt-6 grid gap-2 sm:grid-cols-2">
                       {[
@@ -825,7 +824,7 @@ export function AccountPage({
                         { label: "Flashcard generation", free: false },
                         { label: "Note summaries", free: false },
                       ].map((feat) => {
-                        const userIsPro = billing.subscription.plan !== "free" || !!settings.maskedKey;
+                        const userIsPro = billing.subscription.plan !== "free";
                         const unlocked = feat.free || userIsPro;
                         return (
                           <div key={feat.label} className={`flex items-center justify-between rounded-lg border px-3 py-2 ${unlocked ? "border-graphite-rail bg-black/20" : "border-graphite-rail/40 bg-transparent opacity-50"}`}>
@@ -1322,6 +1321,31 @@ function formatActivity(kind: StudyActivity["kind"]) {
     case "import": return "Imported document";
     default: return kind;
   }
+}
+
+function UsageBar({ label, used, limit, remaining }: AiUsage & { label: string }) {
+  if (limit === null) {
+    return (
+      <div className="flex items-center justify-between rounded-xl border border-graphite-rail bg-black/20 px-4 py-3">
+        <span className="text-sm text-ink-300">{label}</span>
+        <span className="text-xs text-ink-500">Unlimited</span>
+      </div>
+    );
+  }
+  const pct = limit === 0 ? 100 : Math.min(100, Math.round((used / limit) * 100));
+  const barColor = pct >= 90 ? "bg-danger-400" : pct >= 60 ? "bg-amber-400" : "bg-success-400";
+  return (
+    <div className="rounded-xl border border-graphite-rail bg-black/20 px-4 py-3">
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-sm text-ink-300">{label}</span>
+        <span className="text-xs text-ink-500">{used.toLocaleString()} / {limit.toLocaleString()}</span>
+      </div>
+      <div className="relative mt-2 h-1.5 w-full overflow-hidden rounded-full bg-graphite-rail">
+        <div className={`absolute left-0 top-0 h-full rounded-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
+      </div>
+      <div className="mt-1.5 text-right text-[11px] text-ink-600">{(remaining ?? 0).toLocaleString()} remaining</div>
+    </div>
+  );
 }
 
 function allowNativeTextShortcuts(event: KeyboardEvent<HTMLInputElement | HTMLTextAreaElement>) {

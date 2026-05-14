@@ -6,8 +6,6 @@ import { getProviderSettings, saveProviderSettings } from "@/lib/services/settin
 export const dynamic = "force-dynamic";
 
 const schema = z.object({
-  apiKey: z.string().optional(),
-  clearApiKey: z.boolean().optional(),
   projectId: z.string().nullable().optional(),
   embeddingModel: z.string().min(1),
   answerModel: z.string().min(1),

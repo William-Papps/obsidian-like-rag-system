@@ -50,7 +50,6 @@ async function handleEvent(event: Stripe.Event) {
 
       await setStripeIds(userId, customerId, subscriptionId);
       await setSubscriptionPlan(userId, plan, "active");
-      console.log(`[webhook] Activated ${plan} for user ${userId}`);
       break;
     }
 
@@ -66,7 +65,6 @@ async function handleEvent(event: Stripe.Event) {
       const status = sub.status === "active" || sub.status === "trialing" ? "active" : "inactive";
       await setSubscriptionPlan(userId, plan, status);
       await setStripeIds(userId, customerId, sub.id);
-      console.log(`[webhook] Updated subscription to ${plan} (${status}) for user ${userId}`);
       break;
     }
 
@@ -77,7 +75,6 @@ async function handleEvent(event: Stripe.Event) {
       if (!userId) { console.warn("[webhook] subscription.deleted: no userId for customer", customerId); break; }
 
       await setSubscriptionPlan(userId, "free", "free");
-      console.log(`[webhook] Downgraded user ${userId} to free (subscription canceled)`);
       break;
     }
 

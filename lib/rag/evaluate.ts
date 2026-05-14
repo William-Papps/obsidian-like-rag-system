@@ -1,5 +1,5 @@
 import OpenAI from "openai";
-import { getProviderSettings, readUserApiKey } from "@/lib/services/settings";
+import { resolveAiContext } from "@/lib/services/ai-access";
 
 export type QuizEvaluation = {
   correct: boolean;
@@ -16,11 +16,11 @@ export async function evaluateQuizAnswer(
     return { correct: false, verdict: "incorrect", feedback: "No answer entered yet." };
   }
 
-  const apiKey = readUserApiKey(userId);
-  if (!apiKey) return evaluateHeuristically(trimmedAnswer, input.expectedAnswer);
+  const ai = await resolveAiContext(userId, "ask");
+  if (!ai.apiKey) return evaluateHeuristically(trimmedAnswer, input.expectedAnswer);
 
-  const settings = await getProviderSettings(userId);
-  const client = new OpenAI({ apiKey });
+  const settings = ai.settings;
+  const client = new OpenAI({ apiKey: ai.apiKey });
   const response = await client.chat.completions.create({
     model: settings.answerModel,
     temperature: 0,

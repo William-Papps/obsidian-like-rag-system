@@ -49,6 +49,18 @@ export function currentUsagePeriod() {
   return `${date.getUTCFullYear()}-${String(date.getUTCMonth() + 1).padStart(2, "0")}`;
 }
 
+function nextResetDate(): string {
+  const now = new Date();
+  const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+  return next.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
+function buildQuotaError(plan: HostedPlan, feature: AiFeature, used: number, limit: number): string {
+  const planName = plan === "free" ? "Personal" : plan === "starter" ? "Starter" : "Pro";
+  const upgradeHint = plan === "free" ? " Upgrade to Starter or Pro for higher limits." : "";
+  return `Your ${planName} plan quota for ${feature} is exhausted (${used}/${limit}). Quota resets on ${nextResetDate()}.${upgradeHint}`;
+}
+
 export async function getUsageSummary(userId: string, plan: HostedPlan): Promise<AiUsage[]> {
   const period = currentUsagePeriod();
   const features = Object.keys(PLAN_LIMITS.starter) as AiFeature[];
@@ -74,19 +86,25 @@ export async function getUsageSummary(userId: string, plan: HostedPlan): Promise
 
 export async function peekQuota(userId: string, plan: HostedPlan, feature: AiFeature) {
   if (await isOwnerOrAdmin(userId)) return;
-  const limit = PLAN_LIMITS[plan][feature];
-  if (typeof limit !== "number") return; // unlimited
+  const planLimit = PLAN_LIMITS[plan][feature];
+  if (typeof planLimit !== "number") return; // unlimited
   const period = currentUsagePeriod();
   const current = await dbGet<{ count: number }>(
     "select count from ai_usage where user_id = ? and period = ? and feature = ?",
     [userId, period, feature]
   );
-  if ((current?.count ?? 0) >= limit) {
-    throw new QuotaExceededError(feature, `Your monthly quota for ${feature} is exhausted. Upgrade your plan for more.`);
+  const used = current?.count ?? 0;
+  if (used >= planLimit) {
+    // Paid users fall back to the free tier baseline before being hard-blocked
+    if (plan !== "free") {
+      const freeLimit = PLAN_LIMITS.free[feature];
+      if (typeof freeLimit === "number" && used < freeLimit) return;
+    }
+    throw new QuotaExceededError(feature, buildQuotaError(plan, feature, used, planLimit));
   }
 }
 
-// Records one usage event without enforcing any limit. Use for BYOK and Ollama
+// Records one usage event without enforcing any limit. Use for Ollama and local
 // users so admin usage stats remain accurate across all AI modes.
 export async function recordUsage(userId: string, feature: AiFeature): Promise<void> {
   const period = currentUsagePeriod();
@@ -116,7 +134,16 @@ export async function consumeQuota(userId: string, plan: HostedPlan, feature: Ai
       );
       const used = current?.count ?? 0;
       if (used >= limit) {
-        throw new QuotaExceededError(feature, `Your monthly quota for ${feature} is exhausted. Upgrade your plan for more.`);
+        // Paid users fall back to the free tier baseline before being hard-blocked
+        if (plan !== "free") {
+          const freeLimit = PLAN_LIMITS.free[feature];
+          if (typeof freeLimit !== "number" || used >= freeLimit) {
+            throw new QuotaExceededError(feature, buildQuotaError(plan, feature, used, limit));
+          }
+          // used < freeLimit: within free baseline, allow through
+        } else {
+          throw new QuotaExceededError(feature, buildQuotaError(plan, feature, used, limit));
+        }
       }
       if (current) {
         dbRunSync("update ai_usage set count = count + 1, updated_at = ? where id = ?", [now(), current.id]);

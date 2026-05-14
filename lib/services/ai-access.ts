@@ -1,7 +1,7 @@
 import type { AiContext, AiFeature } from "@/lib/types";
 import { userCanUseHostedAi } from "@/lib/services/billing";
 import { dbGet } from "@/lib/db";
-import { getProviderSettings, hostedAiAvailable, hostedProjectId, readHostedApiKey, readUserApiKey } from "@/lib/services/settings";
+import { getProviderSettings, hostedAiAvailable, hostedProjectId, readHostedApiKey } from "@/lib/services/settings";
 
 export class ProPlanRequiredError extends Error {
   constructor() {
@@ -11,11 +11,9 @@ export class ProPlanRequiredError extends Error {
 }
 
 // Throws ProPlanRequiredError if the user cannot access Pro-only features.
-// BYOK users (personal API key) always pass — they pay their own AI costs.
 // Ollama users always pass — they use local compute with no server cost.
 // Owners and admins always pass. Everyone else needs hostedPlan !== "free".
 export async function requireProAccess(userId: string): Promise<void> {
-  if (readUserApiKey(userId)) return;
   if (process.env.OLLAMA_BASE_URL) return;
   const row = await dbGet<{ role: string }>("select role from users where id = ?", [userId]);
   if (row?.role === "owner" || row?.role === "admin") return;
@@ -28,16 +26,6 @@ export async function requireProAccess(userId: string): Promise<void> {
 
 export async function resolveAiContext(userId: string, feature: AiFeature): Promise<AiContext> {
   const settings = await getProviderSettings(userId);
-
-  const userApiKey = readUserApiKey(userId);
-  if (userApiKey) {
-    return {
-      mode: "user",
-      apiKey: userApiKey,
-      projectId: settings.projectId,
-      settings
-    };
-  }
 
   const hostedApiKey = (await hostedAiAvailable()) ? readHostedApiKey() : null;
   if (hostedApiKey && (await userCanUseHostedAi(userId))) {

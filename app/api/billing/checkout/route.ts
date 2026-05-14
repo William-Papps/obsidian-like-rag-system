@@ -14,6 +14,11 @@ export async function POST(request: Request) {
     const stripe = stripeClient();
     const billing = await getBillingState(user.id);
 
+    // Block if already on an active paid subscription to prevent duplicate charges.
+    if (billing.subscription.status === "active" && billing.subscription.plan === body.plan) {
+      return NextResponse.json({ error: "You are already subscribed to this plan." }, { status: 409 });
+    }
+
     // Reuse existing Stripe customer if one exists, otherwise create a new one.
     let customerId = billing.subscription.providerCustomerId ?? undefined;
     if (!customerId) {

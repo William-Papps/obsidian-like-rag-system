@@ -65,7 +65,6 @@ export type ProviderSettings = {
   id: string;
   userId: string;
   provider: "openai";
-  maskedKey: string | null;
   projectId: string | null;
   embeddingModel: string;
   answerModel: string;
@@ -164,7 +163,7 @@ export type AiUsage = {
 };
 
 export type AiContext = {
-  mode: "user" | "hosted" | "local" | "ollama";
+  mode: "hosted" | "local" | "ollama";
   apiKey: string | null;
   projectId: string | null;
   ollamaBaseUrl?: string;
