@@ -210,7 +210,7 @@ const FEATURES: Array<{ icon: ReactNode; title: string; description: string }> =
   {
     icon: <ShieldCheck className="h-5 w-5" />,
     title: "Private by default",
-    description: "Personal plan runs on your own server with your own API key. Pro plan uses our hosted AI. Either way, your notes never leave your account."
+    description: "Your notes stay on your account and are never used to train AI models. AI queries are processed on our infrastructure and discarded after answering."
   }
 ];
 
@@ -274,19 +274,22 @@ function HowItWorks() {
 
 /* ─── Pricing ─── */
 const PERSONAL_FEATURES = [
-  "Unlimited documents",
-  "All AI tools (BYOK)",
-  "Team workspaces",
-  "Version history",
-  "No monthly cost"
+  "400 Ask queries / month",
+  "200 Knowledge Checks / month",
+  "200 Training Cards / month",
+  "200 Briefings / month",
+  "50 OCR scans / month",
+  "Unlimited notes & documents",
+  "Team workspaces"
 ];
 
 const PRO_FEATURES = [
-  "1500 Ask queries / month",
-  "600 Knowledge Checks / month",
-  "600 Training Cards / month",
-  "600 Briefings / month",
-  "200 OCR scans / month",
+  "2000 Ask queries / month",
+  "800 Knowledge Checks / month",
+  "800 Training Cards / month",
+  "800 Briefings / month",
+  "300 OCR scans / month",
+  "Unlimited notes & documents",
   "Team workspaces"
 ];
 
@@ -317,7 +320,7 @@ function Pricing() {
             <span className="mb-1 text-[14px] text-fog">/ month</span>
           </div>
           <p className="mt-3 text-[14px] leading-[1.5] text-fog">
-            Full access to all features. Requires your own OpenAI API key — usage costs typically $1–5/month.
+            All AI features included. No credit card required.
           </p>
           <ul className="my-8 flex-1 space-y-3">
             {PERSONAL_FEATURES.map((f) => (
@@ -348,7 +351,7 @@ function Pricing() {
             <span className="mb-1 text-[14px] text-fog">/ month</span>
           </div>
           <p className="mt-3 text-[14px] leading-[1.5] text-fog">
-            Everything in Personal plus hosted AI — no API key needed.
+            Everything in Personal with significantly higher monthly limits.
           </p>
           <ul className="my-8 flex-1 space-y-3">
             {PRO_FEATURES.map((f) => (

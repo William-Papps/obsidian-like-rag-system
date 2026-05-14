@@ -4,28 +4,28 @@ import { id, now } from "@/lib/utils";
 
 export const PLAN_LIMITS: Record<HostedPlan, Record<AiFeature, number | null>> = {
   free: {
-    ask: 100,
-    quiz: 50,
-    flashcards: 50,
-    summary: 50,
-    ocr: 20,
-    index: 100
-  },
-  starter: {
-    ask: 500,
+    ask: 400,
     quiz: 200,
     flashcards: 200,
     summary: 200,
-    ocr: 75,
-    index: 300
+    ocr: 50,
+    index: 500
+  },
+  starter: {
+    ask: 800,
+    quiz: 350,
+    flashcards: 350,
+    summary: 350,
+    ocr: 100,
+    index: 700
   },
   pro: {
-    ask: 1500,
-    quiz: 600,
-    flashcards: 600,
-    summary: 600,
-    ocr: 200,
-    index: 1000
+    ask: 2000,
+    quiz: 800,
+    flashcards: 800,
+    summary: 800,
+    ocr: 300,
+    index: 2000
   }
 };
 
