@@ -319,11 +319,14 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="w-full bg-transparent text-[14px] text-frost outline-none placeholder:text-steel"
-                  placeholder="12+ chars, 1 uppercase, 1 number"
+                  placeholder={mode === "signup" ? "12+ chars, 1 uppercase, 1 number" : "Your password"}
                   autoComplete={mode === "login" ? "current-password" : "new-password"}
                   onKeyDown={(e) => e.key === "Enter" && void submit()}
                 />
               </Field>
+              {mode === "signup" && password.length > 0 && (
+                <PasswordRules password={password} />
+              )}
             </div>
             {siteKey && mode === "signup" && (
               <div ref={turnstileRef} className="mt-4" />
@@ -492,6 +495,24 @@ function Field({ icon, label, children }: { icon: ReactNode; label: string; chil
         {children}
       </div>
     </label>
+  );
+}
+
+function PasswordRules({ password }: { password: string }) {
+  const rules = [
+    { label: "At least 12 characters", met: password.length >= 12 },
+    { label: "One uppercase letter", met: /[A-Z]/.test(password) },
+    { label: "One number", met: /[0-9]/.test(password) },
+  ];
+  return (
+    <div className="flex flex-col gap-1 pt-1">
+      {rules.map((r) => (
+        <div key={r.label} className={`flex items-center gap-1.5 text-[12px] ${r.met ? "text-emerald-400" : "text-steel"}`}>
+          <span className="text-[10px]">{r.met ? "✓" : "○"}</span>
+          {r.label}
+        </div>
+      ))}
+    </div>
   );
 }
 
