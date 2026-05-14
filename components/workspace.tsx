@@ -2729,15 +2729,6 @@ export function Workspace() {
                   </div>
                   <div className="relative text-xl font-bold tracking-tight text-ink-100">Your workspace is ready</div>
                   <div className="relative mt-2 text-sm leading-6 text-ink-500">Create notes, then use Ask, flashcards, and quizzes to study them with AI.</div>
-                  {!data.settings.maskedKey && !data.settings.hostedKeyAvailable && (
-                    <a
-                      href="/account"
-                      className="relative mt-4 flex items-center justify-center gap-2 rounded-xl border border-amber-400/25 bg-amber-400/8 px-4 py-3 text-sm text-amber-400/90 transition-colors hover:bg-amber-400/12"
-                    >
-                      <AlertCircle className="h-4 w-4 shrink-0" />
-                      <span>Add an API key to enable AI features <span className="underline underline-offset-2">→ Account settings</span></span>
-                    </a>
-                  )}
                   <button
                     onClick={() => createNote()}
                     className="primary-action relative mt-5 inline-flex items-center gap-2"
@@ -3537,15 +3528,6 @@ function AssistantPanel(props: {
           </button>
         ))}
       </div>
-      {!props.data.settings.maskedKey && !props.data.settings.hostedKeyAvailable && (
-        <div className="shrink-0 border-b border-amber-400/20 bg-amber-400/8 px-4 py-2.5">
-          <p className="text-[11px] leading-5 text-amber-400/90">
-            <span className="font-semibold">No AI key configured.</span>{" "}
-            AI features won&apos;t work until you add an API key.{" "}
-            <a href="/account" className="underline underline-offset-2 hover:text-amber-300">Set it up →</a>
-          </p>
-        </div>
-      )}
       <div className="min-h-0 flex-1 overflow-auto p-4">
         <PanelErrorBoundary label={props.tab}>
           <div key={props.tab} className="animate-[fadeIn_220ms_ease-out]">
