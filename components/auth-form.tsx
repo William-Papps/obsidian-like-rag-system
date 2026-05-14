@@ -97,6 +97,10 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
   }
 
   async function submit() {
+    if (mode === "signup" && siteKey && !turnstileToken) {
+      setError("Please complete the bot verification above before continuing.");
+      return;
+    }
     setBusy(true);
     reset();
     try {
@@ -114,6 +118,14 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
         retryAfterSeconds?: number;
       };
       if (response.status === 429) { setRetryAfter(body.retryAfterSeconds ?? 60); return; }
+      if (!response.ok && response.status === 400 && body.error?.toLowerCase().includes("bot")) {
+        // Turnstile rejected — reset widget so user can retry
+        if (turnstileWidgetId.current && window.turnstile) {
+          window.turnstile.reset(turnstileWidgetId.current);
+          setTurnstileToken("");
+        }
+        throw new Error(body.error || "Bot verification failed");
+      }
       if (!response.ok) {
         if (response.status === 403 && body.verificationRequired && body.email) {
           setPendingEmail(body.email);
@@ -335,7 +347,7 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
             <button
               type="button"
               onClick={() => void submit()}
-              disabled={busy || retryAfter > 0 || !email.trim() || password.trim().length < 8 || (mode === "signup" && !name.trim()) || (mode === "signup" && !!siteKey && !turnstileToken && !turnstileError)}
+              disabled={busy || retryAfter > 0 || !email.trim() || password.trim().length < 8 || (mode === "signup" && !name.trim())}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-[6px] border border-electric-blue py-3 text-[14px] font-medium text-white transition-colors hover:bg-electric-blue/10 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
