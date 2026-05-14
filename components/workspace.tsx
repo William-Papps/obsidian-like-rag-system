@@ -183,6 +183,7 @@ export function Workspace() {
   const [data, setData] = useState<Bootstrap | null>(null);
   const dataRef = useRef<Bootstrap | null>(null);
   const prevStaleNotesRef = useRef<number | null>(null);
+  const onboardingChoiceInitialized = useRef(false);
   const [activeNoteId, setActiveNoteId] = useState<string | null>(null);
   const activeNoteRef = useRef<Note | null>(null);
   const [saving, setSaving] = useState(false);
@@ -264,9 +265,7 @@ export function Workspace() {
   const [suggestingTags, setSuggestingTags] = useState(false);
   const [suggestedTagsState, setSuggestedTagsState] = useState<{ suggested: string[]; existingTags: { id: string; name: string; color: string }[] } | null>(null);
   const [suggestTagsOpen, setSuggestTagsOpen] = useState(false);
-  const [onboardingChoice, setOnboardingChoice] = useState<"sample" | "empty" | null>(
-    () => readStoredJson("studyos:onboardingChoice", null)
-  );
+  const [onboardingChoice, setOnboardingChoice] = useState<"sample" | "empty" | null>(null);
   const [seeding, setSeeding] = useState(false);
   const [cmTheme, setCmTheme] = useState<"dark" | "light">(() => {
     try { return JSON.parse(localStorage.getItem("studyos:theme") ?? '"purple"') === "light" ? "light" : "dark"; }
@@ -433,9 +432,19 @@ export function Workspace() {
     window.localStorage.setItem("studyos:railPinned", JSON.stringify(railPinned));
   }, [railPinned]);
 
+  // Load onboarding choice from user-specific localStorage key once user ID is known.
+  // Keyed by user ID so different accounts on the same browser don't share the value.
   useEffect(() => {
-    window.localStorage.setItem("studyos:onboardingChoice", JSON.stringify(onboardingChoice));
-  }, [onboardingChoice]);
+    if (!data?.user.id || onboardingChoiceInitialized.current) return;
+    onboardingChoiceInitialized.current = true;
+    const stored = readStoredJson<"sample" | "empty" | null>(`studyos:onboardingChoice:${data.user.id}`, null);
+    setOnboardingChoice(stored);
+  }, [data?.user.id]);
+
+  useEffect(() => {
+    if (!data?.user.id) return;
+    window.localStorage.setItem(`studyos:onboardingChoice:${data.user.id}`, JSON.stringify(onboardingChoice));
+  }, [onboardingChoice, data?.user.id]);
 
   useEffect(() => {
     if (onboardingChoice !== "sample" || !data || data.indexStatus.staleNotes === 0) return;
