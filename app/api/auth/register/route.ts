@@ -61,6 +61,9 @@ export async function POST(request: Request) {
     if (error instanceof RateLimitError) {
       return NextResponse.json({ error: error.message, retryAfterSeconds: Math.ceil(error.retryAfterMs / 1000) }, { status: 429 });
     }
+    if (error instanceof z.ZodError) {
+      return NextResponse.json({ error: error.issues[0]?.message ?? "Invalid input" }, { status: 400 });
+    }
     return NextResponse.json({ error: error instanceof Error ? error.message : "Registration failed" }, { status: 400 });
   }
 }

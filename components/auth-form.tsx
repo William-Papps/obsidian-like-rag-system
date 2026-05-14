@@ -333,7 +333,7 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
             <button
               type="button"
               onClick={() => void submit()}
-              disabled={busy || retryAfter > 0 || !email.trim() || password.trim().length < 8 || (mode === "signup" && !name.trim())}
+              disabled={busy || retryAfter > 0 || !email.trim() || (mode === "signup" ? password.trim().length < 12 : !password.trim()) || (mode === "signup" && !name.trim())}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-[6px] border border-electric-blue py-3 text-[14px] font-medium text-white transition-colors hover:bg-electric-blue/10 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
