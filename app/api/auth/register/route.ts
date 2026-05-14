@@ -13,14 +13,36 @@ const schema = z.object({
     .min(12, "Password must be at least 12 characters")
     .max(200)
     .refine((p) => /[A-Z]/.test(p), "Password must contain at least one uppercase letter")
-    .refine((p) => /[0-9]/.test(p), "Password must contain at least one number")
+    .refine((p) => /[0-9]/.test(p), "Password must contain at least one number"),
+  turnstileToken: z.string().optional()
 });
+
+async function verifyTurnstile(token: string | undefined, ip: string): Promise<boolean> {
+  const secret = process.env.TURNSTILE_SECRET_KEY?.trim();
+  if (!secret) return true; // Not configured — skip
+  if (!token) return false;
+  try {
+    const res = await fetch("https://challenges.cloudflare.com/turnstile/v1/siteverify", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ secret, response: token, remoteip: ip === "local" ? undefined : ip })
+    });
+    const data = await res.json() as { success: boolean };
+    return data.success;
+  } catch {
+    return false;
+  }
+}
 
 export async function POST(request: Request) {
   try {
-    await enforceRateLimit(`auth:register:${clientIp(request)}`, 6, 1000 * 60 * 30);
+    const ip = clientIp(request);
+    await enforceRateLimit(`auth:register:${ip}`, 6, 1000 * 60 * 30);
     const body = schema.parse(await request.json());
     await enforceRateLimit(`auth:register_email:${body.email.trim().toLowerCase()}`, 6, 1000 * 60 * 30);
+    if (!await verifyTurnstile(body.turnstileToken, ip)) {
+      return NextResponse.json({ error: "Bot verification failed. Please try again." }, { status: 400 });
+    }
     const { session, ...result } = await registerUser(body);
     const response = NextResponse.json(result, { status: 201 });
     response.headers.set("cache-control", "no-store");

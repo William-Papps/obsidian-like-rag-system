@@ -3,7 +3,17 @@
 import { BookOpen, KeyRound, Loader2, LockKeyhole, Mail, User2 } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+
+declare global {
+  interface Window {
+    turnstile?: {
+      render: (el: HTMLElement, opts: Record<string, unknown>) => string;
+      reset: (id: string) => void;
+      remove: (id: string) => void;
+    };
+  }
+}
 
 type Stage = "auth" | "verify" | "forgot" | "reset";
 
@@ -23,12 +33,51 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
   const [info, setInfo] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [retryAfter, setRetryAfter] = useState(0);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const turnstileRef = useRef<HTMLDivElement>(null);
+  const turnstileWidgetId = useRef<string | null>(null);
+  const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   useEffect(() => {
     if (retryAfter <= 0) return;
     const id = setTimeout(() => setRetryAfter((s) => Math.max(0, s - 1)), 1000);
     return () => clearTimeout(id);
   }, [retryAfter]);
+
+  // Load Turnstile script once
+  useEffect(() => {
+    if (!siteKey) return;
+    if (document.querySelector('script[src*="challenges.cloudflare.com/turnstile"]')) return;
+    const s = document.createElement("script");
+    s.src = "https://challenges.cloudflare.com/turnstile/v1/api.js?render=explicit";
+    s.async = true;
+    document.head.appendChild(s);
+  }, [siteKey]);
+
+  // Render widget when signup form is visible, clean up when leaving
+  useEffect(() => {
+    if (!siteKey || stage !== "auth" || mode !== "signup" || !turnstileRef.current) return;
+    const container = turnstileRef.current;
+    let widgetId: string | null = null;
+    const interval = setInterval(() => {
+      if (!window.turnstile || !container) return;
+      clearInterval(interval);
+      widgetId = window.turnstile.render(container, {
+        sitekey: siteKey,
+        callback: (token: string) => setTurnstileToken(token),
+        "expired-callback": () => setTurnstileToken(""),
+        "error-callback": () => setTurnstileToken(""),
+        theme: "dark",
+      });
+      turnstileWidgetId.current = widgetId;
+    }, 100);
+    return () => {
+      clearInterval(interval);
+      if (widgetId && window.turnstile) window.turnstile.remove(widgetId);
+      turnstileWidgetId.current = null;
+      setTurnstileToken("");
+    };
+  }, [siteKey, stage, mode]);
 
   useEffect(() => {
     const token = searchParams.get("reset");
@@ -54,7 +103,7 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
         headers: { "content-type": "application/json" },
         credentials: "include",
         cache: "no-store",
-        body: JSON.stringify({ name, email, password })
+        body: JSON.stringify({ name, email, password, ...(siteKey ? { turnstileToken } : {}) })
       });
       const body = (await response.json().catch(() => ({}))) as {
         error?: string;
@@ -69,6 +118,11 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
           setStage("verify");
           setInfo("Your email is not verified yet. Enter the code we sent to continue.");
           return;
+        }
+        // Reset Turnstile so the user gets a fresh token on retry
+        if (turnstileWidgetId.current && window.turnstile) {
+          window.turnstile.reset(turnstileWidgetId.current);
+          setTurnstileToken("");
         }
         throw new Error(body.error || "Authentication failed");
       }
@@ -262,12 +316,15 @@ export function AuthForm({ allowSignup }: { allowSignup: boolean }) {
                 />
               </Field>
             </div>
+            {siteKey && mode === "signup" && (
+              <div ref={turnstileRef} className="mt-4" />
+            )}
             {info ? <InfoBanner>{info}</InfoBanner> : null}
             {retryAfter > 0 ? <RateLimitBanner seconds={retryAfter} /> : error ? <ErrorBanner>{error}</ErrorBanner> : null}
             <button
               type="button"
               onClick={() => void submit()}
-              disabled={busy || retryAfter > 0 || !email.trim() || password.trim().length < 8 || (mode === "signup" && !name.trim())}
+              disabled={busy || retryAfter > 0 || !email.trim() || password.trim().length < 8 || (mode === "signup" && !name.trim()) || (mode === "signup" && !!siteKey && !turnstileToken)}
               className="mt-5 flex w-full items-center justify-center gap-2 rounded-[6px] border border-electric-blue py-3 text-[14px] font-medium text-white transition-colors hover:bg-electric-blue/10 disabled:cursor-not-allowed disabled:opacity-40"
             >
               {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
