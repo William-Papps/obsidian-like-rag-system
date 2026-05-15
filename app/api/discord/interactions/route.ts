@@ -17,8 +17,11 @@ export async function POST(request: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
+  const VERIFY_CHANNEL_ID = "1504784822243954829";
+
   const interaction = JSON.parse(body) as {
     type: number;
+    channel_id?: string;
     data?: { name?: string };
     member?: { user?: { id?: string; username?: string } };
     user?: { id?: string; username?: string };
@@ -31,6 +34,17 @@ export async function POST(request: Request) {
 
   // Type 2 = APPLICATION_COMMAND
   if (interaction.type === 2 && interaction.data?.name === "verify") {
+    // Restrict to the verification channel only
+    if (interaction.channel_id !== VERIFY_CHANNEL_ID) {
+      return NextResponse.json({
+        type: 4,
+        data: {
+          content: `Please use the <#${VERIFY_CHANNEL_ID}> channel to verify your account.`,
+          flags: 64
+        }
+      });
+    }
+
     const discordUser = interaction.member?.user ?? interaction.user;
     const discordUserId = discordUser?.id;
     const discordUsername = discordUser?.username ?? "unknown";
