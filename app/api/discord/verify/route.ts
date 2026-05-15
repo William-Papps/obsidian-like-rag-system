@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { withAuthenticatedUser } from "@/lib/auth";
 import { dbGet, dbRun } from "@/lib/db";
-import { addVerifiedRole } from "@/lib/discord";
+import { addVerifiedRole, setNickname } from "@/lib/discord";
 import { consumeDiscordToken, peekDiscordToken } from "@/lib/services/discord-verify";
 
 export const dynamic = "force-dynamic";
@@ -53,11 +53,16 @@ export async function POST(request: Request) {
       [result.discordUserId, user.id]
     );
 
-    // Assign the verified role — non-fatal if it fails (bot may lack permissions)
+    // Assign role and set nickname to their EternalNotes username — non-fatal if either fails
     try {
       await addVerifiedRole(result.discordUserId);
     } catch (err) {
       console.error("[discord/verify] Role assignment failed:", err);
+    }
+    try {
+      await setNickname(result.discordUserId, user.name);
+    } catch (err) {
+      console.error("[discord/verify] Nickname update failed:", err);
     }
 
     return NextResponse.json({ success: true, discordUsername: result.discordUsername });

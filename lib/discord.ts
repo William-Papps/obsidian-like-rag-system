@@ -24,6 +24,20 @@ export async function addVerifiedRole(discordUserId: string): Promise<void> {
   }
 }
 
+export async function setNickname(discordUserId: string, nickname: string): Promise<void> {
+  const res = await fetch(
+    `${DISCORD_API}/guilds/${guildId()}/members/${discordUserId}`,
+    {
+      method: "PATCH",
+      headers: { Authorization: `Bot ${botToken()}`, "content-type": "application/json" },
+      body: JSON.stringify({ nick: nickname.slice(0, 32) }) // Discord nickname max is 32 chars
+    }
+  );
+  if (!res.ok && res.status !== 204) {
+    throw new Error(`Discord nickname update failed: ${res.status} ${await res.text()}`);
+  }
+}
+
 // Verify an interaction request from Discord using Ed25519 (no extra packages needed).
 export async function verifyDiscordRequest(
   body: string,
