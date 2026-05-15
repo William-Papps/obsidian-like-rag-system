@@ -313,6 +313,7 @@ function migrate(database: Database.Database) {
   ensureColumn(database, "users", "role", "text default 'user'");
   ensureColumn(database, "users", "disabled_at", "text");
   ensureColumn(database, "users", "discord_user_id", "text");
+  ensureColumn(database, "users", "pending_email", "text");
 
   database.exec(`
     create table if not exists discord_verification_tokens (

@@ -60,6 +60,13 @@ export function AccountPage({
   const [hostedPlan, setHostedPlan] = useState(initialBilling.subscription.plan);
   const [adminData, setAdminData] = useState(initialAdmin);
   const [activity] = useState(initialActivity);
+  const [profileName, setProfileName] = useState(user.name);
+  const [profileEmail, setProfileEmail] = useState(user.email);
+  const [confirmedEmail, setConfirmedEmail] = useState(user.email);
+  const [pendingEmail, setPendingEmail] = useState<string | null>(null);
+  const [emailCode, setEmailCode] = useState("");
+  const [confirmingEmail, setConfirmingEmail] = useState(false);
+  const [savingProfile, setSavingProfile] = useState(false);
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -97,6 +104,55 @@ export function AccountPage({
     window.setTimeout(() => {
       setNotice((current) => (current?.message === message ? null : current));
     }, 3200);
+  }
+
+  async function saveProfile() {
+    setSavingProfile(true);
+    try {
+      const response = await fetch("/api/account", {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ name: profileName.trim(), email: profileEmail.trim() })
+      });
+      const body = (await response.json().catch(() => ({}))) as { name?: string; email?: string; pendingEmail?: string; debugCode?: string; error?: string };
+      if (!response.ok) throw new Error(body.error || "Unable to save profile");
+      if (body.name) setProfileName(body.name);
+      if (body.pendingEmail) {
+        setPendingEmail(body.pendingEmail);
+        setEmailCode("");
+        const msg = body.debugCode
+          ? `Verification code sent (dev mode): ${body.debugCode}`
+          : `Verification code sent to ${body.pendingEmail}`;
+        pushNotice(msg, "info");
+      } else {
+        pushNotice("Profile updated", "success");
+      }
+    } catch (error) {
+      pushNotice(error instanceof Error ? error.message : "Unable to save profile", "error");
+    } finally {
+      setSavingProfile(false);
+    }
+  }
+
+  async function confirmEmailChange() {
+    setConfirmingEmail(true);
+    try {
+      const response = await fetch("/api/account/confirm-email", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ code: emailCode.trim() })
+      });
+      const body = (await response.json().catch(() => ({}))) as { email?: string; error?: string };
+      if (!response.ok) throw new Error(body.error || "Unable to confirm email");
+      if (body.email) { setProfileEmail(body.email); setConfirmedEmail(body.email); }
+      setPendingEmail(null);
+      setEmailCode("");
+      pushNotice("Email address updated", "success");
+    } catch (error) {
+      pushNotice(error instanceof Error ? error.message : "Unable to confirm email", "error");
+    } finally {
+      setConfirmingEmail(false);
+    }
   }
 
   async function saveSettings() {
@@ -471,12 +527,67 @@ export function AccountPage({
                 <>
                   <GlassPanel>
                     <SectionHeading eyebrow="Profile" title="Account details" icon={<User2 className="h-5 w-5" />} description="Your identity and account information." />
-                    <div className="mt-6 grid gap-3 sm:grid-cols-2">
-                      <MetricCard label="Display name" value={user.name} accent />
-                      <MetricCard label="Email address" value={user.email} />
+                    <div className="mt-6 grid gap-4 sm:grid-cols-2">
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-semibold text-ink-400">Display name</label>
+                        <input
+                          type="text"
+                          value={profileName}
+                          onChange={(e) => setProfileName(e.target.value)}
+                          maxLength={80}
+                          className="rounded-xl border border-graphite-rail bg-black/30 px-3 py-2 text-sm text-ink-100 placeholder:text-ink-600 focus:border-violet-500/60 focus:outline-none focus:ring-1 focus:ring-violet-500/30"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-1.5">
+                        <label className="text-xs font-semibold text-ink-400">Email address</label>
+                        <input
+                          type="email"
+                          value={profileEmail}
+                          onChange={(e) => setProfileEmail(e.target.value)}
+                          className="rounded-xl border border-graphite-rail bg-black/30 px-3 py-2 text-sm text-ink-100 placeholder:text-ink-600 focus:border-violet-500/60 focus:outline-none focus:ring-1 focus:ring-violet-500/30"
+                        />
+                      </div>
                     </div>
-                    <div className="mt-4 rounded-xl border border-graphite-rail bg-black/20 p-4 text-sm leading-6 text-ink-400">
-                      The note system stays free. AI usage can run on a personal API key or on a hosted plan backed by the server key if the server owner has configured one.
+                    {pendingEmail && (
+                      <div className="mt-4 rounded-xl border border-amber-500/30 bg-amber-500/10 p-4">
+                        <p className="text-sm text-amber-300 font-medium">Verify your new email</p>
+                        <p className="mt-1 text-xs text-ink-400">We sent a 6-digit code to <span className="text-ink-200">{pendingEmail}</span>. Enter it below to confirm the change.</p>
+                        <div className="mt-3 flex gap-2">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            maxLength={6}
+                            placeholder="000000"
+                            value={emailCode}
+                            onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, ""))}
+                            className="w-32 rounded-xl border border-graphite-rail bg-black/30 px-3 py-2 text-center text-sm font-mono tracking-widest text-ink-100 focus:border-amber-500/60 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
+                          />
+                          <button
+                            onClick={confirmEmailChange}
+                            disabled={confirmingEmail || emailCode.length < 6}
+                            className="flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {confirmingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+                            Confirm
+                          </button>
+                          <button
+                            onClick={() => { setPendingEmail(null); setEmailCode(""); setProfileEmail(confirmedEmail); }}
+                            className="rounded-xl px-3 py-2 text-sm text-ink-500 transition hover:text-ink-300"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                    <div className="mt-4 flex justify-end">
+                      <button
+                        onClick={saveProfile}
+                        disabled={savingProfile || !!pendingEmail || !profileName.trim() || !profileEmail.trim()}
+                        className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                        Save changes
+                      </button>
                     </div>
                   </GlassPanel>
 
