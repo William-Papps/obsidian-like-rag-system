@@ -312,6 +312,20 @@ function migrate(database: Database.Database) {
   ensureColumn(database, "users", "email_verified_at", "text");
   ensureColumn(database, "users", "role", "text default 'user'");
   ensureColumn(database, "users", "disabled_at", "text");
+  ensureColumn(database, "users", "discord_user_id", "text");
+
+  database.exec(`
+    create table if not exists discord_verification_tokens (
+      id text primary key,
+      token text not null unique,
+      discord_user_id text not null,
+      discord_username text not null,
+      expires_at text not null,
+      created_at text not null default (datetime('now'))
+    );
+    create index if not exists idx_discord_tokens_token on discord_verification_tokens(token);
+    create unique index if not exists idx_users_discord_id on users(discord_user_id) where discord_user_id is not null;
+  `);
   ensureColumn(database, "provider_settings", "hosted_plan", "text default 'free'");
   ensureColumn(database, "subscriptions", "hosted_access_granted_at", "text");
   ensureColumn(database, "flashcards", "next_review_at", "text");
