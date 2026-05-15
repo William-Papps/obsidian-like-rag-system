@@ -8,9 +8,14 @@ try { process.loadEnvFile(".env.local"); } catch { /* ok */ }
 
 const APP_ID = "1495923252470480956";
 const TOKEN = process.env.DISCORD_BOT_TOKEN;
+const GUILD_ID = process.env.DISCORD_GUILD_ID;
 
 if (!TOKEN) {
-  console.error("DISCORD_BOT_TOKEN is not set. Add it to .env first.");
+  console.error("DISCORD_BOT_TOKEN is not set. Add it to .env.local first.");
+  process.exit(1);
+}
+if (!GUILD_ID) {
+  console.error("DISCORD_GUILD_ID is not set. Add it to .env.local first.");
   process.exit(1);
 }
 
@@ -21,7 +26,8 @@ const commands = [
   }
 ];
 
-const res = await fetch(`https://discord.com/api/v10/applications/${APP_ID}/commands`, {
+// Guild-specific commands are instant (global commands take up to 1 hour)
+const res = await fetch(`https://discord.com/api/v10/applications/${APP_ID}/guilds/${GUILD_ID}/commands`, {
   method: "PUT",
   headers: {
     Authorization: `Bot ${TOKEN}`,
@@ -35,4 +41,4 @@ if (!res.ok) {
   process.exit(1);
 }
 
-console.log("✓ /verify slash command registered successfully.");
+console.log("✓ /verify slash command registered to your server instantly.");
