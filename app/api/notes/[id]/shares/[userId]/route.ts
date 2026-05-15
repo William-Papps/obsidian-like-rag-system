@@ -17,7 +17,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       await updateNoteShare(user.id, id, userId, body.permission);
       return NextResponse.json({ ok: true });
     } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to update share" }, { status: 400 });
+      console.error("[shares] updateNoteShare failed:", error);
+      return NextResponse.json({ error: "Failed to update share" }, { status: 400 });
     }
   });
 }
@@ -29,7 +30,8 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
       await revokeNoteShare(user.id, id, userId);
       return NextResponse.json({ ok: true });
     } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to revoke share" }, { status: 400 });
+      console.error("[shares] revokeNoteShare failed:", error);
+      return NextResponse.json({ error: "Failed to revoke share" }, { status: 400 });
     }
   });
 }

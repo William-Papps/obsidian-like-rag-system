@@ -20,6 +20,7 @@ export function decryptSecret(payload: string) {
 }
 
 function secretKey() {
-  const source = process.env.PERSONAL_API_KEY_SECRET?.trim() || process.env.AUTH_SESSION_SECRET || "eternalnotes-dev-secret";
+  const source = process.env.PERSONAL_API_KEY_SECRET?.trim() || process.env.AUTH_SESSION_SECRET?.trim();
+  if (!source) throw new Error("PERSONAL_API_KEY_SECRET (or AUTH_SESSION_SECRET) is not set. Set it to a long random string (openssl rand -hex 32).");
   return createHash("sha256").update(source).digest();
 }

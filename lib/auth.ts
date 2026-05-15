@@ -194,7 +194,7 @@ export async function logoutUserWithResponse(_request: Request, response: NextRe
 
   response.cookies.set(SESSION_COOKIE, "", {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "strict",
     secure: process.env.NODE_ENV === "production",
     path: "/",
     expires: new Date(0),
@@ -325,7 +325,7 @@ async function createSession(userId: string): Promise<{ token: string; expiresAt
 export function applySessionCookie(response: NextResponse, session: { token: string; expiresAt: string }, _request?: Request) {
   response.cookies.set(SESSION_COOKIE, session.token, {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "strict",
     secure: process.env.NODE_ENV === "production",
     path: "/",
     expires: new Date(session.expiresAt)
@@ -337,7 +337,7 @@ async function clearSessionCookie() {
   // Clear cookie with same attributes as when it was set
   store.set(SESSION_COOKIE, "", {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "strict",
     secure: false, // Will be set based on actual request context when needed
     path: "/",
     expires: new Date(0),
@@ -361,7 +361,9 @@ async function verifyPassword(password: string, storedHash: string) {
 }
 
 function sessionTokenHash(token: string) {
-  return sha256(`${process.env.AUTH_SESSION_SECRET || "studyos-dev-session-secret"}:${token}`);
+  const secret = process.env.AUTH_SESSION_SECRET?.trim();
+  if (!secret) throw new Error("AUTH_SESSION_SECRET is not set. Set it to a long random string (openssl rand -hex 32).");
+  return sha256(`${secret}:${token}`);
 }
 
 function ownerRoleForEmail(email: string): UserRole {

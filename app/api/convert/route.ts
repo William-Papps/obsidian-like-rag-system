@@ -423,7 +423,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: error.message }, { status: 402 });
       }
       console.error("Conversion error:", error);
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Conversion failed" }, { status: 500 });
+      return NextResponse.json({ error: "Conversion failed" }, { status: 500 });
     }
   });
 }

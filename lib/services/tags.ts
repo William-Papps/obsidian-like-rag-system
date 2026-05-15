@@ -33,15 +33,23 @@ export async function deleteTag(userId: string, tagId: string) {
   await dbRun("delete from tags where id = ? and user_id = ?", [tagId, userId]);
 }
 
-export async function setNoteTags(noteId: string, tagIds: string[]) {
+export async function setNoteTags(noteId: string, tagIds: string[], userId: string) {
   await dbRun("delete from note_tags where note_id = ?", [noteId]);
   for (const tagId of tagIds) {
-    await dbRun("insert or ignore into note_tags (note_id, tag_id, created_at) values (?, ?, ?)", [noteId, tagId, now()]);
+    // Only insert tags that belong to this user
+    await dbRun(
+      "insert or ignore into note_tags (note_id, tag_id, created_at) select ?, id, ? from tags where id = ? and user_id = ?",
+      [noteId, now(), tagId, userId]
+    );
   }
 }
 
-export async function addNoteTag(noteId: string, tagId: string) {
-  await dbRun("insert or ignore into note_tags (note_id, tag_id, created_at) values (?, ?, ?)", [noteId, tagId, now()]);
+export async function addNoteTag(noteId: string, tagId: string, userId: string) {
+  // Only insert if the tag belongs to this user
+  await dbRun(
+    "insert or ignore into note_tags (note_id, tag_id, created_at) select ?, id, ? from tags where id = ? and user_id = ?",
+    [noteId, now(), tagId, userId]
+  );
 }
 
 export async function removeNoteTag(noteId: string, tagId: string) {

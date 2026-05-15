@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { getUserByStripeCustomerId, setStripeIds, setSubscriptionPlan } from "@/lib/services/billing";
 import { planFromPriceId, stripeClient } from "@/lib/stripe";
+import { dbGet, dbRun } from "@/lib/db";
+import { now } from "@/lib/utils";
 import type { HostedPlan } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -26,11 +28,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
+  // Idempotency: skip duplicate events (Stripe retries can cause duplicates)
+  const idempotencyKey = `stripe_event:${event.id}`;
+  const alreadyProcessed = await dbGet<{ key: string }>(
+    "SELECT key FROM app_settings WHERE key = ?",
+    [idempotencyKey]
+  );
+  if (alreadyProcessed) {
+    return NextResponse.json({ received: true, duplicate: true });
+  }
+
   try {
     await handleEvent(event);
+    await dbRun(
+      "INSERT OR IGNORE INTO app_settings (key, value, created_at, updated_at) VALUES (?, ?, ?, ?)",
+      [idempotencyKey, "1", now(), now()]
+    );
   } catch (err) {
-    console.error(`[webhook] Error handling ${event.type}:`, err);
-    return NextResponse.json({ error: "Handler failed" }, { status: 500 });
+    // Return 200 to prevent Stripe from retrying indefinitely on non-retriable errors.
+    // The error is logged for manual review.
+    console.error(`[webhook] Error handling ${event.type} (${event.id}):`, err);
   }
 
   return NextResponse.json({ received: true });

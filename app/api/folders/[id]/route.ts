@@ -13,7 +13,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       await updateFolder(user.id, id, body);
       return NextResponse.json({ ok: true });
     } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Unable to update folder" }, { status: 400 });
+      console.error("[folders] updateFolder failed:", error);
+      return NextResponse.json({ error: "Unable to update folder" }, { status: 400 });
     }
   });
 }

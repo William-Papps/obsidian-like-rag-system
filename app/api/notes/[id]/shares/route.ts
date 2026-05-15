@@ -17,7 +17,8 @@ export async function GET(_: Request, { params }: { params: Promise<{ id: string
       const shares = await listNoteShares(user.id, id);
       return NextResponse.json(shares);
     } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Not found" }, { status: 404 });
+      console.error("[shares] listNoteShares failed:", error);
+      return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
   });
 }
@@ -30,7 +31,8 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const share = await shareNote(user.id, id, body.email, body.permission);
       return NextResponse.json(share, { status: 201 });
     } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to share note" }, { status: 400 });
+      console.error("[shares] shareNote failed:", error);
+      return NextResponse.json({ error: "Failed to share note" }, { status: 400 });
     }
   });
 }

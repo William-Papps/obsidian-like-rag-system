@@ -23,7 +23,8 @@ export async function POST(request: Request) {
       const tag = await createTag(user.id, body.name, body.color);
       return NextResponse.json(tag, { status: 201 });
     } catch (error) {
-      return NextResponse.json({ error: error instanceof Error ? error.message : "Failed to create tag" }, { status: 400 });
+      console.error("[tags] createTag failed:", error);
+      return NextResponse.json({ error: "Failed to create tag" }, { status: 400 });
     }
   });
 }
