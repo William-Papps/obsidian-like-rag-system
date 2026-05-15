@@ -73,7 +73,7 @@ export async function autoTagNote(
         tag = { id: row.id, userId, name: row.name, color: row.color, createdAt: row.created_at, updatedAt: row.updated_at };
       }
     }
-    await addNoteTag(noteId, tag.id);
+    await addNoteTag(noteId, tag.id, userId);
     applied.push(tag.name);
   }
 

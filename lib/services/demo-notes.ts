@@ -580,7 +580,7 @@ export async function seedDemoNotes(userId: string): Promise<Note[]> {
   const notes: Note[] = [];
   for (const noteData of DEMO_NOTES) {
     const note = await createNote(userId, noteData);
-    await addNoteTag(note.id, sampleTag.id);
+    await addNoteTag(note.id, sampleTag.id, userId);
     notes.push(note);
   }
 
