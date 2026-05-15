@@ -68,24 +68,25 @@ function Nav() {
 /* ─── Hero ─── */
 function Hero() {
   return (
-    <section className="bg-black pb-24 pt-[119px]">
-      <div className="mx-auto max-w-[1200px] px-6 text-center">
-        {/* Announcement badge */}
+    <section className="relative overflow-hidden bg-black pb-24 pt-[119px]">
+      {/* Ambient glow — keeps dark aesthetic without AI-slop gradients */}
+      <div className="pointer-events-none absolute left-1/2 top-0 h-[500px] w-[900px] -translate-x-1/2 rounded-full bg-accent-500/[0.06] blur-[100px]" />
+      <div className="relative mx-auto max-w-[1200px] px-6 text-center">
+        {/* Badge */}
         <div className="mb-8 inline-flex items-center gap-2 rounded-[16px] border border-graphite-rail px-4 py-2">
           <Sparkles className="h-3 w-3 text-fog" />
-          <span className="text-[14px] text-frost">Now in beta</span>
-          <span className="text-fog">→</span>
+          <span className="text-[14px] text-frost">Now in beta · free to join</span>
         </div>
 
-        {/* Display headline — Playfair Display */}
-        <h1 className="mb-6 font-display text-[56px] font-normal leading-[1] tracking-[-0.01em] text-white sm:text-[72px]">
-          Your team&apos;s knowledge,<br />
-          instantly queryable.
+        {/* Headline — push scale for drama, keep Playfair elegance */}
+        <h1 className="mb-6 font-display text-[58px] font-normal leading-[1.05] tracking-[-0.02em] text-white sm:text-[82px]">
+          Ask your documents.<br />
+          Get answers, not<br className="hidden sm:block" /> search results.
         </h1>
 
         {/* Sub-copy */}
-        <p className="mx-auto mb-10 max-w-lg text-[18px] leading-[1.6] text-fog">
-          Add documents, index once, ask in plain English. Every answer links to the exact source passage — click any citation to verify it yourself.
+        <p className="mx-auto mb-10 max-w-xl text-[17px] leading-[1.65] text-fog">
+          EternalNotes indexes your team&apos;s documents and answers questions in plain English. Every response cites the exact passage it came from — click any citation to verify.
         </p>
 
         {/* CTAs */}
@@ -97,6 +98,29 @@ function Hero() {
             Get started free
           </Link>
           <RequestDemoButton />
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ─── Trust bar ─── */
+function TrustBar() {
+  const pillars = [
+    { label: "Source-cited answers", desc: "Every response links to the exact paragraph it came from" },
+    { label: "Zero hallucination", desc: "Answers are grounded in your documents — nothing invented" },
+    { label: "Private by default", desc: "Your data is never used to train AI models" },
+  ];
+  return (
+    <section className="border-y border-graphite-rail">
+      <div className="mx-auto max-w-[1200px] px-6">
+        <div className="grid divide-y divide-graphite-rail sm:grid-cols-3 sm:divide-x sm:divide-y-0">
+          {pillars.map((p) => (
+            <div key={p.label} className="px-8 py-6 text-center sm:text-left">
+              <div className="text-[13px] font-semibold text-white">{p.label}</div>
+              <div className="mt-1 text-[13px] leading-[1.5] text-fog">{p.desc}</div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -181,32 +205,32 @@ const FEATURES: Array<{ icon: ReactNode; title: string; description: string }> =
   {
     icon: <Sparkles className="h-5 w-5" />,
     title: "Grounded AI answers",
-    description: "Ask anything in plain English. Every answer is built from exact excerpts in your documents — nothing invented, nothing missing a source."
+    description: "Every answer is built directly from your documents — no hallucination, no invented facts. If the answer isn't in your docs, EternalNotes says so."
   },
   {
     icon: <Users className="h-5 w-5" />,
     title: "Team workspaces",
-    description: "Invite colleagues into shared workspaces. Everyone queries the same documents, from anywhere."
+    description: "Create shared workspaces for any team or project. Everyone asks questions from the same indexed knowledge base — no duplicated effort, no version drift."
   },
   {
     icon: <Upload className="h-5 w-5" />,
     title: "Import anything",
-    description: "Paste text, upload PDFs, Word docs, and more. EternalNotes extracts and indexes everything for grounded Q&A."
+    description: "Upload PDFs, paste text, or import Word docs. EternalNotes extracts and indexes everything — your knowledge base is ready to answer questions in minutes."
   },
   {
     icon: <FileText className="h-5 w-5" />,
     title: "Cited responses",
-    description: "Every answer links back to the exact source document and excerpt. Click to jump straight to it."
+    description: "Every answer includes clickable citations that jump to the exact paragraph in the source document. Verify any answer in one click — no trust required."
   },
   {
     icon: <Brain className="h-5 w-5" />,
     title: "Knowledge checks",
-    description: "Generate Q&A quizzes from your documents to validate team understanding of SOPs and policies."
+    description: "Turn any document into a Q&A quiz with one click. Validate team understanding of policies, SOPs, and onboarding materials — no question-writing required."
   },
   {
     icon: <ShieldCheck className="h-5 w-5" />,
     title: "Private by default",
-    description: "Your notes stay on your account and are never used to train AI models. AI queries are processed on our infrastructure and discarded after answering."
+    description: "Your documents are never used to train AI models. Queries are processed and discarded immediately. Want full control? Self-host on your own infrastructure."
   }
 ];
 
@@ -215,10 +239,10 @@ function Features() {
     <section className="mx-auto max-w-[1200px] px-6 pb-24">
       <div className="mb-12 text-center">
         <h2 className="text-[36px] font-bold leading-[1.1] tracking-[-0.025em] text-white sm:text-[40px]">
-          Everything your team needs
+          Built for teams who can&apos;t afford wrong answers
         </h2>
         <p className="mt-4 text-[16px] leading-[1.5] text-fog">
-          Built for teams that run on documents and can&apos;t afford wrong answers.
+          From first upload to cited answer in minutes. No complex setup. No prompt engineering.
         </p>
       </div>
       {/* Grid with graphite hairline dividers via gap-px technique */}
@@ -239,9 +263,9 @@ function Features() {
 
 /* ─── How it works ─── */
 const STEPS = [
-  { num: "01", title: "Add your documents", body: "Upload PDFs, paste text, or write directly in the editor. Organize by project or team." },
-  { num: "02", title: "Index with one click", body: "Hit Reindex and your content is embedded and ready to query in seconds." },
-  { num: "03", title: "Ask anything",          body: "Type a question. Get a grounded answer with citations you can click through to verify." }
+  { num: "01", title: "Add your documents", body: "Upload PDFs, paste text, or write directly in the editor. Organize by team, project, or topic — however your team already thinks." },
+  { num: "02", title: "Index with one click", body: "Hit Reindex and your documents are embedded and ready to answer questions in seconds. We handle all the AI infrastructure." },
+  { num: "03", title: "Ask anything", body: "Type a question, get a grounded answer with cited passages. Click any citation to read the exact source paragraph." }
 ];
 
 function HowItWorks() {
@@ -252,7 +276,7 @@ function HowItWorks() {
           <h2 className="text-[36px] font-bold leading-[1.1] tracking-[-0.025em] text-white sm:text-[40px]">
             Up and running in minutes
           </h2>
-          <p className="mt-4 text-[16px] text-fog">No complex setup. No training data. Just your documents.</p>
+          <p className="mt-4 text-[16px] text-fog">No complex setup. No training data. No prompt engineering. Just your documents.</p>
         </div>
         <div className="grid gap-10 sm:grid-cols-3">
           {STEPS.map((s, i) => (
@@ -411,19 +435,20 @@ function CtaSection() {
   return (
     <section className="border-t border-graphite-rail py-24">
       <div className="mx-auto max-w-[800px] px-6 text-center">
-        <h2 className="mb-4 font-display text-[48px] font-normal leading-[1] tracking-[-0.01em] text-white sm:text-[56px]">
-          Ready to unlock your<br />
-          knowledge base?
+        <h2 className="mb-4 font-display text-[48px] font-normal leading-[1.05] tracking-[-0.02em] text-white sm:text-[60px]">
+          Your knowledge is<br />
+          already written down.
         </h2>
         <p className="mb-10 text-[18px] leading-[1.6] text-fog">
-          Free to start. No credit card required.
+          It&apos;s scattered across PDFs, docs, and notes. EternalNotes indexes it all so your team can ask anything and get a cited answer — instantly.
         </p>
         <Link
           href="/auth"
           className="inline-block rounded-[6px] border border-electric-blue px-8 py-3.5 text-[14px] font-medium text-white transition-colors hover:bg-electric-blue/10"
         >
-          Create your workspace →
+          Start for free →
         </Link>
+        <p className="mt-4 text-[13px] text-steel">No credit card required.</p>
       </div>
     </section>
   );
@@ -475,6 +500,7 @@ function LandingPage() {
     <div className="min-h-screen bg-black text-frost">
       <Nav />
       <Hero />
+      <TrustBar />
       <AppPreview />
       <Features />
       <HowItWorks />
