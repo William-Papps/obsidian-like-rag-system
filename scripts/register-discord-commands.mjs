@@ -2,8 +2,9 @@
 //   node scripts/register-discord-commands.mjs
 // Requires DISCORD_BOT_TOKEN in your .env (or set it in the shell).
 
-// Load .env without needing dotenv package (Node 20+)
-try { process.loadEnvFile(".env"); } catch { /* .env may not exist in CI */ }
+// Load env files without needing dotenv (Node 20+). Mirror Next.js priority: .env.local overrides .env
+try { process.loadEnvFile(".env"); } catch { /* ok */ }
+try { process.loadEnvFile(".env.local"); } catch { /* ok */ }
 
 const APP_ID = "1495923252470480956";
 const TOKEN = process.env.DISCORD_BOT_TOKEN;
