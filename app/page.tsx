@@ -6,6 +6,7 @@ import Link from "next/link";
 import { HelpWidget } from "@/components/help-widget";
 import { CookieBanner } from "@/components/cookie-banner";
 import { Brain, FileText, ShieldCheck, Sparkles, Upload, Users } from "lucide-react";
+import { RequestDemoButton } from "@/components/demo-modal";
 import type { ReactNode } from "react";
 
 export const dynamic = "force-dynamic";
@@ -95,12 +96,7 @@ function Hero() {
           >
             Get started free
           </Link>
-          <Link
-            href="/auth"
-            className="text-[14px] font-normal text-white/60 transition-colors hover:text-white"
-          >
-            Sign in →
-          </Link>
+          <RequestDemoButton />
         </div>
       </div>
     </section>
