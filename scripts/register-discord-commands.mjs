@@ -2,8 +2,8 @@
 //   node scripts/register-discord-commands.mjs
 // Requires DISCORD_BOT_TOKEN in your .env (or set it in the shell).
 
-import { config } from "dotenv";
-config();
+// Load .env without needing dotenv package (Node 20+)
+try { process.loadEnvFile(".env"); } catch { /* .env may not exist in CI */ }
 
 const APP_ID = "1495923252470480956";
 const TOKEN = process.env.DISCORD_BOT_TOKEN;
