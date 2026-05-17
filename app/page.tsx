@@ -12,8 +12,28 @@ import type { ReactNode } from "react";
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
+async function checkOllamaReady(): Promise<boolean> {
+  const ollamaUrl = process.env.OLLAMA_BASE_URL?.replace(/\/$/, "");
+  if (!ollamaUrl) return true; // hosted mode — no Ollama needed
+  try {
+    const res = await fetch(`${ollamaUrl}/api/tags`, { signal: AbortSignal.timeout(500) });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { models?: { name: string }[] };
+    return (data.models ?? []).some((m) => m.name === "nomic-embed-text" || m.name.startsWith("nomic-embed-text:"));
+  } catch {
+    return false;
+  }
+}
+
 export default async function RootPage() {
   noStore();
+
+  // During Docker first-run, show setup page while models download
+  const ready = await checkOllamaReady();
+  if (!ready) {
+    redirect("/setup");
+  }
+
   const user = await getCurrentUserOptional();
   if (user) return <Workspace />;
   return <LandingPage />;
@@ -80,13 +100,13 @@ function Hero() {
 
         {/* Headline — push scale for drama, keep Playfair elegance */}
         <h1 className="mb-6 font-display text-[58px] font-normal leading-[1.05] tracking-[-0.02em] text-white sm:text-[82px]">
-          Ask your documents.<br />
-          Get answers, not<br className="hidden sm:block" /> search results.
+          Your research,<br />
+          always at your<br className="hidden sm:block" /> fingertips.
         </h1>
 
         {/* Sub-copy */}
         <p className="mx-auto mb-10 max-w-xl text-[17px] leading-[1.65] text-fog">
-          EternalNotes indexes your team&apos;s documents and answers questions in plain English. Every response cites the exact passage it came from — click any citation to verify.
+          EternalNotes turns your notes and documents into a queryable knowledge base. Ask questions, get cited answers, quiz yourself on key concepts — your data never leaves your machine.
         </p>
 
         {/* CTAs */}
@@ -107,9 +127,9 @@ function Hero() {
 /* ─── Trust bar ─── */
 function TrustBar() {
   const pillars = [
+    { label: "Quiz-ready in one click", desc: "Turn any document into a knowledge check — no question-writing needed" },
     { label: "Source-cited answers", desc: "Every response links to the exact paragraph it came from" },
-    { label: "Zero hallucination", desc: "Answers are grounded in your documents — nothing invented" },
-    { label: "Private by default", desc: "Your data is never used to train AI models" },
+    { label: "Private by default", desc: "Your data never leaves your machine — ever" },
   ];
   return (
     <section className="border-y border-graphite-rail">
@@ -203,19 +223,14 @@ function AppPreview() {
 /* ─── Features ─── */
 const FEATURES: Array<{ icon: ReactNode; title: string; description: string }> = [
   {
+    icon: <Brain className="h-5 w-5" />,
+    title: "Knowledge checks",
+    description: "Turn any document into a Q&A quiz with one click. Test understanding of research, policies, and SOPs. No question-writing required — EternalNotes generates them from your content."
+  },
+  {
     icon: <Sparkles className="h-5 w-5" />,
     title: "Grounded AI answers",
     description: "Every answer is built directly from your documents — no hallucination, no invented facts. If the answer isn't in your docs, EternalNotes says so."
-  },
-  {
-    icon: <Users className="h-5 w-5" />,
-    title: "Team workspaces",
-    description: "Create shared workspaces for any team or project. Everyone asks questions from the same indexed knowledge base — no duplicated effort, no version drift."
-  },
-  {
-    icon: <Upload className="h-5 w-5" />,
-    title: "Import anything",
-    description: "Upload PDFs, paste text, or import Word docs. EternalNotes extracts and indexes everything — your knowledge base is ready to answer questions in minutes."
   },
   {
     icon: <FileText className="h-5 w-5" />,
@@ -223,9 +238,14 @@ const FEATURES: Array<{ icon: ReactNode; title: string; description: string }> =
     description: "Every answer includes clickable citations that jump to the exact paragraph in the source document. Verify any answer in one click — no trust required."
   },
   {
-    icon: <Brain className="h-5 w-5" />,
-    title: "Knowledge checks",
-    description: "Turn any document into a Q&A quiz with one click. Validate team understanding of policies, SOPs, and onboarding materials — no question-writing required."
+    icon: <Upload className="h-5 w-5" />,
+    title: "Import anything",
+    description: "Upload PDFs, paste text, or import Word docs. EternalNotes extracts and indexes everything — your knowledge base is ready to answer questions in minutes."
+  },
+  {
+    icon: <Users className="h-5 w-5" />,
+    title: "Team workspaces",
+    description: "Create shared workspaces for any team or project. Everyone asks questions from the same indexed knowledge base — no duplicated effort, no version drift."
   },
   {
     icon: <ShieldCheck className="h-5 w-5" />,

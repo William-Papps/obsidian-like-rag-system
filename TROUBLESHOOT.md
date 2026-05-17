@@ -71,9 +71,15 @@ If you are on a machine with less than 8 GB total RAM, stop other containers and
 
 ## ARM Mac (Apple Silicon) / Raspberry Pi
 
-Ollama runs natively on Apple Silicon — no changes needed. The app container is `linux/arm64` compatible via the `node:20-slim` base image.
+Ollama runs natively on Apple Silicon. However, the EternalNotes **app container** is built for `linux/amd64` (required by the `better-sqlite3` native addon). On Apple Silicon Macs, Docker Desktop runs amd64 containers transparently via Rosetta 2.
 
-For Raspberry Pi (ARM 32-bit), the `llama3.2:3b` model may exceed available RAM. Try a smaller Ollama model and update `OLLAMA_ANSWER_MODEL` in your `.env` if the app exposes that variable, or accept reduced AI quality.
+**Symptom (if Rosetta is not enabled):** The app container fails to start with an `exec format error`.
+
+**Fix:** Enable Rosetta in Docker Desktop → Settings → Features in development → "Use Rosetta for x86/amd64 emulation on Apple Silicon". Then restart Docker Desktop and re-run `docker compose up -d`.
+
+Note: Ollama itself runs natively on Apple Silicon (full GPU acceleration). Only the app container uses Rosetta.
+
+For Raspberry Pi (ARM 32-bit or 64-bit), amd64 emulation is not available. Self-hosting from source is required — see the README for local development setup.
 
 ---
 

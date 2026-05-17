@@ -13,7 +13,7 @@ An Obsidian-like local study workspace with Markdown notes, SQLite persistence, 
 
 ## Docker Quickstart (< 20 min)
 
-**Requirements:** Docker Desktop 4.x, 8 GB RAM, 10 GB free disk.
+**Requirements:** Docker Desktop 4.x, 8 GB RAM minimum (16 GB recommended), 10 GB free disk.
 
 **Step 1 — Clone and configure**
 
