@@ -1846,17 +1846,12 @@ export function Workspace() {
         data={data}
         railPinned={railPinned}
         setRailPinned={setRailPinned}
-        leftOpen={leftOpen}
         rightOpen={rightOpen}
         tab={tab}
         onSetTab={(next) => {
           setTab(next);
           setRightOpen(true);
           if (isMobile) setMobileTab("study");
-        }}
-        onToggleLeft={() => {
-          setLeftOpen((open) => !open);
-          if (isMobile) setMobileTab("vault");
         }}
         onToggleRight={() => {
           setRightOpen((open) => !open);
@@ -2915,11 +2910,9 @@ function SideRail(props: {
   data: Bootstrap;
   railPinned: boolean;
   setRailPinned: (value: boolean) => void;
-  leftOpen: boolean;
   rightOpen: boolean;
   tab: Tab;
   onSetTab: (tab: Tab) => void;
-  onToggleLeft: () => void;
   onToggleRight: () => void;
   onFind: () => void;
   onReindex: () => void | Promise<void>;
@@ -3021,9 +3014,6 @@ function SideRail(props: {
         <div className={`flex flex-col gap-1 pt-3 ${expanded ? "" : "items-center"}`}>
           <RailIconButton label="Dashboard" onClick={props.onDashboard}>
             <Layers3 className="h-4 w-4" />
-          </RailIconButton>
-          <RailIconButton label={props.leftOpen ? "Hide vault" : "Show vault"} onClick={props.onToggleLeft} active={props.leftOpen}>
-            <LayoutPanelLeft className="h-4 w-4" />
           </RailIconButton>
           <RailIconButton label="New note" onClick={props.onNewNote}>
             <FilePlus className="h-4 w-4" />
