@@ -307,7 +307,7 @@ export function Workspace() {
     const next = { ...payload, folders, notes };
     dataRef.current = next;
     setData(next);
-    setActiveNoteId((current) => current || next.notes[0]?.id || null);
+    setActiveNoteId((current) => current);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeWorkspaceId]);
 
@@ -601,13 +601,13 @@ export function Workspace() {
   );
   const workspaceGridStyle = useMemo<CSSProperties>(() => {
     if (isMobile) return { gridTemplateColumns: "1fr" };
-    if (zenMode) return { gridTemplateColumns: "0px minmax(0, 1fr) 0px" };
+    if (zenMode || !activeNoteId) return { gridTemplateColumns: "0px minmax(0, 1fr) 0px" };
     const left = leftOpen ? `${leftWidth}px` : "0px";
     const right = rightOpen ? `${rightWidth}px` : "0px";
     return {
       gridTemplateColumns: `${left} minmax(0, 1fr) ${right}`
     };
-  }, [isMobile, zenMode, leftOpen, leftWidth, rightOpen, rightWidth]);
+  }, [isMobile, zenMode, activeNoteId, leftOpen, leftWidth, rightOpen, rightWidth]);
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -1870,6 +1870,7 @@ export function Workspace() {
         onFeedback={() => setFeedbackOpen(true)}
         onNewFolder={() => createFolder()}
         onNewNote={() => createNote()}
+        onDashboard={() => setActiveNoteId(null)}
         onAccount={() => {
           window.location.href = "/account";
         }}
@@ -2313,11 +2314,19 @@ export function Workspace() {
           <ResizeHandle side="left" onPointerDown={(event) => resizePanel("left", event)} />
         </aside>
 
-        <section className={`grid min-h-0 min-w-0 grid-rows-[auto_42px_45px_minmax(0,1fr)_auto] overflow-hidden bg-[#0b0e14] ${isMobile && mobileTab !== "editor" ? "hidden" : ""}`}>
+        <section className={`${activeNote ? "grid grid-rows-[auto_42px_45px_minmax(0,1fr)_auto]" : "flex"} min-h-0 min-w-0 overflow-hidden bg-[#0b0e14] ${isMobile && mobileTab !== "editor" ? "hidden" : ""}`}>
           {activeNote ? (
             <>
               <div className="min-w-0 border-b border-graphite-rail px-5 py-3">
                 <div className="flex min-w-0 items-center gap-1">
+                  <button
+                    title="Back to dashboard"
+                    aria-label="Back to dashboard"
+                    onClick={() => setActiveNoteId(null)}
+                    className="mr-1 grid h-7 w-7 shrink-0 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200"
+                  >
+                    <ChevronRight className="h-4 w-4 rotate-180" />
+                  </button>
                   <input
                     value={draftTitle}
                     onKeyDown={allowNativeTextShortcuts}
@@ -2708,128 +2717,18 @@ export function Workspace() {
               )}
             </>
           ) : (
-            <div className="row-span-5 grid h-full place-items-center p-8">
-              {data.notes.length === 0 && onboardingChoice === null ? (
-                <div className="relative w-full max-w-lg">
-                  <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-500/10 blur-[80px]" />
-                  <div className="relative mb-6 text-center">
-                    <div className="text-xl font-bold tracking-tight text-ink-100">Welcome to EternalNotes</div>
-                    <div className="mt-2 text-sm text-ink-500">How would you like to get started?</div>
-                  </div>
-                  <div className="relative grid grid-cols-2 gap-4">
-                    <button
-                      onClick={() => void handleChoiceSample()}
-                      className="group flex flex-col gap-3 rounded-2xl border border-graphite-rail bg-ink-900/60 p-6 text-left transition-all hover:border-accent-500/40 hover:bg-accent-500/5"
-                    >
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-accent-500/30 bg-accent-500/15">
-                        <BookOpen className="h-5 w-5 text-accent-400" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-semibold text-ink-100">Sample workspace</div>
-                        <div className="mt-1 text-xs leading-5 text-ink-500">Explore with 15 pre-written notes. Replace them anytime.</div>
-                      </div>
-                      <div className="mt-auto flex items-center gap-1 text-xs font-medium text-accent-400">
-                        Start here <ChevronRight className="h-3 w-3" />
-                      </div>
-                    </button>
-                    <button
-                      onClick={handleChoiceEmpty}
-                      className="group flex flex-col gap-3 rounded-2xl border border-graphite-rail bg-ink-900/60 p-6 text-left transition-all hover:border-graphite-rail hover:bg-graphite-rail/40/40"
-                    >
-                      <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-graphite-rail bg-ink-800/60">
-                        <FilePlus className="h-5 w-5 text-ink-400" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-semibold text-ink-100">Start fresh</div>
-                        <div className="mt-1 text-xs leading-5 text-ink-500">Begin with a blank workspace and add your own notes.</div>
-                      </div>
-                      <div className="mt-auto flex items-center gap-1 text-xs font-medium text-ink-400 group-hover:text-ink-300">
-                        Start empty <ChevronRight className="h-3 w-3" />
-                      </div>
-                    </button>
-                  </div>
-                </div>
-              ) : seeding ? (
-                <div className="text-center">
-                  <Loader2 className="mx-auto mb-4 h-8 w-8 animate-spin text-accent-400" />
-                  <div className="text-sm text-ink-400">Setting up your sample workspace…</div>
-                </div>
-              ) : data.notes.length === 0 && onboardingChoice === "empty" ? (
-                <div className="relative w-full max-w-md text-center">
-                  <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-500/10 blur-[80px]" />
-                  <div className="relative mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-500/30 bg-accent-500/15 ">
-                    <Sparkles className="h-6 w-6 text-accent-400" />
-                  </div>
-                  <div className="relative text-xl font-bold tracking-tight text-ink-100">Your workspace is ready</div>
-                  <div className="relative mt-2 text-sm leading-6 text-ink-500">Create notes, then use Ask, flashcards, and quizzes to study them with AI.</div>
-                  <button
-                    onClick={() => createNote()}
-                    className="primary-action relative mt-5 inline-flex items-center gap-2"
-                  >
-                    <FilePlus className="h-4 w-4" />
-                    Create your first note
-                  </button>
-                  <button
-                    onClick={() => { setRightOpen(true); setTab("ask"); }}
-                    className="relative mt-3 flex w-full items-center justify-center gap-1.5 text-sm text-ink-500 transition-colors hover:text-ink-300"
-                  >
-                    <MessageSquareText className="h-3.5 w-3.5" />
-                    Open study tools
-                  </button>
-                </div>
-              ) : (
-                <div className="relative w-full max-w-sm">
-                  <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-500/8 blur-[80px]" />
-                  <div className="relative text-center">
-                    <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-graphite-rail bg-ink-875/80">
-                      <BookOpen className="h-5 w-5 text-ink-400" />
-                    </div>
-                    <div className="text-base font-semibold tracking-tight text-ink-100">No note open</div>
-                    <div className="mt-1 text-sm text-ink-500">Select a note from the vault or create a new one.</div>
-                  </div>
-                  {(() => {
-                    const recent = [...data.notes]
-                      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-                      .slice(0, 4);
-                    const relDate = (iso: string) => {
-                      const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
-                      if (days === 0) return "Today";
-                      if (days === 1) return "Yesterday";
-                      return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
-                    };
-                    return (
-                      <div className="relative mt-5 space-y-0.5">
-                        <p className="mb-1.5 px-3 text-[11px] font-medium text-ink-600">Recent</p>
-                        {recent.map((note) => (
-                          <button
-                            key={note.id}
-                            onClick={() => selectNote(note.id)}
-                            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left transition-colors hover:bg-graphite-rail/20"
-                          >
-                            <FileText className="h-3.5 w-3.5 shrink-0 text-ink-600" />
-                            <span className="min-w-0 flex-1 truncate text-sm text-ink-300">{note.title}</span>
-                            <span className="shrink-0 text-[11px] text-ink-600">{relDate(note.updatedAt)}</span>
-                          </button>
-                        ))}
-                      </div>
-                    );
-                  })()}
-                  <div className="relative mt-5 flex items-center justify-center gap-3">
-                    <button
-                      onClick={() => createNote()}
-                      className="primary-action inline-flex items-center gap-2"
-                    >
-                      <FilePlus className="h-4 w-4" />
-                      New note
-                    </button>
-                  </div>
-                  <div className="relative mt-4 flex items-center justify-center gap-1.5 text-[11px] text-ink-600">
-                    <kbd className="rounded border border-graphite-rail bg-ink-875 px-1.5 py-0.5 font-mono text-[10px] text-ink-500">Ctrl K</kbd>
-                    <span>to search all notes</span>
-                  </div>
-                </div>
-              )}
-            </div>
+            <NotebookDashboard
+              data={data}
+              activeWorkspaceId={activeWorkspaceId}
+              seeding={seeding}
+              onboardingChoice={onboardingChoice}
+              onNoteClick={selectNote}
+              onNewNote={() => void createNote()}
+              onImport={() => setImportModalOpen(true)}
+              onSampleWorkspace={() => void handleChoiceSample()}
+              onEmptyWorkspace={handleChoiceEmpty}
+              onOpenAsk={() => { setRightOpen(true); setTab("ask"); }}
+            />
           )}
         </section>
 
@@ -3133,6 +3032,7 @@ function SideRail(props: {
   onFeedback: () => void;
   onNewNote: () => void;
   onNewFolder: () => void;
+  onDashboard: () => void;
   onAccount: () => void;
   onShortcuts: () => void;
   onLogout: () => void | Promise<void>;
@@ -3224,6 +3124,9 @@ function SideRail(props: {
       <div className={`min-h-0 flex-1 overflow-y-auto overscroll-contain [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${expanded ? "px-3" : "px-2"}`}>
         {/* Document nav */}
         <div className={`flex flex-col gap-1 pt-3 ${expanded ? "" : "items-center"}`}>
+          <RailIconButton label="Dashboard" onClick={props.onDashboard}>
+            <Layers3 className="h-4 w-4" />
+          </RailIconButton>
           <RailIconButton label={props.leftOpen ? "Hide vault" : "Show vault"} onClick={props.onToggleLeft} active={props.leftOpen}>
             <LayoutPanelLeft className="h-4 w-4" />
           </RailIconButton>
@@ -7103,5 +7006,324 @@ function FolderShareModal({
         </div>
       </div>
     </>
+  );
+}
+
+/* ─── Notebook Dashboard ─── */
+
+function NoteCard({
+  note,
+  folders,
+  relDate,
+  onClick,
+}: {
+  note: Note;
+  folders: FolderType[];
+  relDate: (iso: string) => string;
+  onClick: () => void;
+}) {
+  const folder = folders.find((f) => f.id === note.folderId);
+  const preview = note.markdownContent
+    .replace(/^#{1,6}\s+.+$/gm, "")
+    .replace(/[*_`~#>[\]!|]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 140);
+
+  return (
+    <button
+      onClick={onClick}
+      className="group flex flex-col gap-2.5 rounded-xl border border-graphite-rail bg-ink-900/50 p-4 text-left transition-all duration-150 hover:border-ink-700/60 hover:bg-ink-875/90 hover:shadow-lg hover:shadow-black/20"
+    >
+      <div className="flex min-w-0 items-start justify-between gap-2">
+        <span className="truncate text-sm font-semibold text-ink-100 group-hover:text-white">
+          {note.title || "Untitled"}
+        </span>
+        <FileText className="h-3.5 w-3.5 shrink-0 text-ink-700 group-hover:text-ink-500 transition-colors" />
+      </div>
+      {preview && (
+        <p className="line-clamp-3 text-xs leading-relaxed text-ink-500">{preview}</p>
+      )}
+      <div className="mt-auto flex items-center justify-between gap-2 pt-0.5">
+        {folder ? (
+          <span className="flex min-w-0 items-center gap-1 text-[11px] text-ink-600">
+            <Folder className="h-3 w-3 shrink-0" />
+            <span className="truncate">{folder.name}</span>
+          </span>
+        ) : (
+          <span />
+        )}
+        <span className="shrink-0 text-[11px] text-ink-600">{relDate(note.updatedAt)}</span>
+      </div>
+    </button>
+  );
+}
+
+function NotebookDashboard({
+  data,
+  activeWorkspaceId,
+  seeding,
+  onboardingChoice,
+  onNoteClick,
+  onNewNote,
+  onImport,
+  onSampleWorkspace,
+  onEmptyWorkspace,
+  onOpenAsk,
+}: {
+  data: Bootstrap;
+  activeWorkspaceId: string | null;
+  seeding: boolean;
+  onboardingChoice: "sample" | "empty" | null;
+  onNoteClick: (noteId: string) => void;
+  onNewNote: () => void;
+  onImport: () => void;
+  onSampleWorkspace: () => void;
+  onEmptyWorkspace: () => void;
+  onOpenAsk: () => void;
+}) {
+  const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const workspaceNotes = data.notes.filter((n) =>
+    activeWorkspaceId ? n.workspaceId === activeWorkspaceId : !n.workspaceId
+  );
+
+  const recentNotes = [...workspaceNotes]
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    .slice(0, 8);
+
+  const filteredNotes = search.trim()
+    ? workspaceNotes.filter(
+        (n) =>
+          n.title.toLowerCase().includes(search.toLowerCase()) ||
+          n.markdownContent.toLowerCase().includes(search.toLowerCase())
+      )
+    : null;
+
+  const relDate = (iso: string) => {
+    const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+    if (days === 0) return "Today";
+    if (days === 1) return "Yesterday";
+    if (days < 7) return `${days}d ago`;
+    return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  };
+
+  const hour = new Date().getHours();
+  const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
+  const firstName =
+    data.user.name?.split(" ")[0] || data.user.email?.split("@")[0] || "there";
+
+  /* ── First-run onboarding (no notes yet) ── */
+  if (seeding) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center bg-ink-950">
+        <Loader2 className="mb-4 h-8 w-8 animate-spin text-accent-400" />
+        <div className="text-sm text-ink-400">Setting up your sample workspace…</div>
+      </div>
+    );
+  }
+
+  if (workspaceNotes.length === 0 && onboardingChoice === null) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center bg-ink-950 p-8">
+        <div className="relative w-full max-w-lg">
+          <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-500/10 blur-[80px]" />
+          <div className="relative mb-6 text-center">
+            <div className="text-xl font-bold tracking-tight text-ink-100">Welcome to EternalNotes</div>
+            <div className="mt-2 text-sm text-ink-500">How would you like to get started?</div>
+          </div>
+          <div className="relative grid grid-cols-2 gap-4">
+            <button
+              onClick={onSampleWorkspace}
+              className="group flex flex-col gap-3 rounded-2xl border border-graphite-rail bg-ink-900/60 p-6 text-left transition-all hover:border-accent-500/40 hover:bg-accent-500/5"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-accent-500/30 bg-accent-500/15">
+                <BookOpen className="h-5 w-5 text-accent-400" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-ink-100">Sample workspace</div>
+                <div className="mt-1 text-xs leading-5 text-ink-500">Explore with 15 pre-written notes. Replace them anytime.</div>
+              </div>
+              <div className="mt-auto flex items-center gap-1 text-xs font-medium text-accent-400">
+                Start here <ChevronRight className="h-3 w-3" />
+              </div>
+            </button>
+            <button
+              onClick={onEmptyWorkspace}
+              className="group flex flex-col gap-3 rounded-2xl border border-graphite-rail bg-ink-900/60 p-6 text-left transition-all hover:border-graphite-rail hover:bg-graphite-rail/40"
+            >
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-graphite-rail bg-ink-800/60">
+                <FilePlus className="h-5 w-5 text-ink-400" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold text-ink-100">Start fresh</div>
+                <div className="mt-1 text-xs leading-5 text-ink-500">Begin with a blank workspace and add your own notes.</div>
+              </div>
+              <div className="mt-auto flex items-center gap-1 text-xs font-medium text-ink-400 group-hover:text-ink-300">
+                Start empty <ChevronRight className="h-3 w-3" />
+              </div>
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (workspaceNotes.length === 0 && onboardingChoice === "empty") {
+    return (
+      <div className="flex h-full flex-col items-center justify-center bg-ink-950 p-8 text-center">
+        <div className="pointer-events-none absolute left-1/2 top-1/2 h-64 w-64 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent-500/10 blur-[80px]" />
+        <div className="relative mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-500/30 bg-accent-500/15">
+          <Sparkles className="h-6 w-6 text-accent-400" />
+        </div>
+        <div className="relative text-xl font-bold tracking-tight text-ink-100">Your workspace is ready</div>
+        <div className="relative mt-2 text-sm leading-6 text-ink-500">
+          Create notes, then use Ask, flashcards, and quizzes to study them with AI.
+        </div>
+        <button onClick={onNewNote} className="primary-action relative mt-5 inline-flex items-center gap-2">
+          <FilePlus className="h-4 w-4" />
+          Create your first note
+        </button>
+        <button
+          onClick={onOpenAsk}
+          className="relative mt-3 flex w-full items-center justify-center gap-1.5 text-sm text-ink-500 transition-colors hover:text-ink-300"
+        >
+          <MessageSquareText className="h-3.5 w-3.5" />
+          Open study tools
+        </button>
+      </div>
+    );
+  }
+
+  /* ── Main dashboard ── */
+  return (
+    <div className="flex h-full w-full flex-col overflow-auto bg-ink-950">
+      {/* Top bar */}
+      <div className="shrink-0 border-b border-graphite-rail bg-ink-950/80 px-8 py-5 backdrop-blur-sm">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight text-ink-100">
+              {greeting}, {firstName}
+            </h1>
+            <p className="mt-0.5 text-sm text-ink-500">
+              {workspaceNotes.length} {workspaceNotes.length === 1 ? "note" : "notes"}
+              {data.documents.length > 0 ? ` · ${data.documents.length} document${data.documents.length === 1 ? "" : "s"}` : ""}
+            </p>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <button
+              onClick={onImport}
+              className="flex items-center gap-1.5 rounded-lg border border-graphite-rail px-3.5 py-2 text-sm text-ink-300 transition-colors hover:bg-graphite-rail/40 hover:text-ink-100"
+            >
+              <Upload className="h-4 w-4" />
+              Import
+            </button>
+            <button
+              onClick={onNewNote}
+              className="primary-action flex items-center gap-1.5"
+            >
+              <FilePlus className="h-4 w-4" />
+              New note
+            </button>
+          </div>
+        </div>
+
+        {/* Search */}
+        <div className="mt-4 flex items-center gap-2 rounded-xl border border-graphite-rail bg-ink-900/60 px-4 py-2.5 focus-within:border-ink-600/60 transition-colors">
+          <Search className="h-4 w-4 shrink-0 text-ink-500" />
+          <input
+            ref={searchRef}
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search notes…"
+            className="flex-1 bg-transparent text-sm text-ink-100 placeholder-ink-600 outline-none"
+          />
+          {search && (
+            <button onClick={() => setSearch("")} className="text-ink-600 hover:text-ink-300">
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Body */}
+      <div className="flex-1 overflow-auto px-8 py-6">
+        {filteredNotes ? (
+          /* Search results */
+          <section>
+            <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-ink-500">
+              {filteredNotes.length === 0
+                ? `No results for "${search}"`
+                : `${filteredNotes.length} result${filteredNotes.length === 1 ? "" : "s"} for "${search}"`}
+            </h2>
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {filteredNotes.map((note) => (
+                <NoteCard
+                  key={note.id}
+                  note={note}
+                  folders={data.folders}
+                  relDate={relDate}
+                  onClick={() => onNoteClick(note.id)}
+                />
+              ))}
+            </div>
+          </section>
+        ) : (
+          <div className="space-y-8">
+            {/* Recent */}
+            <section>
+              <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-ink-500">Recent</h2>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {recentNotes.map((note) => (
+                  <NoteCard
+                    key={note.id}
+                    note={note}
+                    folders={data.folders}
+                    relDate={relDate}
+                    onClick={() => onNoteClick(note.id)}
+                  />
+                ))}
+              </div>
+            </section>
+
+            {/* Folders */}
+            {data.folders.filter((f) => !f.parentId).length > 0 && (
+              <section>
+                <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-ink-500">Folders</h2>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {data.folders
+                    .filter((f) => !f.parentId)
+                    .map((folder) => {
+                      const count = workspaceNotes.filter((n) => n.folderId === folder.id).length;
+                      const latestNote = workspaceNotes
+                        .filter((n) => n.folderId === folder.id)
+                        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+                      return (
+                        <div
+                          key={folder.id}
+                          className="flex items-center gap-3 rounded-xl border border-graphite-rail bg-ink-900/50 px-4 py-3.5"
+                        >
+                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-graphite-rail bg-ink-800/60">
+                            <Folder className="h-4 w-4 text-ink-400" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-sm font-semibold text-ink-200">{folder.name}</div>
+                            <div className="text-xs text-ink-600">
+                              {count} {count === 1 ? "note" : "notes"}
+                              {latestNote ? ` · ${relDate(latestNote.updatedAt)}` : ""}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </section>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
