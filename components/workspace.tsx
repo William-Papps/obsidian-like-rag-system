@@ -601,7 +601,11 @@ export function Workspace() {
   );
   const workspaceGridStyle = useMemo<CSSProperties>(() => {
     if (isMobile) return { gridTemplateColumns: "1fr" };
-    if (zenMode || !activeNoteId) return { gridTemplateColumns: "0px minmax(0, 1fr) 0px" };
+    if (zenMode) return { gridTemplateColumns: "0px minmax(0, 1fr) 0px" };
+    if (!activeNoteId) {
+      const right = rightOpen ? `${rightWidth}px` : "0px";
+      return { gridTemplateColumns: `0px minmax(0, 1fr) ${right}` };
+    }
     const left = leftOpen ? `${leftWidth}px` : "0px";
     const right = rightOpen ? `${rightWidth}px` : "0px";
     return {
@@ -6928,21 +6932,23 @@ function NotebookDashboard({
   }
 
   /* ── Main dashboard ── */
+  const allNotesSorted = [...workspaceNotes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+
   return (
     <div className="flex h-full w-full flex-col overflow-auto bg-ink-950">
-      {/* Top bar */}
-      <div className="shrink-0 border-b border-graphite-rail bg-ink-950/80 px-8 py-5 backdrop-blur-sm">
-        <div className="flex items-center justify-between gap-4">
+      {/* Header */}
+      <div className="shrink-0 px-8 pb-6 pt-8">
+        <div className="flex items-start justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold tracking-tight text-ink-100">
+            <h1 className="text-3xl font-bold tracking-tight text-ink-100">
               {greeting}, {firstName}
             </h1>
-            <p className="mt-0.5 text-sm text-ink-500">
+            <p className="mt-1 text-sm text-ink-500">
               {workspaceNotes.length} {workspaceNotes.length === 1 ? "note" : "notes"}
               {data.documents.length > 0 ? ` · ${data.documents.length} document${data.documents.length === 1 ? "" : "s"}` : ""}
             </p>
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="flex shrink-0 items-center gap-2 pt-1">
             <button
               onClick={onImport}
               className="flex items-center gap-1.5 rounded-lg border border-graphite-rail px-3.5 py-2 text-sm text-ink-300 transition-colors hover:bg-graphite-rail/40 hover:text-ink-100"
@@ -6950,10 +6956,7 @@ function NotebookDashboard({
               <Upload className="h-4 w-4" />
               Import
             </button>
-            <button
-              onClick={onNewNote}
-              className="primary-action flex items-center gap-1.5"
-            >
+            <button onClick={onNewNote} className="primary-action flex items-center gap-1.5">
               <FilePlus className="h-4 w-4" />
               New note
             </button>
@@ -6961,7 +6964,7 @@ function NotebookDashboard({
         </div>
 
         {/* Search */}
-        <div className="mt-4 flex items-center gap-2 rounded-xl border border-graphite-rail bg-ink-900/60 px-4 py-2.5 focus-within:border-ink-600/60 transition-colors">
+        <div className="mt-5 flex items-center gap-2 rounded-xl border border-graphite-rail bg-ink-900/60 px-4 py-3 transition-colors focus-within:border-ink-600/60">
           <Search className="h-4 w-4 shrink-0 text-ink-500" />
           <input
             ref={searchRef}
@@ -6980,7 +6983,7 @@ function NotebookDashboard({
       </div>
 
       {/* Body */}
-      <div className="flex-1 overflow-auto px-8 py-6">
+      <div className="flex-1 overflow-auto px-8 pb-10">
         {filteredNotes ? (
           /* Search results */
           <section>
@@ -6991,32 +6994,70 @@ function NotebookDashboard({
             </h2>
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {filteredNotes.map((note) => (
-                <NoteCard
-                  key={note.id}
-                  note={note}
-                  relDate={relDate}
-                  onClick={() => onNoteClick(note.id)}
-                />
+                <NoteCard key={note.id} note={note} relDate={relDate} onClick={() => onNoteClick(note.id)} />
               ))}
             </div>
           </section>
         ) : (
-          <div className="space-y-8">
-            {/* Recent */}
-            <section>
-              <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-ink-500">Recent</h2>
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                {recentNotes.map((note) => (
-                  <NoteCard
-                    key={note.id}
-                    note={note}
-                    relDate={relDate}
-                    onClick={() => onNoteClick(note.id)}
-                  />
-                ))}
-              </div>
-            </section>
+          <div className="space-y-10">
+            {/* Quick actions */}
+            <div className="grid grid-cols-3 gap-3">
+              <button
+                onClick={onOpenAsk}
+                className="group flex flex-col gap-3 rounded-2xl border border-graphite-rail bg-ink-900/50 p-5 text-left transition-all hover:border-accent-500/40 hover:bg-accent-500/5"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-accent-500/30 bg-accent-500/15">
+                  <MessageSquareText className="h-5 w-5 text-accent-400" />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-ink-100">Ask your notes</div>
+                  <div className="mt-0.5 text-xs leading-5 text-ink-500">Get answers from your entire knowledge base</div>
+                </div>
+              </button>
+              <button
+                onClick={onNewNote}
+                className="group flex flex-col gap-3 rounded-2xl border border-graphite-rail bg-ink-900/50 p-5 text-left transition-all hover:border-graphite-rail hover:bg-graphite-rail/40"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-graphite-rail bg-ink-800/60">
+                  <FilePlus className="h-5 w-5 text-ink-400 group-hover:text-ink-200" />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-ink-100">New note</div>
+                  <div className="mt-0.5 text-xs leading-5 text-ink-500">Start capturing ideas and knowledge</div>
+                </div>
+              </button>
+              <button
+                onClick={onImport}
+                className="group flex flex-col gap-3 rounded-2xl border border-graphite-rail bg-ink-900/50 p-5 text-left transition-all hover:border-graphite-rail hover:bg-graphite-rail/40"
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-graphite-rail bg-ink-800/60">
+                  <Upload className="h-5 w-5 text-ink-400 group-hover:text-ink-200" />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-ink-100">Import document</div>
+                  <div className="mt-0.5 text-xs leading-5 text-ink-500">Add PDFs, Word docs, or text files</div>
+                </div>
+              </button>
+            </div>
 
+            {/* Recent notes */}
+            {allNotesSorted.length > 0 && (
+              <section>
+                <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-ink-500">
+                  {allNotesSorted.length <= 8 ? "Notes" : "Recent notes"}
+                </h2>
+                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  {allNotesSorted.slice(0, 12).map((note) => (
+                    <NoteCard key={note.id} note={note} relDate={relDate} onClick={() => onNoteClick(note.id)} />
+                  ))}
+                </div>
+                {allNotesSorted.length > 12 && (
+                  <p className="mt-4 text-center text-xs text-ink-600">
+                    {allNotesSorted.length - 12} more — use search or the sidebar to find them
+                  </p>
+                )}
+              </section>
+            )}
           </div>
         )}
       </div>
