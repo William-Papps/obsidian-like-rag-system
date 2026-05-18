@@ -212,14 +212,7 @@ docker compose up -d
 
 For a 24/7 home machine deployment:
 
-1. Install dependencies and build:
-
-```bash
-npm install
-npm run build
-```
-
-2. Set your production config in `.env.local`:
+1. Set your production config in `.env.local` (first time only):
 
 ```bash
 AUTH_SESSION_SECRET=replace-this-with-a-long-random-secret
@@ -240,13 +233,33 @@ HOSTED_OPENAI_PROJECT_ID=
 OPENAI_EMBEDDING_MODEL=text-embedding-3-small
 OPENAI_ANSWER_MODEL=gpt-4o-mini
 OPENAI_VISION_MODEL=gpt-4o-mini
+DISCORD_BOT_TOKEN=
+DISCORD_GUILD_ID=
+DISCORD_PUBLIC_KEY=
 ```
 
-3. Start the app:
+2. Deploy (run on every update):
 
-```bash
-npm run start
+```powershell
+cd C:\Users\willi\obsidian-rag-system
+.\deploy.ps1
 ```
+
+Or manually, step by step:
+
+```powershell
+cd C:\Users\willi\obsidian-rag-system
+git pull origin main
+npm install
+npm run build
+node scripts/register-discord-commands.mjs
+npm start
+```
+
+> **Note:** `npm start` runs both the web app and the Discord bot together. The Discord
+> bot uses webhook interactions (no separate process needed) — `register-discord-commands.mjs`
+> registers the `/verify` slash command with your server and only needs to re-run when
+> slash commands change.
 
 4. Put it behind HTTPS before exposing it outside your network.
 5. Back up both:
