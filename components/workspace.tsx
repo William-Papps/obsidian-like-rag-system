@@ -1824,7 +1824,6 @@ export function Workspace() {
                 onTogglePin={() => togglePinNote(note)}
                 onRename={() => renameNoteById(note)}
                 onDelete={() => requestDeleteNote(note)}
-                onMove={() => chooseFolderForNote(note)}
                 onReindex={() => reindexScope({ noteId: note.id }, note.title)}
                 onDragStart={() => setDragItem({ kind: "note", id: note.id })}
                 onMenu={(event) => {
@@ -1868,7 +1867,6 @@ export function Workspace() {
         reindexing={reindexingAll}
         onImport={() => setImportModalOpen(true)}
         onFeedback={() => setFeedbackOpen(true)}
-        onNewFolder={() => createFolder()}
         onNewNote={() => createNote()}
         onDashboard={() => setActiveNoteId(null)}
         onAccount={() => {
@@ -1911,38 +1909,23 @@ export function Workspace() {
         >
         <aside className={`panel-shell relative flex min-h-0 flex-col overflow-hidden border-r transition-opacity duration-200 ${((leftOpen || (isMobile && mobileTab === "vault")) && !zenMode) ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "vault" ? "hidden" : ""}`}>
           <div className="shrink-0 border-b border-graphite-rail px-3 pb-2.5 pt-2.5">
-            {/* Workspace › Folder breadcrumb + actions */}
-            <div className="flex min-w-0 items-center gap-1">
+            {/* Workspace selector + actions */}
+            <div className="flex min-w-0 items-center gap-1.5">
               {activeWorkspace ? <Users className="h-3 w-3 shrink-0 text-accent-400" /> : <BookOpen className="h-3 w-3 shrink-0 text-accent-400" />}
               <select
                 aria-label="Active workspace"
                 value={activeWorkspaceId ?? "__personal__"}
                 onChange={(event) => void switchWorkspace(event.target.value === "__personal__" ? null : event.target.value)}
-                className="min-w-0 cursor-pointer bg-transparent text-xs font-semibold text-ink-100 outline-none hover:text-accent-200"
+                className="min-w-0 flex-1 cursor-pointer bg-transparent text-xs font-semibold text-ink-100 outline-none hover:text-accent-200"
               >
                 <option value="__personal__">Personal</option>
                 {(data?.workspaces ?? []).map((ws) => (
                   <option key={ws.id} value={ws.id}>{ws.name}</option>
                 ))}
               </select>
-              <ChevronRight className="h-3 w-3 shrink-0 text-ink-700" />
-              <select
-                aria-label="Workspace root"
-                value={vaultRootId}
-                onChange={(event) => { setVaultRootId(event.target.value); setCollapsedFolders({}); setLeftOpen(true); }}
-                className="min-w-0 flex-1 cursor-pointer bg-transparent text-xs text-ink-400 outline-none hover:text-ink-200"
-              >
-                <option value="__all__">All notes</option>
-                {topLevelFolders.map((folder) => (
-                  <option key={folder.id} value={folder.id}>{folder.name}</option>
-                ))}
-              </select>
-              <div className="ml-1 flex shrink-0 items-center gap-0.5">
+              <div className="flex shrink-0 items-center gap-0.5">
                 <button title="New note" aria-label="New note" onClick={() => createNote()} className="grid h-6 w-6 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
                   <FilePlus className="h-3.5 w-3.5" />
-                </button>
-                <button title="New folder" aria-label="New folder" onClick={() => createFolder()} className="grid h-6 w-6 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
-                  <FolderPlus className="h-3.5 w-3.5" />
                 </button>
                 <button title="Export vault as zip" aria-label="Export vault as zip" onClick={() => void exportVaultAsZip()} className="grid h-6 w-6 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
                   <Download className="h-3.5 w-3.5" />
@@ -1971,7 +1954,6 @@ export function Workspace() {
             {bulkMode && bulkSelectedIds.size > 0 ? (
               <div className="mb-3 flex items-center gap-2 rounded-lg border border-accent-500/25 bg-accent-500/10 px-3 py-2">
                 <span className="flex-1 text-xs font-semibold text-accent-300">{bulkSelectedIds.size} selected</span>
-                <button onClick={() => void bulkMoveSelected()} className="rounded px-2 py-1 text-xs font-medium text-ink-300 hover:text-ink-100">Move</button>
                 <button onClick={() => void bulkDeleteSelected()} className="rounded px-2 py-1 text-xs font-medium text-danger-400 hover:text-danger-300">Delete</button>
               </div>
             ) : null}
@@ -2023,7 +2005,6 @@ export function Workspace() {
                         onTogglePin={() => togglePinNote(note)}
                         onRename={() => renameNoteById(note)}
                         onDelete={() => requestDeleteNote(note)}
-                        onMove={() => chooseFolderForNote(note)}
                         onReindex={() => reindexScope({ noteId: note.id }, note.title)}
                         onDragStart={() => setDragItem({ kind: "note", id: note.id })}
                         onMenu={(event) => { event.preventDefault(); event.stopPropagation(); setVaultMenu({ kind: "note", id: note.id, x: event.clientX, y: event.clientY }); }}
@@ -2040,38 +2021,8 @@ export function Workspace() {
                   );
                 })}
               </div>
-            ) : vaultRootFolder ? (
-              <>
-                <button
-                  onClick={() => {
-                    setVaultRootId("__all__");
-                    setScope({ type: "all" });
-                  }}
-                  className="control-soft mb-4 flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs font-semibold text-ink-300 hover:text-ink-100"
-                >
-                  <Layers3 className="h-4 w-4" />
-                  Back to all notes
-                </button>
-
-                <div className="space-y-1.5">{renderFolderNode(vaultRootFolder)}</div>
-              </>
             ) : (
               <>
-                <button
-                  onClick={() => setScope({ type: "all" })}
-                  className={`group mb-4 flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left text-sm ${
-                    scope.type === "all"
-                      ? "border border-accent-500/30 bg-accent-500/10 text-accent-300 "
-                      : "control-soft text-ink-300"
-                  }`}
-                >
-                  <span className="flex items-center gap-2">
-                    <Layers3 className="h-4 w-4" />
-                    All notes
-                  </span>
-                  <span className="rounded-full bg-white/6 px-2 py-0.5 text-xs text-ink-300">{vaultNotes.length}</span>
-                </button>
-
                 {pinnedNotes.length ? (
                   <div className="mb-5">
                     <SectionLabel label="Pinned" />
@@ -2089,7 +2040,6 @@ export function Workspace() {
                           onTogglePin={() => togglePinNote(note)}
                           onRename={() => renameNoteById(note)}
                           onDelete={() => requestDeleteNote(note)}
-                          onMove={() => chooseFolderForNote(note)}
                           onReindex={() => reindexScope({ noteId: note.id }, note.title)}
                           onDragStart={() => setDragItem({ kind: "note", id: note.id })}
                           onMenu={(event) => {
@@ -2159,50 +2109,24 @@ export function Workspace() {
                   );
                 })()}
 
-                <div
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    void handleDropOnRoot();
-                  }}
-                >
-                  <SectionLabel label="Projects" />
-                </div>
-                <div className="space-y-1.5">
-                  {rootFolders.map((folder) => renderFolderNode(folder))}
-                  {rootFolders.length === 0 ? (
-                    <EmptyState action="Create folder" onAction={() => createFolder()}>
-                      Group documents by project, team, or topic.
-                    </EmptyState>
-                  ) : null}
-                </div>
-
-                <div
-                  className="mt-5"
-                  onDragOver={(event) => event.preventDefault()}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    void handleDropOnRoot();
-                  }}
-                >
-                  <SectionLabel label="Unfiled notes" />
+                <div className="mt-2">
+                  <SectionLabel label="All notes" />
                   <div className="space-y-1">
-                    {vaultNotes
-                      .filter((note) => !note.folderId)
+                    {[...vaultNotes]
+                      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
                       .map((note) => (
                         <NoteRow
                           key={note.id}
                           note={note}
+                          active={activeNoteId === note.id}
+                          pinned={pinnedNoteIds.includes(note.id)}
                           bulkMode={bulkMode}
                           bulkSelected={bulkSelectedIds.has(note.id)}
                           onToggleBulk={() => setBulkSelectedIds((prev) => { const next = new Set(prev); next.has(note.id) ? next.delete(note.id) : next.add(note.id); return next; })}
-                          active={activeNoteId === note.id}
-                          pinned={pinnedNoteIds.includes(note.id)}
                           onClick={() => selectNote(note.id)}
                           onTogglePin={() => togglePinNote(note)}
                           onRename={() => renameNoteById(note)}
                           onDelete={() => requestDeleteNote(note)}
-                          onMove={() => chooseFolderForNote(note)}
                           onReindex={() => reindexScope({ noteId: note.id }, note.title)}
                           onDragStart={() => setDragItem({ kind: "note", id: note.id })}
                           onMenu={(event) => {
@@ -2339,18 +2263,6 @@ export function Workspace() {
                     placeholder="Note title"
                     className="min-w-0 flex-1 rounded-md bg-transparent px-1 text-xl font-semibold text-ink-100 outline-none placeholder:text-ink-500"
                   />
-                  <select
-                    value={activeNote.folderId ?? ""}
-                    onChange={(event) => updateNote(activeNote.id, { folderId: event.target.value || null })}
-                    className="control-soft hidden w-36 shrink-0 rounded-md px-2.5 py-1.5 text-xs text-ink-300 outline-none sm:block"
-                  >
-                    <option value="">No folder</option>
-                    {data.folders.map((folder) => (
-                      <option key={folder.id} value={folder.id}>
-                        {folder.name}
-                      </option>
-                    ))}
-                  </select>
                   <SaveBadge saving={saving} stale={data.indexStatus.staleNotes > 0} preparing={reindexingAll} onPrepare={reindexAll} />
                   <span className="mx-1.5 h-4 w-px shrink-0 bg-ink-700/60" />
                   <button title="Export as Markdown" aria-label="Export as Markdown" onClick={exportActiveNote} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
@@ -2831,7 +2743,6 @@ export function Workspace() {
           setCommandQuery("");
         }}
         notes={data.notes}
-        folders={data.folders}
         onOpenNote={(noteId) => {
           selectNote(noteId);
           setCommandOpen(false);
@@ -2839,11 +2750,6 @@ export function Workspace() {
         }}
         onCreateNote={() => {
           createNote();
-          setCommandOpen(false);
-          setCommandQuery("");
-        }}
-        onCreateFolder={() => {
-          createFolder();
           setCommandOpen(false);
           setCommandQuery("");
         }}
@@ -2893,24 +2799,14 @@ export function Workspace() {
       />
       <VaultContextMenu
         menu={vaultMenu}
-        folders={data.folders}
         notes={data.notes}
         onClose={() => setVaultMenu(null)}
-        onNewNote={(folderId) => createNote(folderId)}
-        onNewFolder={(parentId) => createFolder(parentId)}
-        onNewLecture={createLectureWorkflow}
-        onMoveFolder={chooseFolderForFolder}
-        onRenameFolder={renameFolderById}
-        onDeleteFolder={requestDeleteFolder}
-        onReindexFolder={(folder) => reindexScope({ folderId: folder.id }, folder.name)}
-        onMoveNote={chooseFolderForNote}
         onRenameNote={renameNoteById}
         onDuplicateNote={(note) => void duplicateNoteById(note)}
         onDeleteNote={requestDeleteNote}
         onReindexNote={(note) => reindexScope({ noteId: note.id }, note.title)}
         onTogglePinNote={togglePinNote}
         pinnedNoteIds={pinnedNoteIds}
-        onShareFolder={openFolderShare}
       />
       {folderShareModal && (
         <FolderShareModal
@@ -3031,7 +2927,6 @@ function SideRail(props: {
   onImport: () => void;
   onFeedback: () => void;
   onNewNote: () => void;
-  onNewFolder: () => void;
   onDashboard: () => void;
   onAccount: () => void;
   onShortcuts: () => void;
@@ -3132,9 +3027,6 @@ function SideRail(props: {
           </RailIconButton>
           <RailIconButton label="New note" onClick={props.onNewNote}>
             <FilePlus className="h-4 w-4" />
-          </RailIconButton>
-          <RailIconButton label="New folder" onClick={props.onNewFolder}>
-            <FolderPlus className="h-4 w-4" />
           </RailIconButton>
         </div>
         {/* Divider */}
@@ -5092,7 +4984,6 @@ function NoteRow({
   onTogglePin,
   onRename,
   onDelete,
-  onMove,
   onReindex,
   onDragStart,
   onMenu
@@ -5107,7 +4998,6 @@ function NoteRow({
   onTogglePin: () => void;
   onRename: () => void;
   onDelete: () => void;
-  onMove: () => void;
   onReindex: () => void;
   onDragStart: () => void;
   onMenu: (event: MouseEvent) => void;
@@ -5138,7 +5028,6 @@ function NoteRow({
       <button onClick={onTogglePin} aria-label={pinned ? `Unpin ${note.title}` : `Pin ${note.title}`} className="hidden" />
       <button onClick={onRename} aria-label={`Rename ${note.title}`} className="hidden" />
       <button onClick={onDelete} aria-label={`Delete ${note.title}`} className="hidden" />
-      <button onClick={onMove} aria-label={`Move ${note.title}`} className="hidden" />
       <button onClick={onReindex} aria-label={`Reindex ${note.title}`} className="hidden" />
 
       {/* Fixed 32 px right slot — date at rest, kebab on hover */}
@@ -5160,49 +5049,29 @@ function NoteRow({
 
 function VaultContextMenu({
   menu,
-  folders,
   notes,
   onClose,
-  onNewNote,
-  onNewFolder,
-  onNewLecture,
-  onMoveFolder,
-  onRenameFolder,
-  onDeleteFolder,
-  onReindexFolder,
-  onMoveNote,
   onRenameNote,
   onDuplicateNote,
   onDeleteNote,
   onReindexNote,
   onTogglePinNote,
   pinnedNoteIds,
-  onShareFolder
 }: {
   menu: VaultMenu;
-  folders: FolderType[];
   notes: Note[];
   onClose: () => void;
-  onNewNote: (folderId: string | null) => void;
-  onNewFolder: (parentId: string | null) => void;
-  onNewLecture: (folder: FolderType) => void;
-  onMoveFolder: (folder: FolderType) => void;
-  onRenameFolder: (folder: FolderType) => void;
-  onDeleteFolder: (folder: FolderType) => void;
-  onReindexFolder: (folder: FolderType) => void;
-  onMoveNote: (note: Note) => void;
   onRenameNote: (note: Note) => void;
   onDuplicateNote: (note: Note) => void;
   onDeleteNote: (note: Note) => void;
   onReindexNote: (note: Note) => void;
   onTogglePinNote: (note: Note) => void;
   pinnedNoteIds: string[];
-  onShareFolder: (folder: FolderType) => void;
 }) {
   if (!menu) return null;
-  const folder = menu.kind === "folder" ? folders.find((item) => item.id === menu.id) : null;
-  const note = menu.kind === "note" ? notes.find((item) => item.id === menu.id) : null;
-  if (!folder && !note) return null;
+  if (menu.kind !== "note") return null;
+  const note = notes.find((item) => item.id === menu.id);
+  if (!note) return null;
 
   const viewportWidth = typeof window === "undefined" ? 1200 : window.innerWidth;
   const viewportHeight = typeof window === "undefined" ? 800 : window.innerHeight;
@@ -5218,157 +5087,59 @@ function VaultContextMenu({
       style={{ left, top }}
     >
       <div className="border-b border-graphite-rail px-3 py-2">
-        <div className="truncate text-xs font-semibold text-ink-100">{folder?.name ?? note?.title}</div>
-        <div className="mt-0.5 text-[11px] font-medium text-ink-500">{folder ? "Folder" : "Note"}</div>
+        <div className="truncate text-xs font-semibold text-ink-100">{note.title}</div>
+        <div className="mt-0.5 text-[11px] font-medium text-ink-500">Note</div>
       </div>
-      {folder ? (
-        <>
-          <button
-            className={itemClass}
-            onClick={() => {
-              onClose();
-              onNewNote(folder.id);
-            }}
-          >
-            <FilePlus className="h-4 w-4 text-accent-300" />
-            New note here
-          </button>
-          <button
-            className={itemClass}
-            onClick={() => {
-              onClose();
-              onNewFolder(folder.id);
-            }}
-          >
-            <FolderPlus className="h-4 w-4 text-accent-300" />
-            New folder here
-          </button>
-          <button
-            className={itemClass}
-            onClick={() => {
-              onClose();
-              onNewLecture(folder);
-            }}
-          >
-            <FileStack className="h-4 w-4 text-accent-300" />
-            New project workspace
-          </button>
-          <button
-            className={itemClass}
-            onClick={() => {
-              onClose();
-              onRenameFolder(folder);
-            }}
-          >
-            <Pencil className="h-4 w-4 text-accent-300" />
-            Rename folder
-          </button>
-          <button
-            className={itemClass}
-            onClick={() => {
-              onClose();
-              onMoveFolder(folder);
-            }}
-          >
-            <FolderOpen className="h-4 w-4 text-accent-300" />
-            Move folder...
-          </button>
-          <button
-            className={itemClass}
-            onClick={() => {
-              onClose();
-              onReindexFolder(folder);
-            }}
-          >
-            <RotateCw className="h-4 w-4 text-accent-300" />
-            Reindex folder
-          </button>
-          <button
-            className={itemClass}
-            onClick={() => {
-              onClose();
-              onShareFolder(folder);
-            }}
-          >
-            <Link className="h-4 w-4 text-accent-300" />
-            Share folder...
-          </button>
-          <button
-            className={dangerClass}
-            onClick={() => {
-              onClose();
-              onDeleteFolder(folder);
-            }}
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete folder
-          </button>
-        </>
-      ) : null}
-      {note ? (
-        <>
-          <button
-            className={itemClass}
-            onClick={() => {
-              onClose();
-              onTogglePinNote(note);
-            }}
-          >
-            {pinnedNoteIds.includes(note.id) ? <PinOff className="h-4 w-4 text-accent-300" /> : <Pin className="h-4 w-4 text-accent-300" />}
-            {pinnedNoteIds.includes(note.id) ? "Unpin note" : "Pin note"}
-          </button>
-          <button
-            className={itemClass}
-            onClick={() => {
-              onClose();
-              onRenameNote(note);
-            }}
-          >
-            <Pencil className="h-4 w-4 text-accent-300" />
-            Rename note
-          </button>
-          <button
-            className={itemClass}
-            onClick={() => {
-              onClose();
-              onDuplicateNote(note);
-            }}
-          >
-            <Copy className="h-4 w-4 text-accent-300" />
-            Duplicate note
-          </button>
-          <button
-            className={itemClass}
-            onClick={() => {
-              onClose();
-              onMoveNote(note);
-            }}
-          >
-            <FolderOpen className="h-4 w-4 text-accent-300" />
-            Move note...
-          </button>
-          <button
-            className={itemClass}
-            onClick={() => {
-              onClose();
-              onReindexNote(note);
-            }}
-          >
-            <RotateCw className="h-4 w-4 text-accent-300" />
-            Reindex note
-          </button>
-          <button
-            className={dangerClass}
-            onClick={() => {
-              onClose();
-              onDeleteNote(note);
-            }}
-          >
-            <Trash2 className="h-4 w-4" />
-            Delete note
-          </button>
-        </>
-      ) : null}
+      <button
+        className={itemClass}
+        onClick={() => {
+          onClose();
+          onTogglePinNote(note);
+        }}
+      >
+        {pinnedNoteIds.includes(note.id) ? <PinOff className="h-4 w-4 text-accent-300" /> : <Pin className="h-4 w-4 text-accent-300" />}
+        {pinnedNoteIds.includes(note.id) ? "Unpin note" : "Pin note"}
+      </button>
+      <button
+        className={itemClass}
+        onClick={() => {
+          onClose();
+          onRenameNote(note);
+        }}
+      >
+        <Pencil className="h-4 w-4 text-accent-300" />
+        Rename note
+      </button>
+      <button
+        className={itemClass}
+        onClick={() => {
+          onClose();
+          onDuplicateNote(note);
+        }}
+      >
+        <Copy className="h-4 w-4 text-accent-300" />
+        Duplicate note
+      </button>
+      <button
+        className={itemClass}
+        onClick={() => {
+          onClose();
+          onReindexNote(note);
+        }}
+      >
+        <RotateCw className="h-4 w-4 text-accent-300" />
+        Reindex note
+      </button>
+      <button
+        className={dangerClass}
+        onClick={() => {
+          onClose();
+          onDeleteNote(note);
+        }}
+      >
+        <Trash2 className="h-4 w-4" />
+        Delete note
+      </button>
     </div>
   );
 }
@@ -5379,10 +5150,8 @@ function CommandPalette({
   onQueryChange,
   onClose,
   notes,
-  folders,
   onOpenNote,
   onCreateNote,
-  onCreateFolder,
   onOpenAccount,
   onOpenImport,
   onReindex
@@ -5392,10 +5161,8 @@ function CommandPalette({
   onQueryChange: (value: string) => void;
   onClose: () => void;
   notes: Note[];
-  folders: FolderType[];
   onOpenNote: (noteId: string) => void;
   onCreateNote: () => void;
-  onCreateFolder: () => void;
   onOpenAccount: () => void;
   onOpenImport: () => void;
   onReindex: () => Promise<void>;
@@ -5405,10 +5172,8 @@ function CommandPalette({
 
   const normalized = query.trim().toLowerCase();
   const filteredNotes = notes.filter((note) => !normalized || note.title.toLowerCase().includes(normalized)).slice(0, 8);
-  const filteredFolders = folders.filter((folder) => !normalized || folder.name.toLowerCase().includes(normalized)).slice(0, 4);
   const actions = [
     { label: "Create note", run: onCreateNote },
-    { label: "Create folder", run: onCreateFolder },
     { label: "Import document", run: onOpenImport },
     { label: "Open account", run: onOpenAccount },
     { label: "Reindex workspace", run: () => void onReindex() }
@@ -5416,13 +5181,11 @@ function CommandPalette({
 
   type CmdItem =
     | { kind: "action"; label: string; run: () => void }
-    | { kind: "note"; id: string; label: string }
-    | { kind: "folder"; id: string; label: string };
+    | { kind: "note"; id: string; label: string };
 
   const allItems: CmdItem[] = [
     ...actions.map((a) => ({ kind: "action" as const, label: a.label, run: a.run })),
     ...filteredNotes.map((n) => ({ kind: "note" as const, id: n.id, label: n.title })),
-    ...filteredFolders.map((f) => ({ kind: "folder" as const, id: f.id, label: folderPath(f.id, folders) }))
   ];
 
   // Reset selection when query changes or palette opens
@@ -5438,14 +5201,13 @@ function CommandPalette({
     const item = allItems[selectedIndex];
     if (!item) return;
     if (item.kind === "action") item.run();
-    else if (item.kind === "note") onOpenNote(item.id);
+    else onOpenNote(item.id);
   }
 
   if (!open) return null;
 
   const actionIcons: Record<string, ReactNode> = {
     "Create note":        <FilePlus className="h-3.5 w-3.5" />,
-    "Create folder":      <FolderPlus className="h-3.5 w-3.5" />,
     "Import document":    <Upload className="h-3.5 w-3.5" />,
     "Open account":       <Settings className="h-3.5 w-3.5" />,
     "Reindex workspace":  <RotateCw className="h-3.5 w-3.5" />,
@@ -5455,15 +5217,14 @@ function CommandPalette({
 
   function renderItem(item: CmdItem, idx: number, icon: ReactNode) {
     const isActive = idx === selectedIndex;
-    const key = item.kind === "note" || item.kind === "folder" ? item.id : item.label;
-    const run = item.kind === "action" ? item.run : item.kind === "note" ? () => onOpenNote(item.id) : undefined;
+    const key = item.kind === "note" ? item.id : item.label;
+    const run = item.kind === "action" ? item.run : () => onOpenNote(item.id);
     return (
       <button
         key={key}
         data-cmd-idx={idx}
         onClick={run}
-        disabled={item.kind === "folder"}
-        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${isActive ? "bg-accent-500/12 text-ink-100" : "text-ink-300 hover:bg-graphite-rail/20 hover:text-ink-100"} ${item.kind === "folder" ? "cursor-default opacity-50" : ""}`}
+        className={`flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors ${isActive ? "bg-accent-500/12 text-ink-100" : "text-ink-300 hover:bg-graphite-rail/20 hover:text-ink-100"}`}
       >
         <span className={`flex h-5 w-5 shrink-0 items-center justify-center ${isActive ? "text-accent-400" : "text-ink-500"}`}>{icon}</span>
         <span className="min-w-0 flex-1 truncate">{item.label}</span>
@@ -5519,15 +5280,6 @@ function CommandPalette({
               {filteredNotes.map((note) => {
                 const idx = globalIdx++;
                 return renderItem({ kind: "note", id: note.id, label: note.title }, idx, <FileText className="h-3.5 w-3.5" />);
-              })}
-            </>
-          ) : null}
-          {filteredFolders.length ? (
-            <>
-              <div className={`mb-0.5 px-2.5 text-[11px] font-medium text-ink-600 ${actions.length > 0 || filteredNotes.length > 0 ? "mt-4" : "mt-1"}`}>Folders</div>
-              {filteredFolders.map((folder) => {
-                const idx = globalIdx++;
-                return renderItem({ kind: "folder", id: folder.id, label: folderPath(folder.id, folders) }, idx, <Folder className="h-3.5 w-3.5" />);
               })}
             </>
           ) : null}
@@ -7013,16 +6765,13 @@ function FolderShareModal({
 
 function NoteCard({
   note,
-  folders,
   relDate,
   onClick,
 }: {
   note: Note;
-  folders: FolderType[];
   relDate: (iso: string) => string;
   onClick: () => void;
 }) {
-  const folder = folders.find((f) => f.id === note.folderId);
   const preview = note.markdownContent
     .replace(/^#{1,6}\s+.+$/gm, "")
     .replace(/[*_`~#>[\]!|]/g, "")
@@ -7044,15 +6793,7 @@ function NoteCard({
       {preview && (
         <p className="line-clamp-3 text-xs leading-relaxed text-ink-500">{preview}</p>
       )}
-      <div className="mt-auto flex items-center justify-between gap-2 pt-0.5">
-        {folder ? (
-          <span className="flex min-w-0 items-center gap-1 text-[11px] text-ink-600">
-            <Folder className="h-3 w-3 shrink-0" />
-            <span className="truncate">{folder.name}</span>
-          </span>
-        ) : (
-          <span />
-        )}
+      <div className="mt-auto flex items-center justify-end gap-2 pt-0.5">
         <span className="shrink-0 text-[11px] text-ink-600">{relDate(note.updatedAt)}</span>
       </div>
     </button>
@@ -7263,7 +7004,6 @@ function NotebookDashboard({
                 <NoteCard
                   key={note.id}
                   note={note}
-                  folders={data.folders}
                   relDate={relDate}
                   onClick={() => onNoteClick(note.id)}
                 />
@@ -7280,7 +7020,6 @@ function NotebookDashboard({
                   <NoteCard
                     key={note.id}
                     note={note}
-                    folders={data.folders}
                     relDate={relDate}
                     onClick={() => onNoteClick(note.id)}
                   />
@@ -7288,39 +7027,6 @@ function NotebookDashboard({
               </div>
             </section>
 
-            {/* Folders */}
-            {data.folders.filter((f) => !f.parentId).length > 0 && (
-              <section>
-                <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-ink-500">Folders</h2>
-                <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {data.folders
-                    .filter((f) => !f.parentId)
-                    .map((folder) => {
-                      const count = workspaceNotes.filter((n) => n.folderId === folder.id).length;
-                      const latestNote = workspaceNotes
-                        .filter((n) => n.folderId === folder.id)
-                        .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-                      return (
-                        <div
-                          key={folder.id}
-                          className="flex items-center gap-3 rounded-xl border border-graphite-rail bg-ink-900/50 px-4 py-3.5"
-                        >
-                          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-graphite-rail bg-ink-800/60">
-                            <Folder className="h-4 w-4 text-ink-400" />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-semibold text-ink-200">{folder.name}</div>
-                            <div className="text-xs text-ink-600">
-                              {count} {count === 1 ? "note" : "notes"}
-                              {latestNote ? ` · ${relDate(latestNote.updatedAt)}` : ""}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              </section>
-            )}
           </div>
         )}
       </div>
