@@ -46,14 +46,14 @@ export function LandingFeatures() {
           </p>
         </div>
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-10 divide-y divide-ink-750/40">
           {FEATURES.map((f) => (
-            <div key={f.title} className="rounded-2xl border border-ink-750/50 bg-ink-925/45 p-6">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-ink-750/50 bg-ink-950/20 text-ink-300">
-                {f.icon}
+            <div key={f.title} className="flex items-start gap-5 py-5">
+              <div className="mt-0.5 shrink-0 text-ink-400">{f.icon}</div>
+              <div className="grid flex-1 gap-1 sm:grid-cols-[1fr_1.6fr]">
+                <div className="text-[14px] font-semibold text-ink-200">{f.title}</div>
+                <div className="text-[14px] leading-6 text-ink-500">{f.desc}</div>
               </div>
-              <div className="mt-4 text-[15px] font-semibold text-ink-100">{f.title}</div>
-              <div className="mt-2 text-[14px] leading-7 text-ink-500">{f.desc}</div>
             </div>
           ))}
         </div>
