@@ -21,25 +21,30 @@
   /* Palette — space-separated RGB channels
      Mapped to the Resend obsidian design system:
      950 = void black, 750 = graphite rail, 200 = frost, 100 = pure white */
-  --ink-950: 0 0 0;           /* #000000  void black — canvas */
-  --ink-925: 11 14 20;        /* #0b0e14  card surface */
-  --ink-900: 17 18 22;        /* #111216 */
-  --ink-875: 22 22 26;        /* #16161a */
-  --ink-850: 27 27 31;        /* #1b1b1f  overlay */
-  --ink-800: 32 36 38;        /* #202426 */
-  --ink-750: 41 45 48;        /* #292d30  graphite rail — borders */
-  --ink-700: 54 58 62;        /* #363a3e */
-  --ink-600: 70 74 77;        /* #464a4d  smoke */
-  --ink-500: 110 114 122;     /* #6e727a  steel */
-  --ink-400: 161 164 165;     /* #a1a4a5  fog */
-  --ink-300: 171 175 180;     /* #abafb4  mist */
-  --ink-200: 240 240 240;     /* #f0f0f0  frost — primary text */
-  --ink-100: 255 255 255;     /* #ffffff  pure white */
+  --ink-950: 6 7 10;          /* near-black canvas */
+  --ink-925: 13 14 18;        /* card surface */
+  --ink-900: 18 19 24;
+  --ink-875: 24 25 31;
+  --ink-850: 30 31 38;        /* overlay */
+  --ink-800: 40 42 50;
+  --ink-750: 55 57 68;        /* graphite rail */
+  --ink-700: 74 76 90;
+  --ink-600: 96 98 116;       /* smoke */
+  --ink-500: 132 134 158;     /* steel */
+  --ink-400: 170 172 194;     /* fog */
+  --ink-300: 196 198 220;     /* mist */
+  --ink-200: 236 237 247;     /* frost */
+  --ink-100: 248 248 252;     /* near-white */
 
-  --accent-600: 124 58 237;   /* violet */
-  --accent-500: 139 92 246;
-  --accent-400: 167 139 250;
-  --accent-300: 196 181 253;
+  --accent-600: 96 91 255;    /* violet-blue */
+  --accent-500: 130 112 255;
+  --accent-400: 165 153 255;
+  --accent-300: 205 198 255;
+
+  /* Font variables (avoid build-time font fetching) */
+  --font-inter: "Inter";
+  --font-playfair: "Playfair Display";
+  --font-mono: "JetBrains Mono";
 
   /* Semantic tokens — complete CSS values */
   --prose-body:  rgb(240 240 240);   /* frost */
@@ -222,25 +227,25 @@
 [data-theme="light"] {
   color-scheme: light;
 
-  --ink-950: 255 255 255;
-  --ink-925: 249 248 253;
-  --ink-900: 242 240 249;
-  --ink-875: 234 232 244;
-  --ink-850: 224 222 238;
-  --ink-800: 203 200 224;
-  --ink-750: 176 173 204;
-  --ink-700: 148 145 180;
-  --ink-600: 110 107 138;
-  --ink-500: 77 75 101;
-  --ink-400: 58 56 78;
-  --ink-300: 38 36 58;
-  --ink-200: 24 22 42;
-  --ink-100: 15 14 26;
+  --ink-950: 250 250 253;
+  --ink-925: 245 244 251;
+  --ink-900: 237 236 248;
+  --ink-875: 226 225 241;
+  --ink-850: 212 210 232;
+  --ink-800: 186 183 214;
+  --ink-750: 158 154 193;
+  --ink-700: 130 126 166;
+  --ink-600: 98 95 132;
+  --ink-500: 73 70 104;
+  --ink-400: 54 52 82;
+  --ink-300: 38 36 64;
+  --ink-200: 26 24 48;
+  --ink-100: 16 15 32;
 
-  --accent-600: 109 40 217;
-  --accent-500: 124 58 237;
-  --accent-400: 139 92 246;
-  --accent-300: 109 40 217;
+  --accent-600: 96 91 255;
+  --accent-500: 130 112 255;
+  --accent-400: 165 153 255;
+  --accent-300: 96 91 255;
 
   --prose-body:  rgb(58 56 78);
   --prose-muted: rgb(110 107 138);

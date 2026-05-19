@@ -1,35 +1,65 @@
 "use client";
 
 import type { ButtonHTMLAttributes, ReactNode } from "react";
+import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/cn";
 
-type Variant = "primary" | "secondary" | "ghost" | "danger";
-type Size = "sm" | "md";
+type Variant = "primary" | "secondary" | "soft" | "ghost" | "danger";
+type Size = "sm" | "md" | "lg";
 
-const variantClasses: Record<Variant, string> = {
-  primary: "border border-electric-blue bg-electric-blue/10 text-white hover:bg-electric-blue/20 disabled:opacity-50",
-  secondary: "border border-graphite-rail bg-ink-900/40 text-ink-200 hover:border-ink-600 hover:text-ink-100 disabled:opacity-50",
-  ghost: "border border-transparent text-ink-400 hover:bg-graphite-rail/30 hover:text-ink-100 disabled:opacity-40",
-  danger: "border border-danger-400/30 bg-danger-400/10 text-danger-400 hover:bg-danger-400/20 disabled:opacity-50"
+const variants: Record<Variant, string> = {
+  primary:
+    "border-accent-400/35 bg-accent-500/15 text-ink-100 hover:bg-accent-500/22 hover:border-accent-400/50",
+  secondary:
+    "border-ink-750/60 bg-ink-900/40 text-ink-200 hover:bg-ink-875/55 hover:border-ink-700/70",
+  soft:
+    "border-ink-750/40 bg-ink-900/25 text-ink-300 hover:bg-ink-875/45 hover:text-ink-200",
+  ghost:
+    "border-transparent bg-transparent text-ink-300 hover:bg-ink-875/40 hover:text-ink-100",
+  danger:
+    "border-danger-400/30 bg-danger-400/10 text-danger-300 hover:bg-danger-400/18 hover:border-danger-400/45"
 };
 
-const sizeClasses: Record<Size, string> = {
-  sm: "rounded-lg px-3 py-1.5 text-xs",
-  md: "rounded-xl px-4 py-2 text-sm"
+const sizes: Record<Size, string> = {
+  sm: "h-9 rounded-xl px-3 text-xs",
+  md: "h-10 rounded-xl px-4 text-sm",
+  lg: "h-11 rounded-2xl px-5 text-sm"
 };
 
-interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
+export function Button({
+  variant = "secondary",
+  size = "md",
+  loading,
+  leftIcon,
+  rightIcon,
+  className,
+  children,
+  ...props
+}: ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: Variant;
   size?: Size;
+  loading?: boolean;
+  leftIcon?: ReactNode;
+  rightIcon?: ReactNode;
   children: ReactNode;
-}
-
-export function Button({ variant = "secondary", size = "md", className = "", children, ...props }: ButtonProps) {
+}) {
   return (
     <button
       {...props}
-      className={`inline-flex items-center justify-center gap-1.5 font-medium transition-colors ${variantClasses[variant]} ${sizeClasses[size]} ${className}`}
+      disabled={props.disabled || loading}
+      className={cn(
+        "inline-flex items-center justify-center gap-2 font-semibold transition-all duration-200 ease-premium",
+        "shadow-[0_1px_0_rgba(255,255,255,0.04)_inset] focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] focus:ring-offset-0",
+        "disabled:cursor-not-allowed disabled:opacity-55",
+        variants[variant],
+        sizes[size],
+        className
+      )}
     >
-      {children}
+      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : leftIcon}
+      <span className="truncate">{children}</span>
+      {rightIcon}
     </button>
   );
 }
+

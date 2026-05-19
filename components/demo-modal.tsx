@@ -1,7 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Mail, MessageCircle, X } from "lucide-react";
+import { useState } from "react";
+import { Mail, MessageCircle } from "lucide-react";
+import { Modal } from "@/components/ui/modal";
+import { Button } from "@/components/ui/button";
 
 const CONTACT_EMAIL = "discordboteternal@gmail.com";
 const DISCORD_URL = "https://discord.gg/6hhxtpzkAE";
@@ -13,71 +15,66 @@ export function RequestDemoButton() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="text-[14px] font-normal text-white/60 transition-colors hover:text-white"
+        className="rounded-lg px-2 py-1 text-[13px] font-medium text-ink-400 transition-colors hover:text-ink-200 focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
       >
-        Request a demo →
+        Request a demo
       </button>
-      {open && <DemoModal onClose={() => setOpen(false)} />}
+      <DemoModal open={open} onClose={() => setOpen(false)} />
     </>
   );
 }
 
-function DemoModal({ onClose }: { onClose: () => void }) {
-  const overlayRef = useRef<HTMLDivElement>(null);
-
-  // Close on Escape
-  useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
-
+function DemoModal({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
-    <div
-      ref={overlayRef}
-      onClick={(e) => { if (e.target === overlayRef.current) onClose(); }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
-    >
-      <div className="relative w-full max-w-sm rounded-[16px] border border-graphite-rail bg-[#0b0e14] p-8">
-        <button
-          type="button"
-          onClick={onClose}
-          className="absolute right-4 top-4 rounded-[6px] p-1.5 text-steel transition-colors hover:text-frost"
-        >
-          <X className="h-4 w-4" />
-        </button>
-
-        <h2 className="mb-2 text-[20px] font-semibold text-white">Request a demo</h2>
-        <p className="mb-7 text-[14px] leading-[1.5] text-fog">
-          Want to see EternalNotes in action? Reach out via email or jump into our Discord and we&apos;ll walk you through it.
-        </p>
-
-        <div className="flex flex-col gap-3">
-          <a
-            href={`mailto:${CONTACT_EMAIL}`}
-            className="flex items-center gap-3 rounded-[10px] border border-graphite-rail bg-white/[0.03] px-4 py-3.5 transition-colors hover:border-smoke hover:bg-white/[0.06]"
-          >
-            <Mail className="h-4 w-4 shrink-0 text-fog" />
-            <div>
-              <div className="text-[13px] font-medium text-frost">Email us</div>
-              <div className="text-[12px] text-steel">{CONTACT_EMAIL}</div>
-            </div>
-          </a>
-
-          <a
-            href={DISCORD_URL}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 rounded-[10px] border border-electric-blue/30 bg-electric-blue/[0.05] px-4 py-3.5 transition-colors hover:border-electric-blue/50 hover:bg-electric-blue/[0.09]"
-          >
-            <MessageCircle className="h-4 w-4 shrink-0 text-electric-blue/70" />
-            <div>
-              <div className="text-[13px] font-medium text-frost">Join our Discord</div>
-              <div className="text-[12px] text-steel">Chat with us and the community</div>
-            </div>
+    <Modal
+      open={open}
+      onOpenChange={(v) => (v ? undefined : onClose())}
+      title="Request a demo"
+      description="Want to see EternalNotes in action? Email us or join Discord and we’ll walk you through it."
+      className="max-w-[520px]"
+      footer={
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+          <Button variant="secondary" onClick={onClose}>
+            Close
+          </Button>
+          <a href={`mailto:${CONTACT_EMAIL}`}>
+            <Button variant="primary" leftIcon={<Mail className="h-4 w-4" />}>
+              Email us
+            </Button>
           </a>
         </div>
+      }
+    >
+      <div className="grid gap-3">
+        <a
+          href={`mailto:${CONTACT_EMAIL}`}
+          className="flex items-center gap-3 rounded-2xl border border-ink-750/60 bg-ink-950/20 px-4 py-4 transition-all duration-200 ease-premium hover:border-ink-700/70 hover:bg-ink-925/50 focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-ink-750/50 bg-ink-925/50 text-ink-300">
+            <Mail className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[13px] font-semibold text-ink-100">Email</div>
+            <div className="truncate text-[12px] text-ink-500">{CONTACT_EMAIL}</div>
+          </div>
+        </a>
+
+        <a
+          href={DISCORD_URL}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center gap-3 rounded-2xl border border-accent-400/25 bg-accent-500/10 px-4 py-4 transition-all duration-200 ease-premium hover:border-accent-400/40 hover:bg-accent-500/14 focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
+        >
+          <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-accent-400/25 bg-accent-500/12 text-accent-300">
+            <MessageCircle className="h-5 w-5" />
+          </div>
+          <div className="min-w-0">
+            <div className="text-[13px] font-semibold text-ink-100">Discord</div>
+            <div className="text-[12px] text-ink-500">Join the community for quick walkthroughs.</div>
+          </div>
+        </a>
       </div>
-    </div>
+    </Modal>
   );
 }
+

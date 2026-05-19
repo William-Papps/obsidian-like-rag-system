@@ -1813,7 +1813,7 @@ export function Workspace() {
           }}
         />
         <div className={`overflow-hidden pl-4 transition-[max-height,opacity] duration-300 ease-premium ${collapsed ? "max-h-0 opacity-0" : "max-h-[720px] opacity-100"}`}>
-          <div className="ml-2 mt-1 space-y-1 border-l border-graphite-rail pl-2">
+          <div className="ml-2 mt-1 space-y-1 border-l border-ink-750/55 pl-2">
             {childFolders.map((child) => renderFolderNode(child, depth + 1))}
             {folderNotes.map((note) => (
               <NoteRow
@@ -1879,7 +1879,7 @@ export function Workspace() {
       />}
       <div className="relative flex min-w-0 flex-1 flex-col">
         {isMobile ? (
-          <header className="flex h-11 shrink-0 items-center justify-between border-b border-graphite-rail bg-ink-950/95 px-3">
+          <header className="flex h-11 shrink-0 items-center justify-between border-b border-ink-750/55 bg-ink-950/95 px-3">
             <div className="flex items-center gap-2">
               <div className="grid h-7 w-7 place-items-center rounded-lg border border-accent-500/35 bg-gradient-to-br from-accent-500/20 to-accent-600/10 text-accent-300">
                 <Sparkles className="h-3.5 w-3.5" />
@@ -1887,16 +1887,16 @@ export function Workspace() {
               <span className="bg-gradient-to-r from-accent-300 to-accent-400 bg-clip-text text-sm font-bold tracking-tight text-transparent">EternalNotes</span>
             </div>
             <div className="flex items-center gap-0.5">
-              <button aria-label="New note" title="New note" onClick={() => createNote()} className="grid h-8 w-8 place-items-center rounded-lg text-ink-400 hover:bg-graphite-rail/30 hover:text-ink-100">
+              <button aria-label="New note" title="New note" onClick={() => createNote()} className="grid h-8 w-8 place-items-center rounded-lg text-ink-400 hover:bg-ink-925/50 hover:text-ink-100 focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]">
                 <FilePlus className="h-4 w-4" />
               </button>
-              <button aria-label="Import document" title="Import document" onClick={() => setImportModalOpen(true)} className="grid h-8 w-8 place-items-center rounded-lg text-ink-400 hover:bg-graphite-rail/30 hover:text-ink-100">
+              <button aria-label="Import document" title="Import document" onClick={() => setImportModalOpen(true)} className="grid h-8 w-8 place-items-center rounded-lg text-ink-400 hover:bg-ink-925/50 hover:text-ink-100 focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]">
                 <Upload className="h-4 w-4" />
               </button>
-              <button aria-label={reindexingAll ? "Indexing…" : "Index notes"} title={reindexingAll ? "Indexing…" : "Index notes"} onClick={() => void reindexAll()} disabled={reindexingAll} className="grid h-8 w-8 place-items-center rounded-lg text-ink-400 hover:bg-graphite-rail/30 hover:text-ink-100 disabled:opacity-50">
+              <button aria-label={reindexingAll ? "Indexing…" : "Index notes"} title={reindexingAll ? "Indexing…" : "Index notes"} onClick={() => void reindexAll()} disabled={reindexingAll} className="grid h-8 w-8 place-items-center rounded-lg text-ink-400 hover:bg-ink-925/50 hover:text-ink-100 focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] disabled:opacity-50">
                 {reindexingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               </button>
-              <a href="/account" aria-label="Account" title="Account" className="grid h-8 w-8 place-items-center rounded-lg text-ink-400 hover:bg-graphite-rail/30 hover:text-ink-100">
+              <a href="/account" aria-label="Account" title="Account" className="grid h-8 w-8 place-items-center rounded-lg text-ink-400 hover:bg-ink-925/50 hover:text-ink-100 focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]">
                 <Settings className="h-4 w-4" />
               </a>
             </div>
@@ -1907,7 +1907,7 @@ export function Workspace() {
           style={{ ...workspaceGridStyle, height: isMobile ? "calc(100vh - 44px - 56px)" : "100vh" }}
         >
         <aside className={`panel-shell relative flex min-h-0 flex-col overflow-hidden border-r transition-opacity duration-200 ${((leftOpen || (isMobile && mobileTab === "vault")) && !zenMode) ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "vault" ? "hidden" : ""}`}>
-          <div className="shrink-0 border-b border-graphite-rail px-3 pb-2.5 pt-2.5">
+          <div className="shrink-0 border-b border-ink-750/55 px-3 pb-2.5 pt-2.5">
             {/* Workspace selector + actions */}
             <div className="flex min-w-0 items-center gap-1.5">
               {activeWorkspace ? <Users className="h-3 w-3 shrink-0 text-accent-400" /> : <BookOpen className="h-3 w-3 shrink-0 text-accent-400" />}
@@ -1923,16 +1923,16 @@ export function Workspace() {
                 ))}
               </select>
               <div className="flex shrink-0 items-center gap-0.5">
-                <button title="New note" aria-label="New note" onClick={() => createNote()} className="grid h-6 w-6 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
+                <button title="New note" aria-label="New note" onClick={() => createNote()} className="grid h-6 w-6 place-items-center rounded text-ink-500 hover:bg-ink-925/50 hover:text-ink-200 focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]">
                   <FilePlus className="h-3.5 w-3.5" />
                 </button>
-                <button title="Export vault as zip" aria-label="Export vault as zip" onClick={() => void exportVaultAsZip()} className="grid h-6 w-6 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
+                <button title="Export vault as zip" aria-label="Export vault as zip" onClick={() => void exportVaultAsZip()} className="grid h-6 w-6 place-items-center rounded text-ink-500 hover:bg-ink-925/50 hover:text-ink-200 focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]">
                   <Download className="h-3.5 w-3.5" />
                 </button>
               </div>
             </div>
             {/* Search — inline below breadcrumb */}
-            <div className="mt-2 flex items-center gap-2 rounded-lg border border-graphite-rail bg-ink-900/50 px-2.5 py-1.5">
+            <div className="mt-2 flex items-center gap-2 rounded-lg border border-ink-750/55 bg-ink-900/50 px-2.5 py-1.5">
               <Search className="h-3.5 w-3.5 shrink-0 text-ink-500" />
               <input
                 type="text"
@@ -4929,7 +4929,11 @@ function FolderRow({
       onDrop={(event) => { event.preventDefault(); onDrop(); }}
       onContextMenu={onMenu}
       className={`group flex h-9 items-center rounded-lg border ${
-        active ? "border-accent-500/25 bg-accent-500/10" : dragActive ? "border-transparent hover:border-accent-500/30 hover:bg-accent-500/8" : "border-transparent hover:bg-graphite-rail/20"
+        active
+          ? "border-accent-400/25 bg-accent-500/10"
+          : dragActive
+            ? "border-transparent hover:border-accent-400/30 hover:bg-accent-500/8"
+            : "border-transparent hover:bg-ink-925/35"
       }`}
     >
       {/* Chevron — fixed 28 px, never shrinks */}
@@ -4958,7 +4962,7 @@ function FolderRow({
         <button
           onClick={(event) => { event.stopPropagation(); onMenu(event); }}
           aria-label={`More actions for ${folder.name}`}
-          className="hidden h-7 w-7 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-100 group-hover:grid"
+          className="hidden h-7 w-7 place-items-center rounded text-ink-500 hover:bg-ink-925/55 hover:text-ink-100 group-hover:grid focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
         >
           <MoreVertical className="h-3.5 w-3.5" />
         </button>
@@ -5002,7 +5006,11 @@ function NoteRow({
       onDragStart={onDragStart}
       onContextMenu={onMenu}
       className={`group flex h-8 w-full items-center rounded-lg border transition-colors duration-150 ${
-        bulkSelected ? "border-accent-500/40 bg-accent-500/12" : active ? "border-accent-500/25 bg-accent-500/10 text-ink-100" : "border-transparent text-ink-300 hover:border-graphite-rail hover:bg-graphite-rail/10 hover:text-ink-100"
+        bulkSelected
+          ? "border-accent-400/35 bg-accent-500/12"
+          : active
+            ? "border-accent-400/25 bg-accent-500/10 text-ink-100"
+            : "border-transparent text-ink-300 hover:border-ink-750/55 hover:bg-ink-925/35 hover:text-ink-100"
       }`}
     >
       {/* Bulk checkbox */}
@@ -5032,7 +5040,7 @@ function NoteRow({
         <button
           onClick={(event) => { event.stopPropagation(); onMenu(event); }}
           aria-label={`More actions for ${note.title}`}
-          className="hidden h-7 w-7 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-100 group-hover:grid"
+          className="hidden h-7 w-7 place-items-center rounded text-ink-500 hover:bg-ink-925/55 hover:text-ink-100 group-hover:grid focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]"
         >
           <MoreVertical className="h-3.5 w-3.5" />
         </button>

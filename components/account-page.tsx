@@ -5,6 +5,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowLeft, CreditCard, Download, KeyRound, Loader2, LogOut, Palette, Save, Sparkles, User2, Activity, Zap, BarChart3, Users, Settings, Lock } from "lucide-react";
 import { type KeyboardEvent, type ReactNode, useEffect, useMemo, useState } from "react";
 import type { AdminUserSummary, AiFeature, AiUsage, AuditLog, BillingState, ProviderSettings, RuntimeSettings, StudyActivity } from "@/lib/types";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const FEATURE_LABELS: Record<string, string> = {
   ask: "Ask queries",
@@ -422,7 +424,7 @@ export function AccountPage({
   return (
     <main className="min-h-screen bg-ink-950 text-ink-100">
       {/* Top bar */}
-      <div className="relative border-b border-graphite-rail bg-black/80 backdrop-blur-xl">
+      <div className="relative border-b border-ink-750/50 bg-ink-950/70 backdrop-blur-xl">
         <div className="mx-auto flex w-full max-w-[1440px] items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <div className="min-w-0">
             <Link href="/" className="inline-flex items-center gap-2 text-xs font-medium text-ink-500 transition-colors hover:text-ink-300">
@@ -432,25 +434,27 @@ export function AccountPage({
             <div className="mt-2 text-2xl font-bold tracking-tight text-ink-100">Account</div>
             <div className="mt-0.5 text-sm text-ink-500">Manage your profile, AI access, hosted usage, and backups.</div>
           </div>
-          <button
+          <Button
             onClick={signOut}
             disabled={signingOut}
-            className="inline-flex h-9 shrink-0 items-center gap-2 rounded-lg border border-graphite-rail bg-black/30 px-4 text-sm font-medium text-ink-300 transition-colors hover:bg-graphite-rail/40 hover:text-ink-100 disabled:opacity-60"
+            loading={signingOut}
+            variant="soft"
+            size="md"
+            leftIcon={!signingOut ? <LogOut className="h-4 w-4" /> : undefined}
           >
-            {signingOut ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <LogOut className="h-3.5 w-3.5" />}
             Sign out
-          </button>
+          </Button>
         </div>
       </div>
 
       <div className="relative mx-auto grid w-full max-w-[1440px] gap-6 px-4 py-6 sm:px-6 lg:grid-cols-[280px_minmax(0,1fr)]">
         {/* Sidebar */}
-        <aside className="h-fit rounded-2xl border border-graphite-rail bg-[#0b0e14] p-3 backdrop-blur-xl lg:sticky lg:top-6">
+        <aside className="h-fit rounded-3xl border border-ink-750/55 bg-ink-925/60 p-3 shadow-[0_18px_70px_rgba(0,0,0,0.28)] backdrop-blur-xl lg:sticky lg:top-6">
           {/* User card */}
-          <div className="relative overflow-hidden rounded-xl border border-accent-500/20 bg-gradient-to-br from-accent-500/15 via-accent-600/10 to-transparent p-4">
-            <div className="pointer-events-none absolute inset-0 bg-gradient-to-br from-accent-400/5 to-transparent" />
+          <div className="relative overflow-hidden rounded-2xl border border-ink-750/50 bg-ink-950/15 p-4">
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgb(var(--accent-500)/0.16),transparent_55%),radial-gradient(circle_at_80%_40%,rgb(var(--accent-400)/0.10),transparent_60%)]" />
             <div className="relative flex items-center gap-3">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-accent-500 to-accent-600 text-sm font-bold text-white">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-accent-400/25 bg-accent-500/12 text-sm font-bold text-ink-100">
                 {initials}
               </div>
               <div className="min-w-0">
@@ -478,13 +482,13 @@ export function AccountPage({
                   className={`relative flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors ${
                     active
                       ? "text-ink-100"
-                      : "text-ink-400 hover:bg-graphite-rail/20 hover:text-ink-200"
+                      : "text-ink-400 hover:bg-ink-950/25 hover:text-ink-200"
                   }`}
                 >
                   {active && (
                     <motion.div
                       layoutId="nav-pill"
-                      className="absolute inset-0 rounded-xl border border-accent-500/25 bg-accent-500/10"
+                      className="absolute inset-0 rounded-xl border border-accent-400/25 bg-accent-500/10"
                       transition={{ type: "spring", stiffness: 500, damping: 40 }}
                     />
                   )}
@@ -530,21 +534,19 @@ export function AccountPage({
                     <div className="mt-6 grid gap-4 sm:grid-cols-2">
                       <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-semibold text-ink-400">Display name</label>
-                        <input
+                        <Input
                           type="text"
                           value={profileName}
                           onChange={(e) => setProfileName(e.target.value)}
                           maxLength={80}
-                          className="rounded-xl border border-graphite-rail bg-black/30 px-3 py-2 text-sm text-ink-100 placeholder:text-ink-600 focus:border-violet-500/60 focus:outline-none focus:ring-1 focus:ring-violet-500/30"
                         />
                       </div>
                       <div className="flex flex-col gap-1.5">
                         <label className="text-xs font-semibold text-ink-400">Email address</label>
-                        <input
+                        <Input
                           type="email"
                           value={profileEmail}
                           onChange={(e) => setProfileEmail(e.target.value)}
-                          className="rounded-xl border border-graphite-rail bg-black/30 px-3 py-2 text-sm text-ink-100 placeholder:text-ink-600 focus:border-violet-500/60 focus:outline-none focus:ring-1 focus:ring-violet-500/30"
                         />
                       </div>
                     </div>
@@ -553,23 +555,23 @@ export function AccountPage({
                         <p className="text-sm text-amber-300 font-medium">Verify your new email</p>
                         <p className="mt-1 text-xs text-ink-400">We sent a 6-digit code to <span className="text-ink-200">{pendingEmail}</span>. Enter it below to confirm the change.</p>
                         <div className="mt-3 flex gap-2">
-                          <input
+                          <Input
                             type="text"
                             inputMode="numeric"
                             maxLength={6}
                             placeholder="000000"
                             value={emailCode}
                             onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, ""))}
-                            className="w-32 rounded-xl border border-graphite-rail bg-black/30 px-3 py-2 text-center text-sm font-mono tracking-widest text-ink-100 focus:border-amber-500/60 focus:outline-none focus:ring-1 focus:ring-amber-500/30"
+                            className="w-32 text-center font-mono tracking-widest"
                           />
-                          <button
+                          <Button
                             onClick={confirmEmailChange}
-                            disabled={confirmingEmail || emailCode.length < 6}
-                            className="flex items-center gap-2 rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-black transition hover:bg-amber-400 disabled:cursor-not-allowed disabled:opacity-50"
+                            disabled={emailCode.length < 6}
+                            loading={confirmingEmail}
+                            variant="primary"
                           >
-                            {confirmingEmail ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
                             Confirm
-                          </button>
+                          </Button>
                           <button
                             onClick={() => { setPendingEmail(null); setEmailCode(""); setProfileEmail(confirmedEmail); }}
                             className="rounded-xl px-3 py-2 text-sm text-ink-500 transition hover:text-ink-300"
@@ -580,14 +582,15 @@ export function AccountPage({
                       </div>
                     )}
                     <div className="mt-4 flex justify-end">
-                      <button
+                      <Button
                         onClick={saveProfile}
-                        disabled={savingProfile || !!pendingEmail || !profileName.trim() || !profileEmail.trim()}
-                        className="flex items-center gap-2 rounded-xl bg-violet-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-violet-500 disabled:cursor-not-allowed disabled:opacity-50"
+                        disabled={!!pendingEmail || !profileName.trim() || !profileEmail.trim()}
+                        loading={savingProfile}
+                        variant="primary"
+                        leftIcon={!savingProfile ? <Save className="h-4 w-4" /> : undefined}
                       >
-                        {savingProfile ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
                         Save changes
-                      </button>
+                      </Button>
                     </div>
                   </GlassPanel>
 
@@ -1208,7 +1211,7 @@ export function AccountPage({
 
 function GlassPanel({ children }: { children: ReactNode }) {
   return (
-    <div className="rounded-2xl border border-graphite-rail bg-[#0b0e14] p-6 backdrop-blur-xl">
+    <div className="rounded-3xl border border-ink-750/55 bg-ink-925/70 p-6 shadow-[0_18px_70px_rgba(0,0,0,0.34)] backdrop-blur-xl">
       {children}
     </div>
   );
@@ -1240,8 +1243,8 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 
 function MetricCard({ label, value, accent }: { label: string; value: string; accent?: boolean }) {
   return (
-    <div className={`relative overflow-hidden rounded-xl border p-4 ${accent ? "border-accent-500/20 bg-accent-500/8" : "border-graphite-rail bg-black/20"}`}>
-      {accent && <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-0.5 rounded-l-xl bg-gradient-to-b from-accent-400 to-accent-600" />}
+    <div className={`relative overflow-hidden rounded-2xl border p-4 ${accent ? "border-accent-400/25 bg-accent-500/10" : "border-ink-750/55 bg-ink-950/15"}`}>
+      {accent && <div className="pointer-events-none absolute left-0 top-0 bottom-0 w-0.5 rounded-l-2xl bg-gradient-to-b from-accent-300 to-accent-600" />}
       <div className="text-xs font-medium text-ink-500">{label}</div>
       <div className="mt-1.5 text-base font-semibold text-ink-100 truncate">{value}</div>
     </div>
@@ -1250,7 +1253,7 @@ function MetricCard({ label, value, accent }: { label: string; value: string; ac
 
 function PillToggleLabel({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
   return (
-    <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-graphite-rail bg-black/20 px-3 py-2.5">
+    <label className="flex cursor-pointer items-center gap-3 rounded-2xl border border-ink-750/55 bg-ink-950/15 px-3 py-2.5">
       <PillToggle checked={checked} onChange={onChange} />
       <span className="text-sm text-ink-300">{label}</span>
     </label>
@@ -1266,11 +1269,11 @@ function PillToggle({ checked, onChange, disabled }: { checked: boolean; onChang
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={`relative h-5 w-9 shrink-0 rounded-full border transition-colors ${
-        checked ? "border-accent-500/50 bg-accent-500" : "border-graphite-rail bg-graphite-rail/30"
+        checked ? "border-accent-400/40 bg-accent-500/70" : "border-ink-750/55 bg-ink-900/40"
       } disabled:opacity-50`}
     >
       <motion.div
-        className="absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-sm"
+        className="absolute top-0.5 h-4 w-4 rounded-full bg-ink-100 shadow-sm"
         animate={{ left: checked ? "calc(100% - 18px)" : "2px" }}
         transition={{ type: "spring", stiffness: 500, damping: 36 }}
       />
@@ -1388,25 +1391,26 @@ function PrimaryButton({
   children: ReactNode;
 }) {
   return (
-    <button
+    <Button
       onClick={onClick}
       disabled={disabled}
-      className="inline-flex h-10 items-center justify-center gap-2 rounded-[6px] border border-electric-blue px-5 text-sm font-semibold text-white transition-colors hover:bg-electric-blue/10 disabled:opacity-60"
+      loading={loading}
+      leftIcon={!loading ? icon : undefined}
+      variant="primary"
     >
-      {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : icon}
       {children}
-    </button>
+    </Button>
   );
 }
 
 function NoticeBanner({ notice }: { notice: NonNullable<Notice> }) {
   const styles = {
-    success: "border-success-400/25 bg-success-400/10 text-success-300",
-    error: "border-danger-400/25 bg-danger-400/10 text-danger-300",
-    info: "border-accent-500/25 bg-accent-500/10 text-accent-300"
+    success: "border-success-400/22 bg-success-400/10 text-success-200",
+    error: "border-danger-400/22 bg-danger-400/10 text-danger-200",
+    info: "border-accent-400/22 bg-accent-500/10 text-ink-200"
   };
   return (
-    <div className={`rounded-xl border px-4 py-3 text-sm font-medium ${styles[notice.tone]}`}>
+    <div className={`rounded-2xl border px-4 py-3 text-sm font-medium ${styles[notice.tone]}`}>
       {notice.message}
     </div>
   );
@@ -1437,7 +1441,7 @@ function formatActivity(kind: StudyActivity["kind"]) {
 function UsageBar({ label, used, limit, remaining }: AiUsage & { label: string }) {
   if (limit === null) {
     return (
-      <div className="flex items-center justify-between rounded-xl border border-graphite-rail bg-black/20 px-4 py-3">
+      <div className="flex items-center justify-between rounded-2xl border border-ink-750/55 bg-ink-950/15 px-4 py-3">
         <span className="text-sm text-ink-300">{label}</span>
         <span className="text-xs text-ink-500">Unlimited</span>
       </div>
@@ -1446,12 +1450,12 @@ function UsageBar({ label, used, limit, remaining }: AiUsage & { label: string }
   const pct = limit === 0 ? 100 : Math.min(100, Math.round((used / limit) * 100));
   const barColor = pct >= 90 ? "bg-danger-400" : pct >= 60 ? "bg-amber-400" : "bg-success-400";
   return (
-    <div className="rounded-xl border border-graphite-rail bg-black/20 px-4 py-3">
+    <div className="rounded-2xl border border-ink-750/55 bg-ink-950/15 px-4 py-3">
       <div className="flex items-center justify-between gap-2">
         <span className="text-sm text-ink-300">{label}</span>
         <span className="text-xs text-ink-500">{used.toLocaleString()} / {limit.toLocaleString()}</span>
       </div>
-      <div className="relative mt-2 h-1.5 w-full overflow-hidden rounded-full bg-graphite-rail">
+      <div className="relative mt-2 h-1.5 w-full overflow-hidden rounded-full bg-ink-750/60">
         <div className={`absolute left-0 top-0 h-full rounded-full ${barColor} transition-all`} style={{ width: `${pct}%` }} />
       </div>
       <div className="mt-1.5 text-right text-[11px] text-ink-600">{(remaining ?? 0).toLocaleString()} remaining</div>
