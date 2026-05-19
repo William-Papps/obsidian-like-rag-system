@@ -7008,45 +7008,21 @@ function NotebookDashboard({
           </section>
         ) : (
           <div className="space-y-10">
-            {/* Quick actions */}
-            <div className="grid grid-cols-3 gap-3">
-              <button
-                onClick={onOpenAsk}
-                className="group flex flex-col gap-3 rounded-2xl border border-graphite-rail bg-ink-900/50 p-5 text-left transition-all hover:border-accent-500/40 hover:bg-accent-500/5"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-accent-500/30 bg-accent-500/15">
-                  <MessageSquareText className="h-5 w-5 text-accent-400" />
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-ink-100">Ask your notes</div>
-                  <div className="mt-0.5 text-xs leading-5 text-ink-500">Get answers from your entire knowledge base</div>
-                </div>
-              </button>
-              <button
-                onClick={onNewNote}
-                className="group flex flex-col gap-3 rounded-2xl border border-graphite-rail bg-ink-900/50 p-5 text-left transition-all hover:border-graphite-rail hover:bg-graphite-rail/40"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-graphite-rail bg-ink-800/60">
-                  <FilePlus className="h-5 w-5 text-ink-400 group-hover:text-ink-200" />
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-ink-100">New note</div>
-                  <div className="mt-0.5 text-xs leading-5 text-ink-500">Start capturing ideas and knowledge</div>
-                </div>
-              </button>
-              <button
-                onClick={onImport}
-                className="group flex flex-col gap-3 rounded-2xl border border-graphite-rail bg-ink-900/50 p-5 text-left transition-all hover:border-graphite-rail hover:bg-graphite-rail/40"
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-xl border border-graphite-rail bg-ink-800/60">
-                  <Upload className="h-5 w-5 text-ink-400 group-hover:text-ink-200" />
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-ink-100">Import document</div>
-                  <div className="mt-0.5 text-xs leading-5 text-ink-500">Add PDFs, Word docs, or text files</div>
-                </div>
-              </button>
-            </div>
+            {/* Ask AI prompt */}
+            <button
+              onClick={onOpenAsk}
+              className="group flex w-full items-center gap-4 rounded-2xl border border-graphite-rail bg-ink-900/50 px-5 py-4 text-left transition-all hover:border-accent-500/30 hover:bg-accent-500/5"
+            >
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-accent-500/15 text-accent-400">
+                <MessageSquareText className="h-4 w-4" />
+              </div>
+              <span className="min-w-0 flex-1 text-sm text-ink-500 group-hover:text-ink-300">
+                Ask anything about your notes…
+              </span>
+              <span className="hidden shrink-0 rounded border border-graphite-rail bg-ink-875 px-2 py-0.5 font-mono text-[10px] text-ink-600 sm:block">
+                AI tools
+              </span>
+            </button>
 
             {/* Recent notes */}
             {allNotesSorted.length > 0 && (
