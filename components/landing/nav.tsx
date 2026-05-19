@@ -17,7 +17,7 @@ export function LandingNav() {
         </Link>
         <div className="flex items-center gap-3">
           <RequestDemoButton />
-          <Link href="/auth" className="text-[13px] font-medium text-ink-400 hover:text-ink-200 focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] rounded-lg px-2 py-1">
+          <Link href="/auth" className="text-[13px] font-medium text-ink-400 hover:text-ink-200 focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] rounded-lg px-2 py-2.5 min-h-[44px] inline-flex items-center">
             Sign in
           </Link>
           <Link href="/auth">
