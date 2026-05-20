@@ -3,7 +3,6 @@ export type Folder = {
   userId: string;
   parentId: string | null;
   name: string;
-  workspaceId?: string | null;
   createdAt: string;
   updatedAt: string;
 };

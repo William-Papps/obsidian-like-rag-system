@@ -16,7 +16,7 @@ export type RetrievalMeta = {
   lowConfidence: boolean;
 };
 
-type ScopeFilter = { noteId?: string; folderId?: string | null; workspaceId?: string | null; limit?: number };
+type ScopeFilter = { noteId?: string; folderId?: string | null; limit?: number };
 
 type ChunkRow = {
   id: string;
@@ -134,13 +134,8 @@ async function loadScopeChunkRows(userId: string, scope: ScopeFilter): Promise<C
   const params: (string | null)[] = [];
   let where: string;
 
-  if (scope.workspaceId) {
-    where = "n.workspace_id = ?";
-    params.push(scope.workspaceId);
-  } else {
-    where = "c.user_id = ? and n.workspace_id is null";
-    params.push(userId);
-  }
+  where = "c.user_id = ? and n.workspace_id is null";
+  params.push(userId);
 
   if (scope.noteId) {
     where += " and c.note_id = ?";

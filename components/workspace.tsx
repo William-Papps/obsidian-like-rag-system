@@ -63,8 +63,6 @@ import {
   Trash2,
   Trophy,
   Upload,
-  UserPlus,
-  Users,
   X
 } from "lucide-react";
 import { Component, type CSSProperties, type KeyboardEvent, type MouseEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -72,10 +70,6 @@ import { MarkdownPreview } from "@/components/markdown";
 import { DocumentImportModal } from "@/components/document-import-modal";
 import { HelpWidget } from "@/components/help-widget";
 import type { AnswerResult, DocumentFile, Flashcard, Folder as FolderType, Note, ProviderSettings, QuizEvaluation, QuizQuestion } from "@/lib/types";
-
-type NoteSharePermission = "edit" | "view";
-type NoteShare = { sharedWithUserId: string; sharedWithName: string; sharedWithEmail: string; permission: NoteSharePermission };
-type WorkspaceWithMembers = { id: string; name: string; description?: string; currentUserRole: string; members: { userId: string; name: string; email: string; role: string }[]; inviteToken?: string | null };
 
 class PanelErrorBoundary extends Component<{ children: ReactNode; label: string }, { error: Error | null }> {
   constructor(props: { children: ReactNode; label: string }) {
@@ -111,7 +105,6 @@ type Bootstrap = {
   settings: ProviderSettings;
   indexStatus: { notes: number; chunks: number; staleNotes: number };
   noteTags: Record<string, string[]>;
-  workspaces?: WorkspaceWithMembers[];
   documents: DocumentFile[];
 };
 
@@ -246,16 +239,6 @@ export function Workspace() {
   const [symbolsOpen, setSymbolsOpen] = useState(false);
   const [symbolsQuery, setSymbolsQuery] = useState("");
   const symbolInsertPosRef = useRef<number>(0);
-  const [activeWorkspaceId, setActiveWorkspaceId] = useState<string | null>(null);
-  const [workspaceModal, setWorkspaceModal] = useState<"manage" | "invite" | "create" | null>(null);
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteToken, setInviteToken] = useState<string | null>(null);
-  const [inviteLoading, setInviteLoading] = useState(false);
-  const [shareModalOpen, setShareModalOpen] = useState(false);
-  const [noteShares, setNoteShares] = useState<NoteShare[]>([]);
-  const [shareEmail, setShareEmail] = useState("");
-  const [sharePermission, setSharePermission] = useState<NoteSharePermission>("edit");
-  const [shareLoading, setShareLoading] = useState(false);
   const [inlineAI, setInlineAI] = useState<{
     query: string;
     loading: boolean;
@@ -287,109 +270,20 @@ export function Workspace() {
     }, 2600);
   }, []);
 
-  const refresh = useCallback(async (wsId?: string | null) => {
-    const currentWsId = wsId !== undefined ? wsId : activeWorkspaceId;
+  const refresh = useCallback(async () => {
     const response = await fetch("/api/bootstrap", { cache: "no-store" });
     if (response.status === 401) {
       window.location.href = "/auth";
       return;
     }
     const payload = (await response.json()) as Bootstrap;
-
-    // Bootstrap already includes personal-workspace folders, notes, and indexStatus.
-    // Only fetch workspace-specific overrides when actually inside a workspace.
-    let folders = payload.folders;
-    let notes = payload.notes;
-    if (currentWsId) {
-      const wsParam = `?workspaceId=${currentWsId}`;
-      [folders, notes] = await Promise.all([
-        fetch(`/api/folders${wsParam}`, { cache: "no-store" }).then((r) => r.json() as Promise<FolderType[]>),
-        fetch(`/api/notes${wsParam}`, { cache: "no-store" }).then((r) => r.json() as Promise<Note[]>)
-      ]);
-    }
-
-    const next = { ...payload, folders, notes };
-    dataRef.current = next;
-    setData(next);
+    dataRef.current = payload;
+    setData(payload);
     setActiveNoteId((current) => current);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeWorkspaceId]);
+  }, []);
 
   // Keep dataRef in sync so saveActiveMarkdownDebounced can read it without a dependency
   useEffect(() => { dataRef.current = data; }, [data]);
-
-  const switchWorkspace = useCallback(async (wsId: string | null) => {
-    setActiveWorkspaceId(wsId);
-    setActiveNoteId(null);
-    setOpenNoteIds([]);
-    setVaultRootId("__all__");
-    await refresh(wsId);
-  }, [refresh]);
-
-  const sendInvite = useCallback(async (workspaceId: string, email: string) => {
-    setInviteLoading(true);
-    try {
-      const response = await fetch(`/api/workspaces/${workspaceId}/members`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email })
-      });
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error || "Failed to send invite");
-      setInviteToken(body.token);
-      await refresh();
-    } catch (error) {
-      notify(error instanceof Error ? error.message : "Failed to send invite", "error");
-    } finally {
-      setInviteLoading(false);
-    }
-  }, [notify, refresh]);
-
-  const openShareModal = useCallback(async (noteId: string) => {
-    setShareEmail("");
-    setShareLoading(false);
-    const res = await fetch(`/api/notes/${noteId}/shares`);
-    if (res.ok) setNoteShares(await res.json() as NoteShare[]);
-    setShareModalOpen(true);
-  }, []);
-
-  const doShareNote = useCallback(async (noteId: string) => {
-    if (!shareEmail.trim()) return;
-    setShareLoading(true);
-    try {
-      const res = await fetch(`/api/notes/${noteId}/shares`, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify({ email: shareEmail.trim(), permission: sharePermission })
-      });
-      const body = await res.json();
-      if (!res.ok) throw new Error(body.error || "Failed to share");
-      setNoteShares((prev) => {
-        const filtered = prev.filter((s) => s.sharedWithUserId !== body.sharedWithUserId);
-        return [...filtered, body as NoteShare];
-      });
-      setShareEmail("");
-      notify(`Shared with ${body.sharedWithEmail}`, "success");
-    } catch (error) {
-      notify(error instanceof Error ? error.message : "Failed to share", "error");
-    } finally {
-      setShareLoading(false);
-    }
-  }, [shareEmail, sharePermission, notify]);
-
-  const revokeShare = useCallback(async (noteId: string, userId: string) => {
-    const res = await fetch(`/api/notes/${noteId}/shares/${userId}`, { method: "DELETE" });
-    if (res.ok) setNoteShares((prev) => prev.filter((s) => s.sharedWithUserId !== userId));
-  }, []);
-
-  const updateSharePermission = useCallback(async (noteId: string, userId: string, permission: NoteSharePermission) => {
-    const res = await fetch(`/api/notes/${noteId}/shares/${userId}`, {
-      method: "PATCH",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ permission })
-    });
-    if (res.ok) setNoteShares((prev) => prev.map((s) => s.sharedWithUserId === userId ? { ...s, permission } : s));
-  }, []);
 
   const reindexAll = useCallback(async () => {
     if (!data) return;
@@ -524,7 +418,6 @@ export function Workspace() {
 
   const activeNote = useMemo(() => data?.notes.find((note) => note.id === activeNoteId) ?? null, [data, activeNoteId]);
   activeNoteRef.current = activeNote;
-  const activeWorkspace = useMemo(() => (data?.workspaces ?? []).find((w) => w.id === activeWorkspaceId) ?? null, [data, activeWorkspaceId]);
   const openNotes = useMemo(
     () =>
       [
@@ -694,7 +587,7 @@ export function Workspace() {
     const response = await fetch("/api/notes", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ title, folderId, workspaceId: activeWorkspaceId })
+      body: JSON.stringify({ title, folderId })
     });
     const note = (await response.json()) as Note;
     // Add the note to local state, select it, and seed the editor all in one batch
@@ -1246,7 +1139,7 @@ export function Workspace() {
     await fetch("/api/folders", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name, parentId, workspaceId: activeWorkspaceId })
+      body: JSON.stringify({ name, parentId })
     });
     await refresh();
     notify("Folder created", "success");
@@ -1271,7 +1164,7 @@ export function Workspace() {
     const folderResponse = await fetch("/api/folders", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name: projectName.trim(), parentId: folder.id, workspaceId: activeWorkspaceId })
+      body: JSON.stringify({ name: projectName.trim(), parentId: folder.id })
     });
     const projectFolder = (await folderResponse.json()) as FolderType;
     const templates = [
@@ -1293,7 +1186,7 @@ export function Workspace() {
       const response = await fetch("/api/notes", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...template, folderId: projectFolder.id, workspaceId: activeWorkspaceId })
+        body: JSON.stringify({ ...template, folderId: projectFolder.id })
       });
       firstNote ??= (await response.json()) as Note;
     }
@@ -1563,67 +1456,7 @@ export function Workspace() {
     URL.revokeObjectURL(url);
   }
 
-  const [publicToken, setPublicToken] = useState<string | null>(null);
-  const [publicLinkLoading, setPublicLinkLoading] = useState(false);
-  const [folderShareModal, setFolderShareModal] = useState<{ folder: FolderType; token: string | null; loading: boolean } | null>(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
-
-  useEffect(() => {
-    setPublicToken(null);
-    if (!activeNoteId) return;
-    fetch(`/api/notes/${activeNoteId}/public-link`)
-      .then(async (r) => { if (r.ok) { const d = await r.json() as { token: string | null }; setPublicToken(d.token); } })
-      .catch(() => {});
-  }, [activeNoteId]);
-
-  async function togglePublicLink() {
-    if (!activeNote) return;
-    setPublicLinkLoading(true);
-    try {
-      if (publicToken) {
-        await fetch(`/api/notes/${activeNote.id}/public-link`, { method: "DELETE" });
-        setPublicToken(null);
-        notify("Public link disabled", "info");
-      } else {
-        const res = await fetch(`/api/notes/${activeNote.id}/public-link`, { method: "POST" });
-        const body = await res.json() as { token: string };
-        setPublicToken(body.token);
-        await navigator.clipboard.writeText(`${window.location.origin}/share/${body.token}`);
-        notify("Public link copied to clipboard", "success");
-      }
-    } finally {
-      setPublicLinkLoading(false);
-    }
-  }
-
-  async function openFolderShare(folder: FolderType) {
-    setFolderShareModal({ folder, token: null, loading: true });
-    const res = await fetch(`/api/folders/${folder.id}/public-link`);
-    if (res.ok) {
-      const d = await res.json() as { token: string | null };
-      setFolderShareModal({ folder, token: d.token ?? null, loading: false });
-    } else {
-      setFolderShareModal(null);
-    }
-  }
-
-  async function toggleFolderPublicLink() {
-    if (!folderShareModal) return;
-    const { folder, token } = folderShareModal;
-    setFolderShareModal({ ...folderShareModal, loading: true });
-    if (token) {
-      await fetch(`/api/folders/${folder.id}/public-link`, { method: "DELETE" });
-      setFolderShareModal({ folder, token: null, loading: false });
-      notify("Folder public link disabled", "info");
-    } else {
-      const res = await fetch(`/api/folders/${folder.id}/public-link`, { method: "POST" });
-      const d = await res.json() as { token: string };
-      const url = `${window.location.origin}/share/folder/${d.token}`;
-      await navigator.clipboard.writeText(url);
-      setFolderShareModal({ folder, token: d.token, loading: false });
-      notify("Folder link copied to clipboard", "success");
-    }
-  }
 
   const backlinks = useMemo(() => {
     if (!activeNote || !data) return [];
@@ -1803,7 +1636,6 @@ export function Workspace() {
           })}
           onCreate={() => createNote(folder.id)}
           onCreateFolder={() => createFolder(folder.id)}
-          onCreateLecture={() => createLectureWorkflow(folder)}
           onRename={() => renameFolderById(folder)}
           onDelete={() => requestDeleteFolder(folder)}
           onMove={() => chooseFolderForFolder(folder)}
@@ -1912,20 +1744,9 @@ export function Workspace() {
         >
         <aside className={`panel-shell relative flex min-h-0 flex-col overflow-hidden border-r transition-opacity duration-200 ${((leftOpen || (isMobile && mobileTab === "vault")) && !zenMode) ? "opacity-100" : "pointer-events-none opacity-0"} ${isMobile && mobileTab !== "vault" ? "hidden" : ""}`}>
           <div className="shrink-0 border-b border-ink-750/55 px-3 pb-2.5 pt-2.5">
-            {/* Workspace selector + actions */}
             <div className="flex min-w-0 items-center gap-1.5">
-              {activeWorkspace ? <Users className="h-3 w-3 shrink-0 text-accent-400" /> : <BookOpen className="h-3 w-3 shrink-0 text-accent-400" />}
-              <select
-                aria-label="Active workspace"
-                value={activeWorkspaceId ?? "__personal__"}
-                onChange={(event) => void switchWorkspace(event.target.value === "__personal__" ? null : event.target.value)}
-                className="min-w-0 flex-1 cursor-pointer bg-transparent text-xs font-semibold text-ink-100 outline-none hover:text-accent-200"
-              >
-                <option value="__personal__">Personal</option>
-                {(data?.workspaces ?? []).map((ws) => (
-                  <option key={ws.id} value={ws.id}>{ws.name}</option>
-                ))}
-              </select>
+              <BookOpen className="h-3 w-3 shrink-0 text-accent-400" />
+              <span className="min-w-0 flex-1 truncate text-xs font-semibold text-ink-100">My notes</span>
               <div className="flex shrink-0 items-center gap-0.5">
                 <button title="New note" aria-label="New note" onClick={() => createNote()} className="grid h-6 w-6 place-items-center rounded text-ink-500 hover:bg-ink-925/50 hover:text-ink-200 focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]">
                   <FilePlus className="h-3.5 w-3.5" />
@@ -2238,26 +2059,6 @@ export function Workspace() {
                   <button title="Export as Markdown" aria-label="Export as Markdown" onClick={exportActiveNote} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
                     <Download className="h-3.5 w-3.5" />
                   </button>
-                  <button
-                    title={publicToken ? "Public link active â€” click to copy" : "Create public share link"}
-                    aria-label={publicToken ? "Copy public link" : "Create public share link"}
-                    onClick={() => {
-                      if (publicToken) {
-                        void navigator.clipboard.writeText(`${window.location.origin}/share/${publicToken}`);
-                        notify("Public link copied", "success");
-                      } else {
-                        void togglePublicLink();
-                      }
-                    }}
-                    className={`grid h-7 w-7 place-items-center rounded hover:bg-graphite-rail/30 ${publicToken ? "text-accent-300" : "text-ink-500 hover:text-ink-200"}`}
-                  >
-                    <Link className="h-3.5 w-3.5" />
-                  </button>
-                  {publicToken && (
-                    <button title="Disable public link" aria-label="Disable public link" onClick={() => void togglePublicLink()} className="grid h-7 w-7 place-items-center rounded text-ink-600 hover:bg-danger-400/10 hover:text-danger-400">
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  )}
                   <span className="mx-1.5 h-4 w-px shrink-0 bg-ink-700/60" />
                   <div className="relative">
                     <button title={tocOpen ? "Close table of contents" : "Table of contents"} aria-label={tocOpen ? "Close table of contents" : "Table of contents"} onClick={() => setTocOpen((o) => !o)} className={`grid h-7 w-7 place-items-center rounded hover:bg-graphite-rail/30 ${tocOpen ? "text-accent-300" : "text-ink-500 hover:text-ink-200"}`}>
@@ -2588,7 +2389,6 @@ export function Workspace() {
           ) : (
             <NotebookDashboard
               data={data}
-              activeWorkspaceId={activeWorkspaceId}
               seeding={seeding}
               onboardingChoice={onboardingChoice}
               onNoteClick={selectNote}
@@ -2765,88 +2565,8 @@ export function Workspace() {
         onTogglePinNote={togglePinNote}
         pinnedNoteIds={pinnedNoteIds}
       />
-      {folderShareModal && (
-        <FolderShareModal
-          folder={folderShareModal.folder}
-          token={folderShareModal.token}
-          loading={folderShareModal.loading}
-          onClose={() => setFolderShareModal(null)}
-          onToggle={() => void toggleFolderPublicLink()}
-          onCopy={() => {
-            if (!folderShareModal.token) return;
-            void navigator.clipboard.writeText(`${window.location.origin}/share/folder/${folderShareModal.token}`);
-            notify("Link copied", "success");
-          }}
-        />
-      )}
       {shortcutsOpen && <KeyboardShortcutsModal onClose={() => setShortcutsOpen(false)} />}
       <HelpWidget />
-      {workspaceModal === "create" ? (
-        <WorkspaceCreateModal
-          onClose={() => setWorkspaceModal(null)}
-          onCreate={async (name, description) => {
-            const response = await fetch("/api/workspaces", {
-              method: "POST",
-              headers: { "content-type": "application/json" },
-              body: JSON.stringify({ name, description })
-            });
-            const ws = await response.json();
-            if (!response.ok) { notify(ws.error || "Failed to create workspace", "error"); return; }
-            await refresh();
-            await switchWorkspace(ws.id);
-            setWorkspaceModal(null);
-            notify(`Workspace "${name}" created`, "success");
-          }}
-        />
-      ) : null}
-      {workspaceModal === "manage" && activeWorkspace ? (
-        <WorkspaceManageModal
-          workspace={activeWorkspace}
-          userId={data.user.id}
-          inviteEmail={inviteEmail}
-          inviteToken={inviteToken}
-          inviteLoading={inviteLoading}
-          onInviteEmailChange={setInviteEmail}
-          onSendInvite={() => void sendInvite(activeWorkspace.id, inviteEmail)}
-          onCopyToken={(token) => { void navigator.clipboard.writeText(`${window.location.origin}/workspace/join?token=${token}`); notify("Invite link copied", "success"); }}
-          onRemoveMember={async (userId) => {
-            await fetch(`/api/workspaces/${activeWorkspace.id}/members/${userId}`, { method: "DELETE" });
-            await refresh();
-            notify("Member removed", "success");
-          }}
-          onDeleteWorkspace={async () => {
-            setWorkspaceModal(null);
-            setConfirmState({
-              title: "Delete workspace",
-              description: `Delete "${activeWorkspace.name}"? Notes will remain as personal notes.`,
-              confirmLabel: "Delete workspace",
-              tone: "danger",
-              onConfirm: async () => {
-                await fetch(`/api/workspaces/${activeWorkspace.id}`, { method: "DELETE" });
-                await switchWorkspace(null);
-                await refresh();
-                notify("Workspace deleted", "success");
-              }
-            });
-          }}
-          onClose={() => setWorkspaceModal(null)}
-        />
-      ) : null}
-      {shareModalOpen && activeNote && activeNote.userId === data.user.id ? (
-        <ShareModal
-          note={activeNote}
-          shares={noteShares}
-          email={shareEmail}
-          permission={sharePermission}
-          loading={shareLoading}
-          onEmailChange={setShareEmail}
-          onPermissionChange={setSharePermission}
-          onShare={() => void doShareNote(activeNote.id)}
-          onRevoke={(userId) => void revokeShare(activeNote.id, userId)}
-          onUpdatePermission={(userId, perm) => void updateSharePermission(activeNote.id, userId, perm)}
-          onClose={() => setShareModalOpen(false)}
-        />
-      ) : null}
       {toast ? <ToastView toast={toast} /> : null}
       {isMobile ? (
         <nav className="fixed bottom-0 left-0 right-0 z-30 flex border-t border-graphite-rail bg-ink-950/95 pb-safe backdrop-blur-lg">
@@ -3006,32 +2726,6 @@ function SideRail(props: {
           <RailIconButton label="Send feedback" onClick={props.onFeedback}>
             <MessageSquareText className="h-4 w-4" />
           </RailIconButton>
-          <div className="group relative flex justify-center">
-            <a
-              href="https://discord.gg/YOUR_DISCORD_INVITE"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Discord community"
-              className="grid h-11 w-11 place-items-center rounded-full border border-graphite-rail bg-black/20 text-ink-200 transition-colors hover:border-[#5865F2]/40 hover:bg-[#5865F2]/10 hover:text-[#5865F2]"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor">
-                <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.462-.62.874-1.275 1.226-1.963.021-.04.001-.088-.041-.104a13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
-              </svg>
-            </a>
-            <div className="pointer-events-none absolute left-[56px] top-1/2 z-50 hidden -translate-y-1/2 whitespace-nowrap sm:block">
-              <div className="relative translate-x-[-6px] opacity-0 transition-all duration-150 ease-out group-hover:translate-x-0 group-hover:opacity-100">
-                <div className="absolute -left-1 top-1/2 h-3 w-3 -translate-y-1/2 rotate-45 border border-graphite-rail bg-[#0b0e14]" />
-                <div className="rounded-xl border border-graphite-rail bg-[#0b0e14] px-3 py-1.5 text-xs font-semibold text-ink-100 ">
-                  Discord community
-                </div>
-              </div>
-            </div>
-            {expanded ? (
-              <div className="ml-3 hidden min-w-0 flex-1 items-center sm:flex">
-                <span className="truncate text-sm font-medium text-ink-200">Discord community</span>
-              </div>
-            ) : null}
-          </div>
           <RailIconButton label="Keyboard shortcuts (?)" onClick={props.onShortcuts}>
             <Keyboard className="h-4 w-4" />
           </RailIconButton>
@@ -4850,7 +4544,6 @@ function FolderRow({
   onToggle,
   onCreate,
   onCreateFolder,
-  onCreateLecture,
   onRename,
   onDelete,
   onMove,
@@ -4869,7 +4562,6 @@ function FolderRow({
   onToggle: () => void;
   onCreate: () => void;
   onCreateFolder: () => void;
-  onCreateLecture: () => void;
   onRename: () => void;
   onDelete: () => void;
   onMove: () => void;
@@ -4908,7 +4600,6 @@ function FolderRow({
       {/* Hidden utility buttons â€” keyboard / programmatic access; all actions also in context menu */}
       <button onClick={onCreate} aria-label={`New note in ${folder.name}`} className="hidden" />
       <button onClick={onCreateFolder} aria-label={`New folder in ${folder.name}`} className="hidden" />
-      <button onClick={onCreateLecture} aria-label={`New project in ${folder.name}`} className="hidden" />
       <button onClick={onRename} aria-label={`Rename ${folder.name}`} className="hidden" />
       <button onClick={onDelete} aria-label={`Delete ${folder.name}`} className="hidden" />
       <button onClick={onMove} aria-label={`Move ${folder.name}`} className="hidden" />
@@ -5338,18 +5029,7 @@ function FeedbackModal({ onClose, onSent }: { onClose: () => void; onSent: () =>
           </div>
           {error ? <div className="rounded-lg border border-danger-400/30 bg-danger-400/10 px-3 py-2 text-xs text-danger-400">{error}</div> : null}
         </div>
-        <div className="flex items-center justify-between border-t border-graphite-rail px-5 py-4">
-          <a
-            href="https://discord.gg/YOUR_DISCORD_INVITE"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-1.5 text-xs text-ink-500 hover:text-[#5865F2] transition-colors"
-          >
-            <svg className="h-3.5 w-3.5" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026c.462-.62.874-1.275 1.226-1.963.021-.04.001-.088-.041-.104a13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z"/>
-            </svg>
-            Chat on Discord
-          </a>
+        <div className="flex items-center justify-end border-t border-graphite-rail px-5 py-4">
           <div className="flex gap-3">
             <button
               onClick={onClose}
@@ -5637,291 +5317,6 @@ function TableInsertModal({
             {busy ? "Inserting..." : "Insert table"}
           </button>
         </div>
-      </div>
-    </div>
-  );
-}
-
-function ShareModal({
-  note, shares, email, permission, loading,
-  onEmailChange, onPermissionChange, onShare, onRevoke, onUpdatePermission, onClose
-}: {
-  note: Note;
-  shares: NoteShare[];
-  email: string;
-  permission: NoteSharePermission;
-  loading: boolean;
-  onEmailChange: (v: string) => void;
-  onPermissionChange: (v: NoteSharePermission) => void;
-  onShare: () => void;
-  onRevoke: (userId: string) => void;
-  onUpdatePermission: (userId: string, perm: NoteSharePermission) => void;
-  onClose: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
-      <div className="relative w-full max-w-md rounded-2xl border border-graphite-rail bg-[#0b0e14] p-6" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-5 flex items-start justify-between">
-          <div>
-            <h2 className="text-base font-semibold text-ink-100">Share note</h2>
-            <p className="mt-0.5 truncate text-sm text-ink-500">{note.title}</p>
-          </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Add person */}
-        <div className="flex gap-2">
-          <input
-            value={email}
-            onChange={(e) => onEmailChange(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && onShare()}
-            placeholder="Email address"
-            type="email"
-            className="flex-1 rounded-xl border border-graphite-rail bg-ink-950/60 px-3 py-2 text-sm text-ink-100 placeholder-ink-600 outline-none focus:border-accent-500/50"
-          />
-          <select
-            value={permission}
-            onChange={(e) => onPermissionChange(e.target.value as NoteSharePermission)}
-            className="rounded-xl border border-graphite-rail bg-ink-950/60 px-2 py-2 text-sm text-ink-200 outline-none"
-          >
-            <option value="edit">Can edit</option>
-            <option value="view">Can view</option>
-          </select>
-          <button
-            onClick={onShare}
-            disabled={loading || !email.trim()}
-            className="flex items-center gap-1.5 rounded-xl bg-accent-500 px-3 py-2 text-sm font-semibold text-ink-100 hover:bg-accent-400 disabled:opacity-50"
-          >
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <UserPlus className="h-3.5 w-3.5" />}
-            Share
-          </button>
-        </div>
-
-        {/* Current shares */}
-        {shares.length > 0 ? (
-          <div className="mt-5">
-            <div className="mb-2 text-xs font-semibold text-ink-500">People with access</div>
-            <div className="space-y-2">
-              {shares.map((share) => (
-                <div key={share.sharedWithUserId} className="flex items-center gap-3 rounded-xl border border-graphite-rail bg-ink-800/40 px-3 py-2.5">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-500/20 text-sm font-semibold text-accent-300">
-                    {share.sharedWithName.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-ink-100">{share.sharedWithName}</div>
-                    <div className="truncate text-xs text-ink-500">{share.sharedWithEmail}</div>
-                  </div>
-                  <select
-                    value={share.permission}
-                    onChange={(e) => onUpdatePermission(share.sharedWithUserId, e.target.value as NoteSharePermission)}
-                    className="rounded-lg border border-graphite-rail bg-ink-900 px-2 py-1 text-xs text-ink-200 outline-none"
-                  >
-                    <option value="edit">Can edit</option>
-                    <option value="view">Can view</option>
-                  </select>
-                  <button
-                    onClick={() => onRevoke(share.sharedWithUserId)}
-                    className="rounded-lg p-1.5 text-ink-500 hover:bg-danger-400/10 hover:text-danger-400"
-                    aria-label="Remove access"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <p className="mt-4 text-center text-sm text-ink-600">Only you have access to this note.</p>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function WorkspaceCreateModal({
-  onClose,
-  onCreate
-}: {
-  onClose: () => void;
-  onCreate: (name: string, description: string) => Promise<void>;
-}) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function handleSubmit() {
-    if (!name.trim()) return;
-    setBusy(true);
-    try { await onCreate(name.trim(), description.trim()); } finally { setBusy(false); }
-  }
-
-  return (
-    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl border border-graphite-rail bg-[#0b0e14]" onClick={(e) => e.stopPropagation()}>
-        <div className="border-b border-graphite-rail px-5 py-4">
-          <div className="flex items-center gap-2">
-            <Users className="h-5 w-5 text-accent-400" />
-            <div className="text-lg font-semibold text-ink-100">Create team workspace</div>
-          </div>
-          <div className="mt-1 text-sm text-ink-500">A shared space where team members can collaborate on notes and documents.</div>
-        </div>
-        <div className="space-y-4 px-5 py-4">
-          <label className="block">
-            <span className="mb-2 block text-xs font-medium text-ink-500">Workspace name</span>
-            <input
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") void handleSubmit(); }}
-              placeholder="e.g. Product Team"
-              className="control-soft w-full rounded-lg px-3 py-2.5 text-sm text-ink-100 outline-none"
-            />
-          </label>
-          <label className="block">
-            <span className="mb-2 block text-xs font-medium text-ink-500">Description (optional)</span>
-            <input
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="What is this workspace for?"
-              className="control-soft w-full rounded-lg px-3 py-2.5 text-sm text-ink-100 outline-none"
-            />
-          </label>
-        </div>
-        <div className="flex items-center justify-end gap-3 border-t border-graphite-rail px-5 py-4">
-          <button onClick={onClose} disabled={busy} className="rounded-lg border border-graphite-rail px-4 py-2 text-sm font-medium text-ink-300 hover:bg-graphite-rail/40 disabled:opacity-60">Cancel</button>
-          <button onClick={() => void handleSubmit()} disabled={busy || !name.trim()} className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-ink-100 hover:bg-accent-400 disabled:opacity-60">
-            {busy ? "Creating..." : "Create workspace"}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function WorkspaceManageModal({
-  workspace,
-  userId,
-  inviteEmail,
-  inviteToken,
-  inviteLoading,
-  onInviteEmailChange,
-  onSendInvite,
-  onCopyToken,
-  onRemoveMember,
-  onDeleteWorkspace,
-  onClose
-}: {
-  workspace: WorkspaceWithMembers;
-  userId: string;
-  inviteEmail: string;
-  inviteToken: string | null;
-  inviteLoading: boolean;
-  onInviteEmailChange: (v: string) => void;
-  onSendInvite: () => void;
-  onCopyToken: (token: string) => void;
-  onRemoveMember: (userId: string) => Promise<void>;
-  onDeleteWorkspace: () => void;
-  onClose: () => void;
-}) {
-  const isOwner = workspace.currentUserRole === "owner";
-  const [removingId, setRemovingId] = useState<string | null>(null);
-
-  return (
-    <div className="fixed inset-0 z-[70] grid place-items-center bg-black/70 p-4 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-lg rounded-2xl border border-graphite-rail bg-[#0b0e14]" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-graphite-rail px-5 py-4">
-          <div>
-            <div className="flex items-center gap-2">
-              <Users className="h-5 w-5 text-accent-400" />
-              <div className="text-lg font-semibold text-ink-100">{workspace.name}</div>
-            </div>
-            {workspace.description ? <div className="mt-0.5 text-sm text-ink-500">{workspace.description}</div> : null}
-          </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-500 hover:bg-graphite-rail/40 hover:text-ink-200"><X className="h-4 w-4" /></button>
-        </div>
-
-        <div className="max-h-[60vh] overflow-y-auto">
-          {isOwner ? (
-            <div className="border-b border-graphite-rail px-5 py-4">
-              <div className="mb-3 text-xs font-medium text-ink-500">Invite member</div>
-              {inviteToken ? (
-                <div className="rounded-lg border border-accent-500/20 bg-accent-500/10 p-3">
-                  <div className="mb-2 text-xs text-ink-400">Invite link generated â€” share with your colleague:</div>
-                  <div className="mb-2 break-all rounded bg-ink-800 px-2 py-1.5 font-mono text-xs text-accent-300">{`${typeof window !== "undefined" ? window.location.origin : ""}/workspace/join?token=${inviteToken}`}</div>
-                  <button onClick={() => onCopyToken(inviteToken)} className="flex items-center gap-1.5 text-xs font-medium text-accent-300 hover:text-accent-200">
-                    <Copy className="h-3 w-3" />
-                    Copy invite link
-                  </button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <input
-                    type="email"
-                    value={inviteEmail}
-                    onChange={(e) => onInviteEmailChange(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === "Enter") onSendInvite(); }}
-                    placeholder="colleague@company.com"
-                    className="control-soft flex-1 rounded-lg px-3 py-2 text-sm text-ink-100 outline-none"
-                  />
-                  <button
-                    onClick={onSendInvite}
-                    disabled={inviteLoading || !inviteEmail.trim()}
-                    className="rounded-lg bg-accent-500 px-3 py-2 text-sm font-semibold text-ink-100 hover:bg-accent-400 disabled:opacity-60"
-                  >
-                    {inviteLoading ? "Sending..." : "Invite"}
-                  </button>
-                </div>
-              )}
-            </div>
-          ) : null}
-
-          <div className="px-5 py-4">
-            <div className="mb-3 text-xs font-medium text-ink-500">Members ({workspace.members.length})</div>
-            <div className="space-y-2">
-              {workspace.members.map((member: { userId: string; name: string; email: string; role: string }) => (
-                <div key={member.userId} className="flex items-center gap-3">
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-700 text-xs font-semibold text-ink-200">
-                    {member.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium text-ink-200">{member.name}</div>
-                    <div className="truncate text-xs text-ink-500">{member.email}</div>
-                  </div>
-                  <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${member.role === "owner" ? "bg-accent-500/15 text-accent-300" : "bg-ink-700/60 text-ink-400"}`}>
-                    {member.role}
-                  </span>
-                  {(isOwner && member.userId !== userId) || (member.userId === userId && !isOwner) ? (
-                    <button
-                      onClick={async () => {
-                        setRemovingId(member.userId);
-                        try { await onRemoveMember(member.userId); } finally { setRemovingId(null); }
-                      }}
-                      disabled={removingId === member.userId}
-                      className="shrink-0 rounded p-1 text-ink-600 hover:text-danger-400 disabled:opacity-40"
-                      title={member.userId === userId ? "Leave workspace" : "Remove member"}
-                    >
-                      <X className="h-3.5 w-3.5" />
-                    </button>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {isOwner ? (
-          <div className="flex items-center justify-between border-t border-graphite-rail px-5 py-4">
-            <button onClick={onDeleteWorkspace} className="text-xs font-medium text-danger-500 hover:text-danger-400">Delete workspace</button>
-            <button onClick={onClose} className="rounded-lg border border-graphite-rail px-4 py-2 text-sm font-medium text-ink-300 hover:bg-graphite-rail/40">Done</button>
-          </div>
-        ) : (
-          <div className="flex justify-end border-t border-graphite-rail px-5 py-4">
-            <button onClick={onClose} className="rounded-lg border border-graphite-rail px-4 py-2 text-sm font-medium text-ink-300 hover:bg-graphite-rail/40">Close</button>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -6645,84 +6040,6 @@ function KeyboardShortcutsModal({ onClose }: { onClose: () => void }) {
   );
 }
 
-function FolderShareModal({
-  folder,
-  token,
-  loading,
-  onClose,
-  onToggle,
-  onCopy
-}: {
-  folder: FolderType;
-  token: string | null;
-  loading: boolean;
-  onClose: () => void;
-  onToggle: () => void;
-  onCopy: () => void;
-}) {
-  const shareUrl = token ? `${typeof window !== "undefined" ? window.location.origin : ""}/share/folder/${token}` : null;
-
-  return (
-    <>
-      <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-graphite-rail bg-[#0b0e14]">
-        <div className="flex items-center justify-between border-b border-graphite-rail px-5 py-4">
-          <div>
-            <h2 className="text-sm font-semibold text-ink-100">Share Folder</h2>
-            <p className="mt-0.5 truncate text-xs text-ink-500">{folder.name}</p>
-          </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-500 hover:bg-graphite-rail/40 hover:text-ink-200">
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="px-5 py-4 space-y-4">
-          {token ? (
-            <>
-              <div className="rounded-lg border border-graphite-rail bg-black px-3 py-2">
-                <p className="truncate text-xs text-ink-400 font-mono">{shareUrl}</p>
-              </div>
-              <p className="text-xs text-ink-500 leading-5">
-                Anyone with this link can view all notes in this folder and its subfolders.
-              </p>
-              <div className="flex gap-2">
-                <button
-                  onClick={onCopy}
-                  className="flex-1 rounded-[6px] border border-electric-blue px-3 py-2 text-sm font-semibold text-white hover:bg-electric-blue/10 transition-colors"
-                >
-                  Copy link
-                </button>
-                <button
-                  onClick={onToggle}
-                  disabled={loading}
-                  className="rounded-[6px] border border-graphite-rail px-3 py-2 text-sm text-ink-400 hover:bg-graphite-rail/30 transition-colors disabled:opacity-50"
-                >
-                  {loading ? "â€¦" : "Disable"}
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <p className="text-xs text-ink-500 leading-5">
-                Create a public link to share this folder and all its notes with anyone â€” no account required.
-              </p>
-              <button
-                onClick={onToggle}
-                disabled={loading}
-                className="w-full rounded-[6px] border border-electric-blue px-4 py-2 text-sm font-semibold text-white hover:bg-electric-blue/10 transition-colors disabled:opacity-50"
-              >
-                {loading ? "Creatingâ€¦" : "Create public link"}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </>
-  );
-}
-
-/* â”€â”€â”€ Notebook Dashboard â”€â”€â”€ */
-
 function NoteCard({
   note,
   relDate,
@@ -6762,7 +6079,6 @@ function NoteCard({
 
 function NotebookDashboard({
   data,
-  activeWorkspaceId,
   seeding,
   onboardingChoice,
   onNoteClick,
@@ -6773,7 +6089,6 @@ function NotebookDashboard({
   onOpenAsk,
 }: {
   data: Bootstrap;
-  activeWorkspaceId: string | null;
   seeding: boolean;
   onboardingChoice: "sample" | "empty" | null;
   onNoteClick: (noteId: string) => void;
@@ -6813,12 +6128,12 @@ function NotebookDashboard({
   const firstName =
     data.user.name?.split(" ")[0] || data.user.email?.split("@")[0] || "there";
 
-  /* â”€â”€ First-run onboarding (no notes yet) â”€â”€ */
+  /* ── First-run onboarding (no notes yet) ── */
   if (seeding) {
     return (
       <div className="flex h-full flex-col items-center justify-center bg-ink-950">
         <Loader2 className="mb-4 h-8 w-8 animate-spin text-accent-400" />
-        <div className="text-sm text-ink-400">Setting up your sample workspaceâ€¦</div>
+        <div className="text-sm text-ink-400">Setting up your sample notes…</div>
       </div>
     );
   }
@@ -6841,7 +6156,7 @@ function NotebookDashboard({
                 <BookOpen className="h-5 w-5 text-accent-400" />
               </div>
               <div>
-                <div className="text-sm font-semibold text-ink-100">Sample workspace</div>
+                <div className="text-sm font-semibold text-ink-100">Sample notes</div>
                 <div className="mt-1 text-xs leading-5 text-ink-500">Explore with 15 pre-written notes. Replace them anytime.</div>
               </div>
               <div className="mt-auto flex items-center gap-1 text-xs font-medium text-accent-400">
@@ -6857,7 +6172,7 @@ function NotebookDashboard({
               </div>
               <div>
                 <div className="text-sm font-semibold text-ink-100">Start fresh</div>
-                <div className="mt-1 text-xs leading-5 text-ink-500">Begin with a blank workspace and add your own notes.</div>
+                <div className="mt-1 text-xs leading-5 text-ink-500">Begin with a blank vault and add your own notes.</div>
               </div>
               <div className="mt-auto flex items-center gap-1 text-xs font-medium text-ink-400 group-hover:text-ink-300">
                 Start empty <ChevronRight className="h-3 w-3" />
@@ -6876,7 +6191,7 @@ function NotebookDashboard({
         <div className="relative mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl border border-accent-500/30 bg-accent-500/15">
           <Sparkles className="h-6 w-6 text-accent-400" />
         </div>
-        <div className="relative text-xl font-bold tracking-tight text-ink-100">Your workspace is ready</div>
+        <div className="relative text-xl font-bold tracking-tight text-ink-100">Your vault is ready</div>
         <div className="relative mt-2 text-sm leading-6 text-ink-500">
           Create notes, then use Ask, flashcards, and quizzes to study them with AI.
         </div>
@@ -6895,7 +6210,7 @@ function NotebookDashboard({
     );
   }
 
-  /* â”€â”€ Main dashboard â”€â”€ */
+  /* ── Main dashboard ── */
   const allNotesSorted = [...workspaceNotes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
   return (
@@ -6909,7 +6224,7 @@ function NotebookDashboard({
             </h1>
             <p className="mt-1 text-sm text-ink-500">
               {workspaceNotes.length} {workspaceNotes.length === 1 ? "note" : "notes"}
-              {data.documents.length > 0 ? ` Â· ${data.documents.length} document${data.documents.length === 1 ? "" : "s"}` : ""}
+              {data.documents.length > 0 ? ` · ${data.documents.length} document${data.documents.length === 1 ? "" : "s"}` : ""}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2 pt-1">
@@ -6935,7 +6250,7 @@ function NotebookDashboard({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search notesâ€¦"
+            placeholder="Search notes…"
             className="flex-1 bg-transparent text-sm text-ink-100 placeholder-ink-600 outline-none"
           />
           {search && (
@@ -6973,7 +6288,7 @@ function NotebookDashboard({
                 <MessageSquareText className="h-4 w-4" />
               </div>
               <span className="min-w-0 flex-1 text-sm text-ink-500 group-hover:text-ink-300">
-                Ask anything about your notesâ€¦
+                Ask anything about your notes…
               </span>
               <span className="hidden shrink-0 rounded border border-graphite-rail bg-ink-875 px-2 py-0.5 font-mono text-[10px] text-ink-600 sm:block">
                 AI tools
@@ -6993,7 +6308,7 @@ function NotebookDashboard({
                 </div>
                 {allNotesSorted.length > 12 && (
                   <p className="mt-4 text-center text-xs text-ink-600">
-                    {allNotesSorted.length - 12} more â€” use search or the sidebar to find them
+                    {allNotesSorted.length - 12} more – use search or the sidebar to find them
                   </p>
                 )}
               </section>

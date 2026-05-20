@@ -26,7 +26,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   return withAuthenticatedUser(async (user) => {
     const { id } = await params;
     const body = updateSchema.parse(await request.json());
-    // updateNote already checks ownership and edit-share permission internally
     const note = await updateNote(user.id, id, body);
     return note ? NextResponse.json(note) : NextResponse.json({ error: "Not found or no edit permission" }, { status: 404 });
   });
