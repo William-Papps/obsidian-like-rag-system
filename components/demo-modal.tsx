@@ -5,8 +5,8 @@ import { Mail, MessageCircle } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 
-const CONTACT_EMAIL = "discordboteternal@gmail.com";
-const DISCORD_URL = "https://discord.gg/6hhxtpzkAE";
+const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? "contact@example.com";
+const DISCORD_URL = process.env.NEXT_PUBLIC_DISCORD_URL ?? "";
 
 export function RequestDemoButton() {
   const [open, setOpen] = useState(false);

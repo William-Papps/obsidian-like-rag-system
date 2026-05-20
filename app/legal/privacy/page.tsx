@@ -20,7 +20,7 @@ export default function PrivacyPage() {
       <h2>1. Who We Are</h2>
       <p>
         EternalNotes is an AI-powered note-taking and study platform. For questions about your
-        data, contact us at <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a>.
+        data, contact us at <a href="mailto:contact@example.com">contact@example.com</a>.
       </p>
 
       <h2>2. Data We Collect</h2>
@@ -140,7 +140,7 @@ export default function PrivacyPage() {
       </ul>
       <p>
         To exercise any of these rights, contact us at{" "}
-        <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a>. We do not
+        <a href="mailto:contact@example.com">contact@example.com</a>. We do not
         currently have a self-serve data export or deletion tool â€” requests are handled manually.
       </p>
 
@@ -166,10 +166,12 @@ export default function PrivacyPage() {
 
       <h2>13. Contact</h2>
       <p>
-        Privacy questions or data requests: <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a>{" "}
-        or our <a href="https://discord.gg/6hhxtpzkAE" target="_blank" rel="noopener noreferrer">Discord community</a>.
+        Privacy questions or data requests: <a href="mailto:contact@example.com">contact@example.com</a>{" "}
+        or our <a href="https://discord.gg/YOUR_DISCORD_INVITE" target="_blank" rel="noopener noreferrer">Discord community</a>.
       </p>
     </article>
   );
 }
+
+
 

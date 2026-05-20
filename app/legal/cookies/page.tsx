@@ -98,10 +98,12 @@ export default function CookiesPage() {
 
       <h2>7. Contact</h2>
       <p>
-        Questions? <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a>{" "}
-        or <a href="https://discord.gg/6hhxtpzkAE" target="_blank" rel="noopener noreferrer">Discord</a>.
+        Questions? <a href="mailto:contact@example.com">contact@example.com</a>{" "}
+        or <a href="https://discord.gg/YOUR_DISCORD_INVITE" target="_blank" rel="noopener noreferrer">Discord</a>.
       </p>
     </article>
   );
 }
+
+
 

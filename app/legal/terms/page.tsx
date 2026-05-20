@@ -28,7 +28,7 @@ export default function TermsPage() {
       <p>
         You are responsible for keeping your login credentials secure. Do not share your password.
         You are responsible for all activity that takes place under your account. Notify us
-        immediately at <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a> if
+        immediately at <a href="mailto:contact@example.com">contact@example.com</a> if
         you believe your account has been compromised.
       </p>
 
@@ -134,10 +134,12 @@ export default function TermsPage() {
 
       <h2>14. Contact</h2>
       <p>
-        Questions about these Terms? Reach us at <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a> or
-        via our <a href="https://discord.gg/6hhxtpzkAE" target="_blank" rel="noopener noreferrer">Discord community</a>.
+        Questions about these Terms? Reach us at <a href="mailto:contact@example.com">contact@example.com</a> or
+        via our <a href="https://discord.gg/YOUR_DISCORD_INVITE" target="_blank" rel="noopener noreferrer">Discord community</a>.
       </p>
     </article>
   );
 }
+
+
 

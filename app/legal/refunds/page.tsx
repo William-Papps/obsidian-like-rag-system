@@ -32,8 +32,8 @@ export default function RefundsPage() {
         <li>
           <strong>Cancellation:</strong> You can request cancellation of your paid plan at any
           time by contacting us at{" "}
-          <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a> or
-          via <a href="https://discord.gg/6hhxtpzkAE" target="_blank" rel="noopener noreferrer">Discord</a>.
+          <a href="mailto:contact@example.com">contact@example.com</a> or
+          via <a href="https://discord.gg/YOUR_DISCORD_INVITE" target="_blank" rel="noopener noreferrer">Discord</a>.
           Your access will continue until the end of the paid period.
         </li>
         <li>
@@ -62,11 +62,13 @@ export default function RefundsPage() {
 
       <h2>6. Contact</h2>
       <p>
-        Billing or refund queries: <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a>{" "}
-        or <a href="https://discord.gg/6hhxtpzkAE" target="_blank" rel="noopener noreferrer">Discord</a>.
+        Billing or refund queries: <a href="mailto:contact@example.com">contact@example.com</a>{" "}
+        or <a href="https://discord.gg/YOUR_DISCORD_INVITE" target="_blank" rel="noopener noreferrer">Discord</a>.
         We aim to respond within 2 business days.
       </p>
     </article>
   );
 }
+
+
 

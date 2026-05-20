@@ -5,7 +5,7 @@ import { createDiscordVerificationToken } from "@/lib/services/discord-verify";
 export const dynamic = "force-dynamic";
 
 function appUrl() {
-  return process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://notes.eternalbot.net";
+  return process.env.NEXT_PUBLIC_APP_URL?.trim() || "http://localhost:3000";
 }
 
 export async function POST(request: Request) {

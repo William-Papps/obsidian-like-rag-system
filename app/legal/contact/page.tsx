@@ -22,7 +22,7 @@ export default function ContactPage() {
         active and can respond quickly.
       </p>
       <p>
-        <a href="https://discord.gg/6hhxtpzkAE" target="_blank" rel="noopener noreferrer">
+        <a href="https://discord.gg/YOUR_DISCORD_INVITE" target="_blank" rel="noopener noreferrer">
           Join the EternalNotes Discord â†’
         </a>
       </p>
@@ -33,14 +33,14 @@ export default function ContactPage() {
         handle by email:
       </p>
       <p>
-        <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a>
+        <a href="mailto:contact@example.com">contact@example.com</a>
       </p>
       <p>We aim to respond within 2 business days.</p>
 
       <h2>Privacy and Data Requests</h2>
       <p>
         To request access to your data, correction of your data, or deletion of your account,
-        email us at <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a> with
+        email us at <a href="mailto:contact@example.com">contact@example.com</a> with
         the subject line "Data Request" and include the email address associated with your account.
         We handle these requests manually and will respond within a reasonable timeframe.
       </p>
@@ -66,4 +66,6 @@ export default function ContactPage() {
     </article>
   );
 }
+
+
 

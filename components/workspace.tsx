@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { markdown } from "@codemirror/lang-markdown";
 import { javascript } from "@codemirror/lang-javascript";
@@ -150,32 +150,32 @@ type TableDialogState = {
 } | null;
 
 const SYMBOL_GROUPS: { label: string; symbols: string[] }[] = [
-  { label: "Common Math",    symbols: ["∑","∏","∫","∬","∂","∇","√","∛","∜","∞","±","×","÷","·","°","‰","∝","∎"] },
-  { label: "Relations",     symbols: ["≈","≠","≡","≤","≥","≪","≫","∼","≅","≃","⊂","⊃","⊆","⊇","∈","∉","∅","⊄","⊊"] },
-  { label: "Logic & Sets",  symbols: ["∧","∨","¬","⊤","⊥","⊢","⊨","∀","∃","∄","∴","∵","∪","∩","⊕","⊗"] },
-  { label: "Greek lower",   symbols: ["α","β","γ","δ","ε","ζ","η","θ","ι","κ","λ","μ","ν","ξ","π","ρ","σ","τ","υ","φ","χ","ψ","ω"] },
-  { label: "Greek upper",   symbols: ["Γ","Δ","Θ","Λ","Ξ","Π","Σ","Υ","Φ","Χ","Ψ","Ω"] },
-  { label: "Arrows",        symbols: ["→","←","↑","↓","↔","↕","⇒","⇐","⇑","⇓","⇔","↦","⟹","⟺","↗","↘","↙","↖","⟶","⟵"] },
-  { label: "Superscripts",  symbols: ["⁰","¹","²","³","⁴","⁵","⁶","⁷","⁸","⁹","ⁿ","ⁱ","⁺","⁻"] },
-  { label: "Subscripts",    symbols: ["₀","₁","₂","₃","₄","₅","₆","₇","₈","₉","₊","₋","₌","₍","₎"] },
-  { label: "Fractions",     symbols: ["½","⅓","¼","¾","⅔","⅛","⅜","⅝","⅞","⅙","⅚","⅟"] },
-  { label: "Geometry",      symbols: ["∠","∡","∢","⊾","⊿","△","▲","▽","▼","◇","◆","□","■","○","●","⊙","⊚"] },
-  { label: "Misc",          symbols: ["©","®","™","€","£","¥","¢","§","¶","†","‡","•","…","″","′","℃","℉","Å"] },
+  { label: "Common Math",    symbols: ["âˆ‘","âˆ","âˆ«","âˆ¬","âˆ‚","âˆ‡","âˆš","âˆ›","âˆœ","âˆž","Â±","Ã—","Ã·","Â·","Â°","â€°","âˆ","âˆŽ"] },
+  { label: "Relations",     symbols: ["â‰ˆ","â‰ ","â‰¡","â‰¤","â‰¥","â‰ª","â‰«","âˆ¼","â‰…","â‰ƒ","âŠ‚","âŠƒ","âŠ†","âŠ‡","âˆˆ","âˆ‰","âˆ…","âŠ„","âŠŠ"] },
+  { label: "Logic & Sets",  symbols: ["âˆ§","âˆ¨","Â¬","âŠ¤","âŠ¥","âŠ¢","âŠ¨","âˆ€","âˆƒ","âˆ„","âˆ´","âˆµ","âˆª","âˆ©","âŠ•","âŠ—"] },
+  { label: "Greek lower",   symbols: ["Î±","Î²","Î³","Î´","Îµ","Î¶","Î·","Î¸","Î¹","Îº","Î»","Î¼","Î½","Î¾","Ï€","Ï","Ïƒ","Ï„","Ï…","Ï†","Ï‡","Ïˆ","Ï‰"] },
+  { label: "Greek upper",   symbols: ["Î“","Î”","Î˜","Î›","Îž","Î ","Î£","Î¥","Î¦","Î§","Î¨","Î©"] },
+  { label: "Arrows",        symbols: ["â†’","â†","â†‘","â†“","â†”","â†•","â‡’","â‡","â‡‘","â‡“","â‡”","â†¦","âŸ¹","âŸº","â†—","â†˜","â†™","â†–","âŸ¶","âŸµ"] },
+  { label: "Superscripts",  symbols: ["â°","Â¹","Â²","Â³","â´","âµ","â¶","â·","â¸","â¹","â¿","â±","âº","â»"] },
+  { label: "Subscripts",    symbols: ["â‚€","â‚","â‚‚","â‚ƒ","â‚„","â‚…","â‚†","â‚‡","â‚ˆ","â‚‰","â‚Š","â‚‹","â‚Œ","â‚","â‚Ž"] },
+  { label: "Fractions",     symbols: ["Â½","â…“","Â¼","Â¾","â…”","â…›","â…œ","â…","â…ž","â…™","â…š","â…Ÿ"] },
+  { label: "Geometry",      symbols: ["âˆ ","âˆ¡","âˆ¢","âŠ¾","âŠ¿","â–³","â–²","â–½","â–¼","â—‡","â—†","â–¡","â– ","â—‹","â—","âŠ™","âŠš"] },
+  { label: "Misc",          symbols: ["Â©","Â®","â„¢","â‚¬","Â£","Â¥","Â¢","Â§","Â¶","â€ ","â€¡","â€¢","â€¦","â€³","â€²","â„ƒ","â„‰","Ã…"] },
   { label: "Crow's Foot",  symbols: [
     // Lines
-    "─","│","═","║","━","┃",
+    "â”€","â”‚","â•","â•‘","â”","â”ƒ",
     // Corners
-    "┌","┐","└","┘","╔","╗","╚","╝",
+    "â”Œ","â”","â””","â”˜","â•”","â•—","â•š","â•",
     // T-junctions
-    "├","┤","┬","┴","╠","╣","╦","╩",
+    "â”œ","â”¤","â”¬","â”´","â• ","â•£","â•¦","â•©",
     // Crossings
-    "┼","╬",
-    // One (tack) — mandatory end
-    "⊢","⊣","⊤","⊥","‖","∥",
-    // Zero — optional end
-    "○","◯",
-    // Many — crow's foot end
-    "≺","≻","⋈","⊳","⊲",
+    "â”¼","â•¬",
+    // One (tack) â€” mandatory end
+    "âŠ¢","âŠ£","âŠ¤","âŠ¥","â€–","âˆ¥",
+    // Zero â€” optional end
+    "â—‹","â—¯",
+    // Many â€” crow's foot end
+    "â‰º","â‰»","â‹ˆ","âŠ³","âŠ²",
   ]},
 ];
 
@@ -458,7 +458,7 @@ export function Workspace() {
     const current = data.indexStatus.staleNotes;
     prevStaleNotesRef.current = current;
     if (prev !== null && prev > 0 && current === 0) {
-      notify("Your notes are ready — try asking a question.", "success");
+      notify("Your notes are ready â€” try asking a question.", "success");
     }
   }, [onboardingChoice, data, notify]);
 
@@ -567,7 +567,7 @@ export function Workspace() {
     setEditorSeed(md);
     setHistoryOpen(false);
     // Always sync the editor imperatively so note switches are correct even when
-    // editorSeed doesn't change (e.g. switching between two empty notes — React
+    // editorSeed doesn't change (e.g. switching between two empty notes â€” React
     // bails out of the state update and @uiw/react-codemirror never re-renders).
     const view = editorViewRef.current;
     if (view) {
@@ -713,7 +713,7 @@ export function Workspace() {
       setOnboardingChoice("sample");
       await refresh();
     } catch {
-      // silently ignore — user can retry
+      // silently ignore â€” user can retry
     } finally {
       setSeeding(false);
     }
@@ -782,7 +782,7 @@ export function Workspace() {
         }
       }, 450);
     },
-    [] // no dependency on data — reads via dataRef
+    [] // no dependency on data â€” reads via dataRef
   );
 
   const onEditorChange = useCallback(
@@ -805,7 +805,7 @@ export function Workspace() {
     if (inTable !== cursorInTableRef.current) setCursorInTable(inTable);
   }, []);
 
-  // Cold path — toolbar actions, version restore, imports. Immediate state update is fine.
+  // Cold path â€” toolbar actions, version restore, imports. Immediate state update is fine.
   const replaceActiveMarkdown = useCallback(
     async (markdownContent: string) => {
       if (!activeNote) return;
@@ -973,7 +973,7 @@ export function Workspace() {
           return true;
         },
         keydown: (event, view) => {
-          // Ctrl+/ → inline AI
+          // Ctrl+/ â†’ inline AI
           if ((event.ctrlKey || event.metaKey) && event.key === "/") {
             event.preventDefault();
             openInlineAIRef.current(view);
@@ -1893,7 +1893,7 @@ export function Workspace() {
               <button aria-label="Import document" title="Import document" onClick={() => setImportModalOpen(true)} className="grid h-8 w-8 place-items-center rounded-lg text-ink-400 hover:bg-ink-925/50 hover:text-ink-100 focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]">
                 <Upload className="h-4 w-4" />
               </button>
-              <button aria-label={reindexingAll ? "Indexing…" : "Index notes"} title={reindexingAll ? "Indexing…" : "Index notes"} onClick={() => void reindexAll()} disabled={reindexingAll} className="grid h-8 w-8 place-items-center rounded-lg text-ink-400 hover:bg-ink-925/50 hover:text-ink-100 focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] disabled:opacity-50">
+              <button aria-label={reindexingAll ? "Indexingâ€¦" : "Index notes"} title={reindexingAll ? "Indexingâ€¦" : "Index notes"} onClick={() => void reindexAll()} disabled={reindexingAll} className="grid h-8 w-8 place-items-center rounded-lg text-ink-400 hover:bg-ink-925/50 hover:text-ink-100 focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)] disabled:opacity-50">
                 {reindexingAll ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               </button>
               <a href="/account" aria-label="Account" title="Account" className="grid h-8 w-8 place-items-center rounded-lg text-ink-400 hover:bg-ink-925/50 hover:text-ink-100 focus:outline-none focus:ring-2 focus:ring-[var(--focus-ring)]">
@@ -1931,14 +1931,14 @@ export function Workspace() {
                 </button>
               </div>
             </div>
-            {/* Search — inline below breadcrumb */}
+            {/* Search â€” inline below breadcrumb */}
             <div className="mt-2 flex items-center gap-2 rounded-lg border border-ink-750/55 bg-ink-900/50 px-2.5 py-1.5">
               <Search className="h-3.5 w-3.5 shrink-0 text-ink-500" />
               <input
                 type="text"
                 value={vaultSearch}
                 onChange={(e) => setVaultSearch(e.target.value)}
-                placeholder="Filter notes…"
+                placeholder="Filter notesâ€¦"
                 className="min-w-0 flex-1 bg-transparent text-xs text-ink-100 placeholder-ink-600 outline-none"
               />
               {vaultSearch && (
@@ -2197,7 +2197,7 @@ export function Workspace() {
                 ))}
                 <label className="mt-1 flex w-full cursor-pointer items-center gap-1.5 rounded-lg px-2 py-1.5 text-xs text-ink-500 hover:bg-graphite-rail/20 hover:text-ink-300">
                   {docUploading ? <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" /> : <Upload className="h-3.5 w-3.5 shrink-0" />}
-                  {docUploading ? "Uploading…" : "Upload file"}
+                  {docUploading ? "Uploadingâ€¦" : "Upload file"}
                   <input
                     type="file"
                     accept=".pdf,.docx,.txt"
@@ -2268,7 +2268,7 @@ export function Workspace() {
                     <Download className="h-3.5 w-3.5" />
                   </button>
                   <button
-                    title={publicToken ? "Public link active — click to copy" : "Create public share link"}
+                    title={publicToken ? "Public link active â€” click to copy" : "Create public share link"}
                     aria-label={publicToken ? "Copy public link" : "Create public share link"}
                     onClick={() => {
                       if (publicToken) {
@@ -2320,7 +2320,7 @@ export function Workspace() {
                   {/* Symbol picker */}
                   <div className="relative">
                     <button title="Insert symbol" aria-label="Insert symbol" onClick={(e) => { e.stopPropagation(); if (editorView) symbolInsertPosRef.current = editorView.state.selection.main.from; setSymbolsOpen((o) => !o); setSymbolsQuery(""); }} className={`grid h-7 w-7 place-items-center rounded hover:bg-graphite-rail/30 ${symbolsOpen ? "text-accent-300" : "text-ink-500 hover:text-ink-200"}`}>
-                      <span className="font-serif text-sm leading-none">∑</span>
+                      <span className="font-serif text-sm leading-none">âˆ‘</span>
                     </button>
                     {symbolsOpen && (
                       <div onClick={(e) => e.stopPropagation()} className="absolute right-0 top-[calc(100%+6px)] z-50 w-80 overflow-hidden rounded-xl border border-graphite-rail bg-[#0b0e14]">
@@ -2329,7 +2329,7 @@ export function Workspace() {
                             autoFocus
                             value={symbolsQuery}
                             onChange={(e) => setSymbolsQuery(e.target.value)}
-                            placeholder="Search symbols…"
+                            placeholder="Search symbolsâ€¦"
                             className="w-full rounded-lg bg-ink-900/60 px-2.5 py-1.5 text-xs text-ink-100 outline-none placeholder:text-ink-500"
                           />
                         </div>
@@ -2460,7 +2460,7 @@ export function Workspace() {
                   </span>
                   <span className="flex shrink-0 items-center gap-1">
                     <FileText className="h-3 w-3 shrink-0" />
-                    {wordCount.toLocaleString()} {wordCount === 1 ? "word" : "words"} · {readingMinutes} min read
+                    {wordCount.toLocaleString()} {wordCount === 1 ? "word" : "words"} Â· {readingMinutes} min read
                   </span>
                   {backlinks.length > 0 ? (
                     <span className="group relative flex shrink-0 cursor-pointer items-center gap-1 hover:text-ink-200">
@@ -2505,7 +2505,7 @@ export function Workspace() {
                       className="flex items-center gap-1 hover:text-ink-200"
                     >
                       <Tag className="h-3 w-3 shrink-0" />
-                      {suggestingTags ? "Thinking…" : "Suggest tags"}
+                      {suggestingTags ? "Thinkingâ€¦" : "Suggest tags"}
                     </button>
                     {suggestTagsOpen && suggestedTagsState && (
                       <div className="absolute left-0 top-full z-40 mt-1 min-w-[200px] rounded-xl border border-graphite-rail bg-[#0b0e14] p-3">
@@ -2649,7 +2649,7 @@ export function Workspace() {
             className="rounded-xl border border-accent-500/30 bg-[#0b0e14]"
             onKeyDown={(e) => e.stopPropagation()}
           >
-            <div className="border-b border-graphite-rail px-3 py-2 text-xs font-semibold text-accent-300">Ask AI — inserts answer at cursor (Ctrl+/)</div>
+            <div className="border-b border-graphite-rail px-3 py-2 text-xs font-semibold text-accent-300">Ask AI â€” inserts answer at cursor (Ctrl+/)</div>
             {inlineAI.preview == null ? (
               <>
                 <textarea
@@ -2661,12 +2661,12 @@ export function Workspace() {
                     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void submitInlineAI(); }
                     if (e.key === "Escape") setInlineAI(null);
                   }}
-                  placeholder="Ask a question… (Enter to generate, Esc to close)"
+                  placeholder="Ask a questionâ€¦ (Enter to generate, Esc to close)"
                   disabled={inlineAI.loading}
                   className="w-full resize-none bg-transparent p-3 text-sm text-ink-100 outline-none placeholder:text-ink-500"
                 />
                 <div className="flex items-center justify-end gap-3 border-t border-graphite-rail px-3 py-2">
-                  {inlineAI.loading && <span className="text-xs text-ink-500">Generating…</span>}
+                  {inlineAI.loading && <span className="text-xs text-ink-500">Generatingâ€¦</span>}
                   <button onClick={() => setInlineAI(null)} className="text-xs text-ink-500 hover:text-ink-300">Cancel</button>
                   <button
                     onClick={() => void submitInlineAI()}
@@ -2678,7 +2678,7 @@ export function Workspace() {
             ) : (
               <>
                 <div className="max-h-48 overflow-y-auto p-3 text-sm text-ink-200 whitespace-pre-wrap">
-                  {inlineAI.preview || <span className="text-ink-500 animate-pulse">Generating…</span>}
+                  {inlineAI.preview || <span className="text-ink-500 animate-pulse">Generatingâ€¦</span>}
                 </div>
                 <div className="flex items-center justify-between gap-3 border-t border-graphite-rail px-3 py-2">
                   <button
@@ -2730,7 +2730,7 @@ export function Workspace() {
       {feedbackOpen ? (
         <FeedbackModal
           onClose={() => setFeedbackOpen(false)}
-          onSent={() => { setFeedbackOpen(false); notify("Feedback sent — thank you!", "success"); }}
+          onSent={() => { setFeedbackOpen(false); notify("Feedback sent â€” thank you!", "success"); }}
         />
       ) : null}
       <CommandPalette
@@ -3036,7 +3036,7 @@ function SideRail(props: {
       <div className={`w-full shrink-0 border-t border-graphite-rail pt-3 ${expanded ? "px-3" : "px-2"}`}>
         <div className={`flex flex-col gap-1 ${expanded ? "" : "items-center"}`}>
           <RailIconButton
-            label={props.reindexing ? "Indexing…" : "Index notes"}
+            label={props.reindexing ? "Indexingâ€¦" : "Index notes"}
             onClick={() => void props.onReindex()}
             active={props.reindexing}
           >
@@ -3050,7 +3050,7 @@ function SideRail(props: {
           </RailIconButton>
           <div className="group relative flex justify-center">
             <a
-              href="https://discord.gg/6hhxtpzkAE"
+              href="https://discord.gg/YOUR_DISCORD_INVITE"
               target="_blank"
               rel="noopener noreferrer"
               aria-label="Discord community"
@@ -3253,13 +3253,13 @@ function NoteViewTabs({
           <button title="Add table row" onClick={onAddTableRow} className="grid h-7 place-items-center rounded px-1.5 text-[11px] font-semibold text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">+R</button>
         ) : null}
         {onDeleteTableRow ? (
-          <button title="Delete table row" onClick={onDeleteTableRow} className="grid h-7 place-items-center rounded px-1.5 text-[11px] font-semibold text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">−R</button>
+          <button title="Delete table row" onClick={onDeleteTableRow} className="grid h-7 place-items-center rounded px-1.5 text-[11px] font-semibold text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">âˆ’R</button>
         ) : null}
         {onAddTableColumn ? (
           <button title="Add table column" onClick={onAddTableColumn} className="grid h-7 place-items-center rounded px-1.5 text-[11px] font-semibold text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">+C</button>
         ) : null}
         {onDeleteTableColumn ? (
-          <button title="Delete table column" onClick={onDeleteTableColumn} className="grid h-7 place-items-center rounded px-1.5 text-[11px] font-semibold text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">−C</button>
+          <button title="Delete table column" onClick={onDeleteTableColumn} className="grid h-7 place-items-center rounded px-1.5 text-[11px] font-semibold text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">âˆ’C</button>
         ) : null}
         {onUploadImage ? (
           <>
@@ -3289,7 +3289,7 @@ function NoteViewTabs({
             {formatting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
           </button>
         ) : null}
-        {pastingImage ? <span className="ml-1 text-xs font-medium text-accent-300">Importing…</span> : null}
+        {pastingImage ? <span className="ml-1 text-xs font-medium text-accent-300">Importingâ€¦</span> : null}
       </div>
     </div>
   );
@@ -3721,7 +3721,7 @@ function AskTool({
           <Loader2 className="mt-0.5 h-4 w-4 shrink-0 animate-spin text-amber-400" />
           <div>
             <div className="text-sm font-medium text-amber-200">Your notes are being prepared</div>
-            <div className="mt-1 text-xs leading-5 text-amber-300/80">AI answers become available once your notes finish loading — usually about a minute.</div>
+            <div className="mt-1 text-xs leading-5 text-amber-300/80">AI answers become available once your notes finish loading â€” usually about a minute.</div>
           </div>
         </div>
       ) : notesNeedPrep ? (
@@ -3731,7 +3731,7 @@ function AskTool({
             : <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />}
           <div className="flex-1">
             <div className="text-sm font-medium text-amber-200">
-              {preparingNotes ? "Preparing your notes…" : "Your notes aren't searchable by AI yet"}
+              {preparingNotes ? "Preparing your notesâ€¦" : "Your notes aren't searchable by AI yet"}
             </div>
             <div className="mt-1 text-xs leading-5 text-amber-300/80">
               {preparingNotes
@@ -3767,7 +3767,7 @@ function AskTool({
           onFocus={() => { if (recentQueries.length > 0 && !question.trim()) setShowRecent(true); }}
           onBlur={() => window.setTimeout(() => setShowRecent(false), 150)}
           onChange={(event) => { setQuestion(event.target.value); if (event.target.value.trim()) setShowRecent(false); }}
-          placeholder="Ask a question… (Ctrl+Enter to submit)"
+          placeholder="Ask a questionâ€¦ (Ctrl+Enter to submit)"
           className="control-soft h-32 w-full resize-none rounded-xl p-3 text-sm leading-6 text-ink-100 outline-none placeholder:text-ink-500"
         />
         {showRecent && recentQueries.length > 0 ? (
@@ -3787,7 +3787,7 @@ function AskTool({
         ) : null}
       </div>
       <button onClick={ask} disabled={busy || !question.trim() || Boolean(indexingNotes) || Boolean(preparingNotes) || Boolean(noNotes)} className="primary-action w-full">
-        {busy ? "Asking..." : indexingNotes ? "Notes loading…" : preparingNotes ? "Preparing…" : noNotes ? "No notes to search" : "Ask"}
+        {busy ? "Asking..." : indexingNotes ? "Notes loadingâ€¦" : preparingNotes ? "Preparingâ€¦" : noNotes ? "No notes to search" : "Ask"}
       </button>
       {sampleWorkspace && !indexingNotes && recentQueries.length === 0 && !question.trim() && !showResult && !busy ? (
         <div className="space-y-2">
@@ -3814,7 +3814,7 @@ function AskTool({
             <div>
               <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-ink-500">
                 <Loader2 className="h-3 w-3 animate-spin" />
-                Searching sources…
+                Searching sourcesâ€¦
               </div>
               <SourceList sources={citations} compact query={question} onOpenNote={onOpenNote} />
             </div>
@@ -3841,14 +3841,14 @@ function AskTool({
           {done && lowConfidence && !unsupported ? (
             <div className="flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-2.5 text-xs text-amber-300">
               <AlertCircle className="h-3.5 w-3.5 shrink-0" />
-              Weak match — these excerpts may not directly address the question.
+              Weak match â€” these excerpts may not directly address the question.
             </div>
           ) : null}
 
           {done && !unsupported ? (
             <div className="flex items-center gap-2">
               <button onClick={explainPlain} disabled={explaining} className="secondary-action">
-                {explaining ? "Simplifying…" : "Plain English"}
+                {explaining ? "Simplifyingâ€¦" : "Plain English"}
               </button>
               <div className="text-xs text-ink-500">Rewrites the answer in simpler terms.</div>
             </div>
@@ -3990,7 +3990,7 @@ function QuizTool({
                   if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); void grade(currentItem, currentIndex); }
                 }}
                 onChange={(event) => setAnswers((current) => ({ ...current, [currentIndex]: event.target.value }))}
-                placeholder="Type your answer from memory… (Ctrl+Enter to check)"
+                placeholder="Type your answer from memoryâ€¦ (Ctrl+Enter to check)"
                 className="control-soft mt-5 min-h-[104px] w-full resize-none rounded-lg px-3 py-2.5 text-sm leading-6 text-ink-100 outline-none placeholder:text-ink-500"
               />
               <div className="mt-3 flex flex-wrap items-center gap-3">
@@ -4019,7 +4019,7 @@ function QuizTool({
                           : "border-danger-400/30 bg-danger-400/15 text-danger-400"
                     }`}
                   >
-                    {results[currentIndex].verdict === "correct" ? "✓ Correct" : results[currentIndex].verdict === "partial" ? "~ Close" : "✗ Not yet"}
+                    {results[currentIndex].verdict === "correct" ? "âœ“ Correct" : results[currentIndex].verdict === "partial" ? "~ Close" : "âœ— Not yet"}
                   </span>
                 ) : null}
               </div>
@@ -4092,7 +4092,7 @@ function FlashcardTool({
     setMode("review");
   }
 
-  async function saveToDecк(card: Flashcard) {
+  async function saveToDecÐº(card: Flashcard) {
     setSaving(true);
     try {
       await fetch("/api/deck", {
@@ -4120,7 +4120,7 @@ function FlashcardTool({
       });
       const next = dueIndex + 1;
       if (next >= dueCards.length) {
-        notify(`Review complete — ${dueCards.length} card${dueCards.length !== 1 ? "s" : ""} reviewed`, "success");
+        notify(`Review complete â€” ${dueCards.length} card${dueCards.length !== 1 ? "s" : ""} reviewed`, "success");
         setMode("generate");
         const s = await fetch("/api/deck?mode=stats").then((r) => r.json());
         setDueStats(s as { due: number; total: number });
@@ -4160,14 +4160,14 @@ function FlashcardTool({
       return (
         <div className="space-y-3">
           <ToolHeader title="Training Card Review" description="All due cards have been reviewed." />
-          <EmptyToolState message="No cards due — check back tomorrow." />
+          <EmptyToolState message="No cards due â€” check back tomorrow." />
           <button onClick={() => setMode("generate")} className="secondary-action">Back to generate</button>
         </div>
       );
     }
     return (
       <div className="space-y-3">
-        <ToolHeader title="Training Card Review" description={`Card ${dueIndex + 1} of ${dueCards.length} · Space=flip · 1-4=rate`} />
+        <ToolHeader title="Training Card Review" description={`Card ${dueIndex + 1} of ${dueCards.length} Â· Space=flip Â· 1-4=rate`} />
         <div className="study-card">
           <div className="mb-3 flex items-center justify-between gap-2 text-xs text-ink-500">
             <span className="flex items-center gap-1.5"><Brain className="h-3.5 w-3.5" />Due card</span>
@@ -4260,7 +4260,7 @@ function FlashcardTool({
                 <button type="button" onClick={() => void rerun()} disabled={busy} className="rounded-xl border border-graphite-rail bg-black/40 px-4 py-2 text-sm font-semibold text-ink-200 hover:border-accent-500/30 hover:bg-accent-500/10 hover:text-ink-100 disabled:opacity-60">
                   New card
                 </button>
-                <button type="button" onClick={() => void saveToDecк(currentItem)} disabled={saving} className="rounded-xl border border-accent-500/30 bg-accent-500/10 px-4 py-2 text-sm font-semibold text-accent-300 hover:bg-accent-500/20 disabled:opacity-60">
+                <button type="button" onClick={() => void saveToDecÐº(currentItem)} disabled={saving} className="rounded-xl border border-accent-500/30 bg-accent-500/10 px-4 py-2 text-sm font-semibold text-accent-300 hover:bg-accent-500/20 disabled:opacity-60">
                   {saving ? "Saving..." : "Save to deck"}
                 </button>
               </div>
@@ -4311,7 +4311,7 @@ function SummaryTool({
   );
 }
 
-// ── Study Plan (Today tab) ─────────────────────────────────────────────────────
+// â”€â”€ Study Plan (Today tab) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type PlanItem = {
   type: "flashcard" | "quiz" | "review";
@@ -4398,7 +4398,7 @@ function StudyPlanTool({ notify }: { notify: (m: string, tone?: Toast["tone"]) =
       {loading ? <SkeletonStack /> : null}
       {!loading && visible.length === 0 ? (
         <div className="rounded-xl border border-graphite-rail bg-ink-900/30 p-4 text-center text-sm text-ink-500">
-          {items === null ? "Loading…" : "Nothing due — index documents and use Training Cards to build your review queue."}
+          {items === null ? "Loadingâ€¦" : "Nothing due â€” index documents and use Training Cards to build your review queue."}
         </div>
       ) : null}
       <div className="space-y-3">
@@ -4431,7 +4431,7 @@ function StudyPlanTool({ notify }: { notify: (m: string, tone?: Toast["tone"]) =
   );
 }
 
-// ── Exam Mode tab ─────────────────────────────────────────────────────────────
+// â”€â”€ Exam Mode tab â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 type ExamSession = {
   id: string;
@@ -4623,7 +4623,7 @@ function ExamTool({
           className="primary-action flex w-full items-center justify-center gap-2"
         >
           {starting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trophy className="h-4 w-4" />}
-          {starting ? "Generating questions…" : "Start Assessment"}
+          {starting ? "Generating questionsâ€¦" : "Start Assessment"}
         </button>
       </div>
     );
@@ -4651,7 +4651,7 @@ function ExamTool({
         <textarea
           value={answer}
           onChange={(e) => setAnswer(e.target.value)}
-          placeholder="Type your answer…"
+          placeholder="Type your answerâ€¦"
           rows={4}
           className="w-full resize-none rounded-xl border border-graphite-rail bg-ink-900/40 p-3 text-sm text-ink-100 placeholder-ink-600 focus:border-accent-500/50 focus:outline-none"
           onKeyDown={(e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void submitAnswer(); }}
@@ -4676,7 +4676,7 @@ function ExamTool({
             disabled={submitting || !answer.trim()}
             className="primary-action flex-1"
           >
-            {submitting ? "Submitting…" : question.index === question.total ? "Submit & finish" : "Next →"}
+            {submitting ? "Submittingâ€¦" : question.index === question.total ? "Submit & finish" : "Next â†’"}
           </button>
           <button
             onClick={() => void finishExam()}
@@ -4699,7 +4699,7 @@ function ExamTool({
           <div className={`mb-1 text-4xl font-bold ${scoreColor}`}>{pct}%</div>
           <div className="text-xs text-ink-400">
             {session.correctCount} / {session.totalQuestions} correct
-            {session.durationSeconds ? ` · ${fmtTime(session.durationSeconds)}` : ""}
+            {session.durationSeconds ? ` Â· ${fmtTime(session.durationSeconds)}` : ""}
           </div>
         </div>
         <div className="space-y-3">
@@ -4718,7 +4718,7 @@ function ExamTool({
                         ? "border-amber-500/30 bg-amber-500/10 text-amber-400"
                         : "border-danger-400/30 bg-danger-400/10 text-danger-400"
                   }`}>
-                    {verdict === "correct" ? "✓ Correct" : verdict === "partial" ? "~ Partial" : "✗ Incorrect"}
+                    {verdict === "correct" ? "âœ“ Correct" : verdict === "partial" ? "~ Partial" : "âœ— Incorrect"}
                   </span>
                 </div>
                 <div className="mb-3 text-sm font-medium text-ink-100">{item.question}</div>
@@ -4806,7 +4806,7 @@ function StudyList<T>({
       {controls}
       <button onClick={run} disabled={busy} className="primary-action flex w-full items-center justify-center gap-2">
         {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-        {busy ? "Searching knowledge base…" : label}
+        {busy ? "Searching knowledge baseâ€¦" : label}
       </button>
       {render(busy, run)}
     </div>
@@ -4854,7 +4854,7 @@ function SourceList({
                     onClick={() => window.open(`/api/documents/${source.documentId}/file#page=${source.pageNumber ?? 1}`, '_blank')}
                     className="inline-flex items-center gap-1 text-[11px] font-medium text-accent-400 transition-colors hover:text-accent-200"
                   >
-                    Open →
+                    Open â†’
                   </button>
                 ) : source.noteId && onOpenNote ? (
                   <button
@@ -4870,7 +4870,7 @@ function SourceList({
                     }
                     className="inline-flex items-center gap-1 text-[11px] font-medium text-accent-400 transition-colors hover:text-accent-200"
                   >
-                    Open →
+                    Open â†’
                   </button>
                 ) : null}
               </div>
@@ -4936,18 +4936,18 @@ function FolderRow({
             : "border-transparent hover:bg-ink-925/35"
       }`}
     >
-      {/* Chevron — fixed 28 px, never shrinks */}
+      {/* Chevron â€” fixed 28 px, never shrinks */}
       <button onClick={onToggle} aria-label={collapsed ? "Expand folder" : "Collapse folder"} className="grid h-9 w-7 shrink-0 place-items-center text-ink-500 hover:text-ink-300">
         {collapsed ? <ChevronRight className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
       </button>
 
-      {/* Icon + title — owns all remaining space; title truncates with ellipsis */}
+      {/* Icon + title â€” owns all remaining space; title truncates with ellipsis */}
       <button onClick={onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-center gap-1.5 py-1.5 text-left">
         {collapsed ? <Folder className="h-4 w-4 shrink-0 text-accent-400/70" /> : <FolderOpen className="h-4 w-4 shrink-0 text-accent-400/70" />}
         <span title={folder.name} className="min-w-0 flex-1 truncate text-sm text-ink-100">{folder.name}</span>
       </button>
 
-      {/* Hidden utility buttons — keyboard / programmatic access; all actions also in context menu */}
+      {/* Hidden utility buttons â€” keyboard / programmatic access; all actions also in context menu */}
       <button onClick={onCreate} aria-label={`New note in ${folder.name}`} className="hidden" />
       <button onClick={onCreateFolder} aria-label={`New folder in ${folder.name}`} className="hidden" />
       <button onClick={onCreateLecture} aria-label={`New project in ${folder.name}`} className="hidden" />
@@ -4956,7 +4956,7 @@ function FolderRow({
       <button onClick={onMove} aria-label={`Move ${folder.name}`} className="hidden" />
       <button onClick={onReindex} aria-label={`Reindex ${folder.name}`} className="hidden" />
 
-      {/* Fixed 32 px right slot — count at rest, kebab on hover; never squeezes the title */}
+      {/* Fixed 32 px right slot â€” count at rest, kebab on hover; never squeezes the title */}
       <div className="flex h-9 w-8 shrink-0 items-center justify-center">
         <span className="text-[11px] tabular-nums text-ink-600 group-hover:hidden">{count}</span>
         <button
@@ -5020,19 +5020,19 @@ function NoteRow({
         </button>
       ) : null}
 
-      {/* Icon + title — flex-1, title truncates */}
+      {/* Icon + title â€” flex-1, title truncates */}
       <button onClick={bulkMode ? onToggleBulk : onClick} onDoubleClick={onRename} className="flex min-w-0 flex-1 items-center gap-2 px-2 text-left">
         {!bulkMode && (pinned ? <Pin className="h-3.5 w-3.5 shrink-0 text-accent-300" /> : <FileText className={`h-3.5 w-3.5 shrink-0 ${active ? "text-accent-300" : "text-ink-500 group-hover:text-ink-300"}`} />)}
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink-100">{note.title}</span>
       </button>
 
-      {/* Hidden utility buttons — all actions also in context menu */}
+      {/* Hidden utility buttons â€” all actions also in context menu */}
       <button onClick={onTogglePin} aria-label={pinned ? `Unpin ${note.title}` : `Pin ${note.title}`} className="hidden" />
       <button onClick={onRename} aria-label={`Rename ${note.title}`} className="hidden" />
       <button onClick={onDelete} aria-label={`Delete ${note.title}`} className="hidden" />
       <button onClick={onReindex} aria-label={`Reindex ${note.title}`} className="hidden" />
 
-      {/* Fixed 32 px right slot — date at rest, kebab on hover */}
+      {/* Fixed 32 px right slot â€” date at rest, kebab on hover */}
       <div className="flex h-8 w-8 shrink-0 items-center justify-center">
         <span className="text-[10px] tabular-nums text-ink-600 group-hover:hidden">
           {new Date(note.updatedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
@@ -5230,7 +5230,7 @@ function CommandPalette({
       >
         <span className={`flex h-5 w-5 shrink-0 items-center justify-center ${isActive ? "text-accent-400" : "text-ink-500"}`}>{icon}</span>
         <span className="min-w-0 flex-1 truncate">{item.label}</span>
-        {isActive && <kbd className="shrink-0 rounded border border-graphite-rail bg-ink-875 px-1.5 py-0.5 font-mono text-[10px] text-ink-500">↵</kbd>}
+        {isActive && <kbd className="shrink-0 rounded border border-graphite-rail bg-ink-875 px-1.5 py-0.5 font-mono text-[10px] text-ink-500">â†µ</kbd>}
       </button>
     );
   }
@@ -5261,7 +5261,7 @@ function CommandPalette({
                 onClose();
               }
             }}
-            placeholder="Jump to a note or run a command…"
+            placeholder="Jump to a note or run a commandâ€¦"
             className="min-w-0 flex-1 bg-transparent text-sm text-ink-100 outline-none placeholder:text-ink-500"
           />
           <kbd className="shrink-0 rounded border border-graphite-rail bg-ink-875 px-1.5 py-0.5 font-mono text-[10px] text-ink-500">Esc</kbd>
@@ -5291,11 +5291,11 @@ function CommandPalette({
         </div>
         <div className="flex items-center gap-4 border-t border-graphite-rail px-4 py-2">
           <span className="flex items-center gap-1.5 text-[11px] text-ink-600">
-            <kbd className="rounded border border-graphite-rail bg-ink-875 px-1 py-0.5 font-mono text-[10px] text-ink-500">↑↓</kbd>
+            <kbd className="rounded border border-graphite-rail bg-ink-875 px-1 py-0.5 font-mono text-[10px] text-ink-500">â†‘â†“</kbd>
             navigate
           </span>
           <span className="flex items-center gap-1.5 text-[11px] text-ink-600">
-            <kbd className="rounded border border-graphite-rail bg-ink-875 px-1 py-0.5 font-mono text-[10px] text-ink-500">↵</kbd>
+            <kbd className="rounded border border-graphite-rail bg-ink-875 px-1 py-0.5 font-mono text-[10px] text-ink-500">â†µ</kbd>
             open
           </span>
         </div>
@@ -5335,7 +5335,7 @@ function FeedbackModal({ onClose, onSent }: { onClose: () => void; onSent: () =>
         <div className="flex items-center justify-between border-b border-graphite-rail px-5 py-4">
           <div>
             <div className="text-lg font-semibold text-ink-100">Send feedback</div>
-            <div className="mt-0.5 text-xs text-ink-500">Help us improve — your message goes directly to the team.</div>
+            <div className="mt-0.5 text-xs text-ink-500">Help us improve â€” your message goes directly to the team.</div>
           </div>
           <button onClick={onClose} className="rounded-lg p-1.5 text-ink-500 hover:bg-graphite-rail/40 hover:text-ink-200">
             <X className="h-4 w-4" />
@@ -5369,9 +5369,9 @@ function FeedbackModal({ onClose, onSent }: { onClose: () => void; onSent: () =>
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               placeholder={
-                category === "bug" ? "Describe what happened and how to reproduce it…"
-                : category === "feature" ? "Describe the feature and the problem it would solve…"
-                : "Share your thoughts…"
+                category === "bug" ? "Describe what happened and how to reproduce itâ€¦"
+                : category === "feature" ? "Describe the feature and the problem it would solveâ€¦"
+                : "Share your thoughtsâ€¦"
               }
               rows={5}
               className="control-soft w-full resize-none rounded-lg px-3 py-2.5 text-sm text-ink-100 outline-none placeholder:text-ink-500"
@@ -5382,7 +5382,7 @@ function FeedbackModal({ onClose, onSent }: { onClose: () => void; onSent: () =>
         </div>
         <div className="flex items-center justify-between border-t border-graphite-rail px-5 py-4">
           <a
-            href="https://discord.gg/6hhxtpzkAE"
+            href="https://discord.gg/YOUR_DISCORD_INVITE"
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-1.5 text-xs text-ink-500 hover:text-[#5865F2] transition-colors"
@@ -5405,7 +5405,7 @@ function FeedbackModal({ onClose, onSent }: { onClose: () => void; onSent: () =>
               disabled={busy || !message.trim() || message.length > 2000}
               className="rounded-lg bg-accent-500 px-4 py-2 text-sm font-semibold text-ink-100 hover:bg-accent-400 disabled:opacity-60"
             >
-              {busy ? "Sending…" : "Send feedback"}
+              {busy ? "Sendingâ€¦" : "Send feedback"}
             </button>
           </div>
         </div>
@@ -5891,7 +5891,7 @@ function WorkspaceManageModal({
               <div className="mb-3 text-xs font-medium text-ink-500">Invite member</div>
               {inviteToken ? (
                 <div className="rounded-lg border border-accent-500/20 bg-accent-500/10 p-3">
-                  <div className="mb-2 text-xs text-ink-400">Invite link generated — share with your colleague:</div>
+                  <div className="mb-2 text-xs text-ink-400">Invite link generated â€” share with your colleague:</div>
                   <div className="mb-2 break-all rounded bg-ink-800 px-2 py-1.5 font-mono text-xs text-accent-300">{`${typeof window !== "undefined" ? window.location.origin : ""}/workspace/join?token=${inviteToken}`}</div>
                   <button onClick={() => onCopyToken(inviteToken)} className="flex items-center gap-1.5 text-xs font-medium text-accent-300 hover:text-accent-200">
                     <Copy className="h-3 w-3" />
@@ -6067,7 +6067,7 @@ function SaveBadge({ saving, stale, preparing, onPrepare }: { saving: boolean; s
     stale ? "border-amber-400/25 bg-amber-400/10 text-amber-400" : "border-success-400/20 bg-success-400/10 text-success-400"
   }`;
   const icon = busy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Circle className="h-2.5 w-2.5 fill-current" />;
-  const label = saving ? "Saving" : preparing ? "Preparing…" : stale ? "Prepare for AI" : "Indexed";
+  const label = saving ? "Saving" : preparing ? "Preparingâ€¦" : stale ? "Prepare for AI" : "Indexed";
   if (stale && !busy && onPrepare) {
     return (
       <button onClick={onPrepare} title="Some notes haven't been indexed yet. Click to embed them so AI tools can search your content." className={cls}>
@@ -6559,7 +6559,7 @@ function cleanSourceExcerpt(excerpt: string, query?: string) {
 
   let text = out.join("\n").trim();
   const maxChars = 650;
-  if (text.length > maxChars) text = `${text.slice(0, maxChars).trimEnd()}…`;
+  if (text.length > maxChars) text = `${text.slice(0, maxChars).trimEnd()}â€¦`;
   return text;
 }
 
@@ -6739,21 +6739,21 @@ function FolderShareModal({
                   disabled={loading}
                   className="rounded-[6px] border border-graphite-rail px-3 py-2 text-sm text-ink-400 hover:bg-graphite-rail/30 transition-colors disabled:opacity-50"
                 >
-                  {loading ? "…" : "Disable"}
+                  {loading ? "â€¦" : "Disable"}
                 </button>
               </div>
             </>
           ) : (
             <>
               <p className="text-xs text-ink-500 leading-5">
-                Create a public link to share this folder and all its notes with anyone — no account required.
+                Create a public link to share this folder and all its notes with anyone â€” no account required.
               </p>
               <button
                 onClick={onToggle}
                 disabled={loading}
                 className="w-full rounded-[6px] border border-electric-blue px-4 py-2 text-sm font-semibold text-white hover:bg-electric-blue/10 transition-colors disabled:opacity-50"
               >
-                {loading ? "Creating…" : "Create public link"}
+                {loading ? "Creatingâ€¦" : "Create public link"}
               </button>
             </>
           )}
@@ -6763,7 +6763,7 @@ function FolderShareModal({
   );
 }
 
-/* ─── Notebook Dashboard ─── */
+/* â”€â”€â”€ Notebook Dashboard â”€â”€â”€ */
 
 function NoteCard({
   note,
@@ -6857,12 +6857,12 @@ function NotebookDashboard({
   const firstName =
     data.user.name?.split(" ")[0] || data.user.email?.split("@")[0] || "there";
 
-  /* ── First-run onboarding (no notes yet) ── */
+  /* â”€â”€ First-run onboarding (no notes yet) â”€â”€ */
   if (seeding) {
     return (
       <div className="flex h-full flex-col items-center justify-center bg-ink-950">
         <Loader2 className="mb-4 h-8 w-8 animate-spin text-accent-400" />
-        <div className="text-sm text-ink-400">Setting up your sample workspace…</div>
+        <div className="text-sm text-ink-400">Setting up your sample workspaceâ€¦</div>
       </div>
     );
   }
@@ -6939,7 +6939,7 @@ function NotebookDashboard({
     );
   }
 
-  /* ── Main dashboard ── */
+  /* â”€â”€ Main dashboard â”€â”€ */
   const allNotesSorted = [...workspaceNotes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
 
   return (
@@ -6953,7 +6953,7 @@ function NotebookDashboard({
             </h1>
             <p className="mt-1 text-sm text-ink-500">
               {workspaceNotes.length} {workspaceNotes.length === 1 ? "note" : "notes"}
-              {data.documents.length > 0 ? ` · ${data.documents.length} document${data.documents.length === 1 ? "" : "s"}` : ""}
+              {data.documents.length > 0 ? ` Â· ${data.documents.length} document${data.documents.length === 1 ? "" : "s"}` : ""}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2 pt-1">
@@ -6979,7 +6979,7 @@ function NotebookDashboard({
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search notes…"
+            placeholder="Search notesâ€¦"
             className="flex-1 bg-transparent text-sm text-ink-100 placeholder-ink-600 outline-none"
           />
           {search && (
@@ -7017,7 +7017,7 @@ function NotebookDashboard({
                 <MessageSquareText className="h-4 w-4" />
               </div>
               <span className="min-w-0 flex-1 text-sm text-ink-500 group-hover:text-ink-300">
-                Ask anything about your notes…
+                Ask anything about your notesâ€¦
               </span>
               <span className="hidden shrink-0 rounded border border-graphite-rail bg-ink-875 px-2 py-0.5 font-mono text-[10px] text-ink-600 sm:block">
                 AI tools
@@ -7037,7 +7037,7 @@ function NotebookDashboard({
                 </div>
                 {allNotesSorted.length > 12 && (
                   <p className="mt-4 text-center text-xs text-ink-600">
-                    {allNotesSorted.length - 12} more — use search or the sidebar to find them
+                    {allNotesSorted.length - 12} more â€” use search or the sidebar to find them
                   </p>
                 )}
               </section>
@@ -7048,3 +7048,4 @@ function NotebookDashboard({
     </div>
   );
 }
+

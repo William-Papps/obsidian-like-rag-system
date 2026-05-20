@@ -96,10 +96,12 @@ export default function AiDisclaimerPage() {
       <h2>8. Questions</h2>
       <p>
         Questions about how AI is used in EternalNotes? Contact us at{" "}
-        <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a> or
-        via <a href="https://discord.gg/6hhxtpzkAE" target="_blank" rel="noopener noreferrer">Discord</a>.
+        <a href="mailto:contact@example.com">contact@example.com</a> or
+        via <a href="https://discord.gg/YOUR_DISCORD_INVITE" target="_blank" rel="noopener noreferrer">Discord</a>.
       </p>
     </article>
   );
 }
+
+
 

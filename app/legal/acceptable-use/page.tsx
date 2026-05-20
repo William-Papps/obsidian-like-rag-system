@@ -76,8 +76,8 @@ export default function AcceptableUsePage() {
       <h2>7. Reporting Violations</h2>
       <p>
         If you believe someone is violating this policy, please report it at{" "}
-        <a href="mailto:discordboteternal@gmail.com">discordboteternal@gmail.com</a> or
-        via our <a href="https://discord.gg/6hhxtpzkAE" target="_blank" rel="noopener noreferrer">Discord</a>.
+        <a href="mailto:contact@example.com">contact@example.com</a> or
+        via our <a href="https://discord.gg/YOUR_DISCORD_INVITE" target="_blank" rel="noopener noreferrer">Discord</a>.
       </p>
 
       <h2>8. Changes to This Policy</h2>
@@ -88,4 +88,6 @@ export default function AcceptableUsePage() {
     </article>
   );
 }
+
+
 
