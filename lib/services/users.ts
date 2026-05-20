@@ -18,7 +18,7 @@ export async function getManagedUser(userId: string): Promise<ManagedUser | null
 }
 
 function ownerEmail() {
-  return (process.env.OWNER_EMAIL?.trim() || "discordboteternal@gmail.com").toLowerCase();
+  return (process.env.OWNER_EMAIL?.trim() || "owner@example.com").toLowerCase();
 }
 
 function isOwnerRow(row: { email?: string | null } | null) {

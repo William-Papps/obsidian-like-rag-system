@@ -23,3 +23,12 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 .gstack/
+
+# Private/personal files — kept locally, never pushed to public repo
+PROJECT_MEMORY.md
+CHAT_CONTEXT.md
+AUDIT_REPORT.txt
+PLAN.md
+deploy.ps1
+skills-lock.json
+.agents/
