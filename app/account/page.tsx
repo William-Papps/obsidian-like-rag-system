@@ -2,7 +2,6 @@ import { redirect } from "next/navigation";
 import { AccountPage } from "@/components/account-page";
 import { getCurrentUserOptional, isAdmin } from "@/lib/auth";
 import { listAuditLogs } from "@/lib/services/audit";
-import { getBillingState } from "@/lib/services/billing";
 import { getRuntimeSettings } from "@/lib/services/runtime-settings";
 import { getProviderSettings } from "@/lib/services/settings";
 import { listStudyActivity } from "@/lib/services/study-history";
@@ -13,7 +12,6 @@ export default async function AccountRoute() {
   if (!user) redirect("/auth");
 
   const settings = await getProviderSettings(user.id);
-  const billing = await getBillingState(user.id);
   const activity = await listStudyActivity(user.id, 12);
   const admin = isAdmin(user)
     ? {
@@ -23,5 +21,5 @@ export default async function AccountRoute() {
       }
     : null;
 
-  return <AccountPage user={user} initialSettings={settings} initialBilling={billing} initialAdmin={admin} initialActivity={activity} />;
+  return <AccountPage user={user} initialSettings={settings} initialAdmin={admin} initialActivity={activity} />;
 }

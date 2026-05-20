@@ -5,7 +5,7 @@ import { resolveAiContext } from "@/lib/services/ai-access";
 import { chunkNote, chunkDocumentPages } from "@/lib/rag/chunking";
 import { getDocumentPages } from "@/lib/services/documents";
 import { embedBatch } from "@/lib/rag/embeddings";
-import { consumeQuota, recordUsage } from "@/lib/services/quotas";
+import { recordUsage } from "@/lib/services/quotas";
 import { autoTagNote } from "@/lib/rag/auto-tag";
 import { id, now, sha256 } from "@/lib/utils";
 import type { Note } from "@/lib/types";
@@ -94,11 +94,7 @@ async function indexNoteIncremental(
   // Embed only chunks not covered by the cache (async — must happen outside the transaction).
   const needEmbed = newTexts.map((_, i) => i).filter((i) => !embeddingCache.has(newHashes[i]));
   if (needEmbed.length > 0) {
-    if (ai.mode === "hosted") {
-      await consumeQuota(userId, ai.settings.hostedPlan, "index");
-    } else {
-      await recordUsage(userId, "index");
-    }
+    await recordUsage(userId, "index");
   }
   const newEmbeddings = needEmbed.length > 0
     ? await embedBatch(userId, needEmbed.map((i) => newTexts[i]), ai.settings.embeddingModel, ai)

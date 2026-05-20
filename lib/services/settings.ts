@@ -1,14 +1,13 @@
 import { dbGet, dbRun } from "@/lib/db";
 import { getUsageSummary } from "@/lib/services/quotas";
-import { getRuntimeSettings } from "@/lib/services/runtime-settings";
-import type { HostedPlan, ProviderSettings } from "@/lib/types";
+import type { ProviderSettings } from "@/lib/types";
 import { id, now, toCamelRecord } from "@/lib/utils";
 
 export async function getProviderSettings(userId: string): Promise<ProviderSettings> {
   const row = await dbGet("select * from provider_settings where user_id = ? and provider = 'openai'", [userId]);
   if (row) {
     const settings = await publicSettings(row);
-    settings.usage = await getUsageSummary(userId, settings.hostedPlan);
+    settings.usage = await getUsageSummary(userId);
     return settings;
   }
 
@@ -21,7 +20,6 @@ export async function getProviderSettings(userId: string): Promise<ProviderSetti
     embeddingModel: process.env.OPENAI_EMBEDDING_MODEL || "text-embedding-3-small",
     answerModel: process.env.OPENAI_ANSWER_MODEL || "gpt-4o-mini",
     visionModel: process.env.OPENAI_VISION_MODEL || "gpt-4o-mini",
-    hostedPlan: "free" as HostedPlan,
     createdAt: created,
     updatedAt: created
   };
@@ -36,42 +34,24 @@ export async function getProviderSettings(userId: string): Promise<ProviderSetti
       settings.embeddingModel,
       settings.answerModel,
       settings.visionModel,
-      settings.hostedPlan,
+      "free",
       settings.createdAt,
       settings.updatedAt
     ]
   );
-  return { ...settings, hostedKeyAvailable: await hostedAiAvailable(), usage: await getUsageSummary(userId, settings.hostedPlan) };
+  return { ...settings, usage: await getUsageSummary(userId) };
 }
 
 async function publicSettings(row: Record<string, unknown>) {
-  const settings = toCamelRecord(row) as ProviderSettings & { localSecretRef?: string | null };
+  const settings = toCamelRecord(row) as ProviderSettings & { localSecretRef?: string | null; hostedPlan?: string; hostedKeyAvailable?: boolean };
   delete settings.localSecretRef;
-  const hostedPlan = normalizeHostedPlan(settings.hostedPlan);
+  delete settings.hostedPlan;
+  delete settings.hostedKeyAvailable;
   return {
     ...settings,
     projectId: normalizeProjectId(settings.projectId),
-    hostedPlan,
-    hostedKeyAvailable: await hostedAiAvailable(),
     usage: [] as ProviderSettings["usage"]
   } as ProviderSettings;
-}
-
-export function readHostedApiKey(): string | null {
-  const raw = process.env.HOSTED_OPENAI_API_KEY?.trim() || process.env.OPENAI_API_KEY?.trim() || null;
-  if (!raw) return null;
-  // Normalize common copy/paste mistakes: OpenAI keys start with "sk-".
-  if (/^[Ss][Kk]-/.test(raw) && !raw.startsWith("sk-")) return `sk-${raw.slice(3)}`;
-  return raw;
-}
-
-export function hostedProjectId() {
-  return normalizeProjectId(process.env.HOSTED_OPENAI_PROJECT_ID?.trim() || process.env.OPENAI_PROJECT_ID?.trim() || null);
-}
-
-export async function hostedAiAvailable() {
-  const runtime = await getRuntimeSettings();
-  return runtime.hostedAiEnabled && Boolean(readHostedApiKey());
 }
 
 export async function saveProviderSettings(
@@ -81,41 +61,22 @@ export async function saveProviderSettings(
     embeddingModel: string;
     answerModel: string;
     visionModel?: string | null;
-    hostedPlan?: HostedPlan;
   }
 ) {
   const existing = await getProviderSettings(userId);
   await dbRun(
-    "update provider_settings set project_id = ?, embedding_model = ?, answer_model = ?, vision_model = ?, hosted_plan = ?, updated_at = ? where id = ? and user_id = ?",
+    "update provider_settings set project_id = ?, embedding_model = ?, answer_model = ?, vision_model = ?, updated_at = ? where id = ? and user_id = ?",
     [
       normalizeProjectId(input.projectId?.trim() || null),
       input.embeddingModel,
       input.answerModel,
       input.visionModel?.trim() || null,
-      normalizeHostedPlan(input.hostedPlan ?? existing.hostedPlan),
       now(),
       existing.id,
       userId
     ]
   );
-  const next = await getProviderSettings(userId);
-  next.usage = await getUsageSummary(userId, next.hostedPlan);
-  return next;
-}
-
-export async function setHostedPlan(userId: string, hostedPlan: HostedPlan) {
-  const existing = await getProviderSettings(userId);
-  await dbRun("update provider_settings set hosted_plan = ?, updated_at = ? where id = ? and user_id = ?", [
-    normalizeHostedPlan(hostedPlan),
-    now(),
-    existing.id,
-    userId
-  ]);
   return getProviderSettings(userId);
-}
-
-function normalizeHostedPlan(plan: HostedPlan | string | undefined | null): HostedPlan {
-  return plan === "starter" || plan === "pro" ? plan : "free";
 }
 
 function normalizeProjectId(projectId: string | null | undefined) {

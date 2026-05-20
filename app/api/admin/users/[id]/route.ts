@@ -2,13 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { isAdmin, withAuthenticatedUser } from "@/lib/auth";
 import { logAudit } from "@/lib/services/audit";
-import { adminSetHostedAccess, adminSetUserPlan, deleteUserAccount, getManagedUser, setUserDisabled, updateUserRole } from "@/lib/services/users";
+import { deleteUserAccount, getManagedUser, setUserDisabled, updateUserRole } from "@/lib/services/users";
 
 const patchSchema = z.object({
   role: z.enum(["user", "admin", "owner"]).optional(),
-  disabled: z.boolean().optional(),
-  hostedPlan: z.enum(["free", "starter", "pro"]).optional(),
-  hostedAccessGranted: z.boolean().optional()
+  disabled: z.boolean().optional()
 });
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -23,8 +21,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
       if (body.role && body.role !== user.role) {
         return NextResponse.json({ error: "You cannot change your own role from this route." }, { status: 400 });
       }
-      if (body.hostedPlan) await adminSetUserPlan(user.id, body.hostedPlan);
-      if (body.hostedAccessGranted !== undefined) await adminSetHostedAccess(user.id, body.hostedAccessGranted);
       return NextResponse.json({ ok: true });
     }
     const target = await getManagedUser(id);
@@ -34,8 +30,6 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     try {
       if (body.role) await updateUserRole(id, body.role);
       if (body.disabled !== undefined) await setUserDisabled(id, body.disabled);
-      if (body.hostedPlan) await adminSetUserPlan(id, body.hostedPlan);
-      if (body.hostedAccessGranted !== undefined) await adminSetHostedAccess(id, body.hostedAccessGranted);
     } catch (err) {
       return NextResponse.json({ error: err instanceof Error ? err.message : "Action not allowed." }, { status: 400 });
     }

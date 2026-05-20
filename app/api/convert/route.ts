@@ -6,7 +6,8 @@ import mammoth from "mammoth";
 import { withAuthenticatedUser } from "@/lib/auth";
 import { extractTextFromImage } from "@/lib/import/vision";
 import { enhanceTextStructure } from "@/lib/import/structure";
-import { ProPlanRequiredError, requireProAccess, resolveAiContext } from "@/lib/services/ai-access";
+import { resolveAiContext } from "@/lib/services/ai-access";
+import { enforceRateLimit, RateLimitError } from "@/lib/rate-limit";
 import type { AiContext } from "@/lib/types";
 
 type MammothMarkdownAdapter = {
@@ -319,6 +320,14 @@ async function convertTextToMarkdown(text: string): Promise<string> {
 export async function POST(request: NextRequest) {
   return withAuthenticatedUser(async (user) => {
     try {
+      await enforceRateLimit(`convert:${user.id}`, 10, 60_000);
+    } catch (err) {
+      if (err instanceof RateLimitError) {
+        return NextResponse.json({ error: err.message }, { status: 429, headers: { "retry-after": String(Math.ceil(err.retryAfterMs / 1000)) } });
+      }
+      throw err;
+    }
+    try {
       const formData = await request.formData();
       const file = formData.get("file") as File;
       const textContent = formData.get("text") as string;
@@ -364,7 +373,6 @@ export async function POST(request: NextRequest) {
             { status: 400 }
           );
         } else if (file.type.startsWith("image/") || /\.(png|jpg|jpeg|webp|gif|bmp|tif|tiff)$/i.test(fileName)) {
-          await requireProAccess(user.id);
           const ai = await resolveAiContext(user.id, "ocr");
           const extracted = await extractTextFromImage(user.id, {
             bytes: buffer,
@@ -419,9 +427,6 @@ export async function POST(request: NextRequest) {
         warnings
       });
     } catch (error) {
-      if (error instanceof ProPlanRequiredError) {
-        return NextResponse.json({ error: error.message }, { status: 402 });
-      }
       console.error("Conversion error:", error);
       return NextResponse.json({ error: "Conversion failed" }, { status: 500 });
     }

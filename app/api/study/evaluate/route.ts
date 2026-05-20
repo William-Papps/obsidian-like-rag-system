@@ -4,7 +4,7 @@ import { withAuthenticatedUser } from "@/lib/auth";
 import { evaluateQuizAnswer } from "@/lib/rag/evaluate";
 import { recordStudyActivity } from "@/lib/services/study-history";
 import { recordStudyAttempt } from "@/lib/services/learning-analytics";
-import { ProPlanRequiredError, requireProAccess } from "@/lib/services/ai-access";
+import { enforceRateLimit, RateLimitError } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -20,12 +20,12 @@ const schema = z.object({
 export async function POST(request: Request) {
   return withAuthenticatedUser(async (user) => {
     try {
-      await requireProAccess(user.id);
-    } catch (error) {
-      if (error instanceof ProPlanRequiredError) {
-        return NextResponse.json({ error: error.message }, { status: 402 });
+      await enforceRateLimit(`study-eval:${user.id}`, 20, 60_000);
+    } catch (err) {
+      if (err instanceof RateLimitError) {
+        return NextResponse.json({ error: err.message }, { status: 429, headers: { "retry-after": String(Math.ceil(err.retryAfterMs / 1000)) } });
       }
-      throw error;
+      throw err;
     }
     const body = schema.parse(await request.json());
     const result = await evaluateQuizAnswer(user.id, body);

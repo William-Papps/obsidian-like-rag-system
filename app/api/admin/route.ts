@@ -10,7 +10,6 @@ export const dynamic = "force-dynamic";
 
 const schema = z.object({
   selfSignupEnabled: z.boolean().optional(),
-  hostedAiEnabled: z.boolean().optional(),
   emailVerificationEnabled: z.boolean().optional()
 });
 

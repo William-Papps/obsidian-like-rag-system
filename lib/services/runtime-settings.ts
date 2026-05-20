@@ -4,22 +4,19 @@ import { now } from "@/lib/utils";
 
 const DEFAULTS: RuntimeSettings = {
   selfSignupEnabled: (process.env.ALLOW_SELF_SIGNUP ?? "true").toLowerCase() !== "false",
-  hostedAiEnabled: (process.env.HOSTED_AI_ENABLED ?? "true").toLowerCase() !== "false",
   emailVerificationEnabled: (process.env.EMAIL_VERIFICATION_REQUIRED ?? "false").toLowerCase() === "true"
 };
 
 export async function getRuntimeSettings(): Promise<RuntimeSettings> {
-  const [selfSignupEnabled, hostedAiEnabled, emailVerificationEnabled] = await Promise.all([
+  const [selfSignupEnabled, emailVerificationEnabled] = await Promise.all([
     readBoolean("self_signup_enabled", DEFAULTS.selfSignupEnabled),
-    readBoolean("hosted_ai_enabled", DEFAULTS.hostedAiEnabled),
     readBoolean("email_verification_enabled", DEFAULTS.emailVerificationEnabled)
   ]);
-  return { selfSignupEnabled, hostedAiEnabled, emailVerificationEnabled };
+  return { selfSignupEnabled, emailVerificationEnabled };
 }
 
 export async function saveRuntimeSettings(input: Partial<RuntimeSettings>) {
   if (input.selfSignupEnabled !== undefined) await writeBoolean("self_signup_enabled", input.selfSignupEnabled);
-  if (input.hostedAiEnabled !== undefined) await writeBoolean("hosted_ai_enabled", input.hostedAiEnabled);
   if (input.emailVerificationEnabled !== undefined) await writeBoolean("email_verification_enabled", input.emailVerificationEnabled);
   return getRuntimeSettings();
 }

@@ -3,9 +3,8 @@ import { z } from "zod";
 import { withAuthenticatedUser } from "@/lib/auth";
 import { extractiveSummary, generateFlashcards, generateQuiz } from "@/lib/rag/study";
 import { resolveScopeTitle } from "@/lib/rag/retrieval";
-import { ProPlanRequiredError, requireProAccess } from "@/lib/services/ai-access";
 import { recordStudyActivity } from "@/lib/services/study-history";
-import { QuotaExceededError } from "@/lib/services/quotas";
+import { enforceRateLimit, RateLimitError } from "@/lib/rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +16,14 @@ const schema = z.object({
 export async function POST(request: Request) {
   return withAuthenticatedUser(async (user) => {
     try {
-      await requireProAccess(user.id);
+      await enforceRateLimit(`study:${user.id}`, 30, 60_000);
+    } catch (err) {
+      if (err instanceof RateLimitError) {
+        return NextResponse.json({ error: err.message }, { status: 429, headers: { "retry-after": String(Math.ceil(err.retryAfterMs / 1000)) } });
+      }
+      throw err;
+    }
+    try {
       const body = schema.parse(await request.json());
       const scope = body.scope ?? {};
       const scopeLabel = await resolveScopeTitle(user.id, scope);
@@ -35,12 +41,6 @@ export async function POST(request: Request) {
       if (result[0]) await recordStudyActivity(user.id, "summary_generated", { scopeLabel, noteTitle: result[0].source.noteTitle });
       return NextResponse.json(result);
     } catch (error) {
-      if (error instanceof ProPlanRequiredError) {
-        return NextResponse.json({ error: error.message }, { status: 402 });
-      }
-      if (error instanceof QuotaExceededError) {
-        return NextResponse.json({ error: error.message, feature: error.feature }, { status: 429 });
-      }
       throw error;
     }
   });

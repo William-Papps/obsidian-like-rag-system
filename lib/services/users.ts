@@ -1,15 +1,12 @@
 import { dbAll, dbGet, dbRun } from "@/lib/db";
-import { getBillingState, setHostedAccessGranted, setSubscriptionPlan } from "@/lib/services/billing";
-import { setHostedPlan } from "@/lib/services/settings";
-import type { AdminUserSummary, ManagedUser, HostedPlan, UserRole } from "@/lib/types";
+import type { AdminUserSummary, ManagedUser, UserRole } from "@/lib/types";
 import { now, toCamelRecord } from "@/lib/utils";
 
 export async function listManagedUsers(): Promise<AdminUserSummary[]> {
   const rows = await dbAll(
-    `select u.*, coalesce(ps.hosted_plan, 'free') as hosted_plan, coalesce(s.status, 'free') as subscription_status, s.hosted_access_granted_at
+    `select u.*,
+       coalesce((select sum(au.count) from ai_usage au where au.user_id = u.id and au.period = strftime('%Y-%m', 'now')), 0) as ai_usage_this_month
      from users u
-     left join provider_settings ps on ps.user_id = u.id and ps.provider = 'openai'
-     left join subscriptions s on s.user_id = u.id
      order by u.created_at desc`
   );
   return rows.map((row) => toCamelRecord(row) as AdminUserSummary);
@@ -48,12 +45,3 @@ export async function deleteUserAccount(userId: string) {
   await dbRun("delete from users where id = ?", [userId]);
 }
 
-export async function adminSetUserPlan(userId: string, plan: HostedPlan) {
-  await setSubscriptionPlan(userId, plan, plan === "free" ? "free" : "manual");
-  await setHostedPlan(userId, plan);
-  return getBillingState(userId);
-}
-
-export async function adminSetHostedAccess(userId: string, granted: boolean) {
-  await setHostedAccessGranted(userId, granted);
-}

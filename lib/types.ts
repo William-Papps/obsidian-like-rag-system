@@ -69,8 +69,6 @@ export type ProviderSettings = {
   embeddingModel: string;
   answerModel: string;
   visionModel: string | null;
-  hostedPlan: HostedPlan;
-  hostedKeyAvailable: boolean;
   usage: AiUsage[];
   createdAt: string;
   updatedAt: string;
@@ -78,44 +76,7 @@ export type ProviderSettings = {
 
 export type RuntimeSettings = {
   selfSignupEnabled: boolean;
-  hostedAiEnabled: boolean;
   emailVerificationEnabled: boolean;
-};
-
-export type HostedPlan = "free" | "starter" | "pro";
-export type BillingSubscriptionStatus = "free" | "active" | "manual" | "pending_provider" | "inactive" | "canceled";
-
-export type BillingProfile = {
-  id: string;
-  userId: string;
-  billingName: string | null;
-  billingEmail: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type BillingSubscription = {
-  id: string;
-  userId: string;
-  plan: HostedPlan;
-  status: BillingSubscriptionStatus;
-  provider: "none" | "manual" | "stripe";
-  providerCustomerId: string | null;
-  providerSubscriptionId: string | null;
-  currentPeriodStart: string | null;
-  currentPeriodEnd: string | null;
-  cancelAtPeriodEnd: boolean;
-  hostedAccessGrantedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type BillingState = {
-  profile: BillingProfile;
-  subscription: BillingSubscription;
-  hostedAccessGranted: boolean;
-  checkoutReady: boolean;
-  portalReady: boolean;
 };
 
 export type ManagedUser = {
@@ -130,9 +91,7 @@ export type ManagedUser = {
 };
 
 export type AdminUserSummary = ManagedUser & {
-  hostedPlan: HostedPlan;
-  subscriptionStatus: BillingSubscriptionStatus;
-  hostedAccessGrantedAt: string | null;
+  aiUsageThisMonth: number;
 };
 
 export type AuditLog = {
@@ -163,7 +122,7 @@ export type AiUsage = {
 };
 
 export type AiContext = {
-  mode: "hosted" | "local" | "ollama";
+  mode: "local" | "ollama";
   apiKey: string | null;
   projectId: string | null;
   ollamaBaseUrl?: string;

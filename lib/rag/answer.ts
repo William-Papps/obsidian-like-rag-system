@@ -5,7 +5,7 @@ import { resolveAiContext } from "@/lib/services/ai-access";
 import { retrieveChunks } from "@/lib/rag/retrieval";
 import { retrieveMultiPass, type RetrievalMeta } from "@/lib/rag/retrieval";
 import { recordChunkEvents } from "@/lib/services/chunk-feedback";
-import { consumeQuota, recordUsage } from "@/lib/services/quotas";
+import { recordUsage } from "@/lib/services/quotas";
 import { dbGet } from "@/lib/db";
 import { reindexNotes } from "@/lib/rag/indexing";
 
@@ -83,11 +83,7 @@ export async function streamAnswerFromNotes(
       return;
     }
 
-    if (ai.mode === "hosted") {
-      await consumeQuota(userId, ai.settings.hostedPlan, "ask");
-    } else {
-      await recordUsage(userId, "ask");
-    }
+    await recordUsage(userId, "ask");
 
     if (ai.ollamaBaseUrl) {
       // Stream tokens directly for Ollama — small models can't reliably output valid JSON,
@@ -217,9 +213,6 @@ export async function answerFromNotes(
     };
   }
 
-  if (ai.mode === "hosted") {
-    await consumeQuota(userId, ai.settings.hostedPlan, "ask");
-  }
 
   const useJsonFormat = !ai.ollamaBaseUrl;
   const response = await client.chat.completions.create({
@@ -280,9 +273,6 @@ export async function explainFromNotes(
     };
   }
 
-  if (ai.mode === "hosted") {
-    await consumeQuota(userId, ai.settings.hostedPlan, "ask");
-  }
 
   const response = await client.chat.completions.create({
     model: ai.settings.answerModel,
@@ -336,9 +326,6 @@ async function answerFromCitations(
     };
   }
 
-  if (ai.mode === "hosted") {
-    await consumeQuota(userId, ai.settings.hostedPlan, "ask");
-  }
 
   const confidenceCaveat = meta.lowConfidence
     ? "NOTE: The retrieved excerpts have low similarity to the question. If the excerpts do not contain enough evidence, set supported=false.\n\n"
