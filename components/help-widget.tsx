@@ -8,35 +8,31 @@ type Message = { from: "user" | "bot"; text: string };
 const FAQS: { q: string; a: string }[] = [
   {
     q: "What is EternalNotes?",
-    a: "EternalNotes is a self-hosted knowledge base. You add documents, index them, then ask questions in plain English. Answers are grounded in your content with citations."
+    a: "EternalNotes is a local-first knowledge base. Add notes or import documents, index them, then ask questions in plain English. Answers are grounded in your content with citations."
   },
   {
     q: "How does the AI work?",
-    a: "Documents are split into chunks and embedded using your configured provider (OpenAI/Ollama) or a local fallback when no key is set. When you ask a question, the most relevant chunks are retrieved and the model answers only from those excerpts."
+    a: "Documents are split into chunks and embedded via Ollama (running locally). When you ask a question, the most relevant chunks are retrieved and the model answers only from those excerpts — no data leaves your machine."
   },
   {
     q: "Is my data private?",
-    a: "Yes. EternalNotes is self-hosted: your documents live on your own server. Content is only sent to your configured AI provider when you use AI features."
-  },
-  {
-    q: "How do team workspaces work?",
-    a: "Create a workspace and invite colleagues by email so everyone can read and edit shared notes. Ask/Index applies to personal notes unless workspace indexing is enabled in your build."
+    a: "Yes. All AI runs locally via Ollama. Your notes never leave your machine unless you configure a remote Ollama instance yourself."
   },
   {
     q: "What file types can I import?",
-    a: "You can paste plain text, import PDFs and Word documents (.docx), or write directly in the built-in markdown editor."
+    a: "You can paste plain text, import PDFs, Word documents (.docx), plain text files, Markdown files, or images (OCR via Ollama moondream)."
   },
   {
-    q: "How much does it cost?",
-    a: "EternalNotes is free for basic note-taking. AI features (Ask, Knowledge Checks, Training Cards, Briefings, OCR) require a Starter or Pro plan."
+    q: "How do I enable AI features?",
+    a: "Make sure Ollama is running and the required models are pulled: nomic-embed-text (indexing), llama3.2:3b (answers), moondream (OCR). See the README for setup instructions."
   },
   {
     q: "How do I get started?",
-    a: "Sign up for a free account, add your first document, click Reindex, then head to the Ask tab and type your first question. You'll have answers in under a minute."
+    a: "Create an account, add your first note, click Index, then use Ask to query your notes. You'll have grounded answers in seconds."
   },
   {
-    q: "Do I need technical skills to set this up?",
-    a: "For end users, not much: sign up and choose a plan in Account settings to enable AI features. Server setup is handled by whoever is running the instance."
+    q: "Where is my data stored?",
+    a: "All notes and settings are stored in a SQLite database at data/study.db in the project directory. Back that file up to keep your notes safe."
   }
 ];
 

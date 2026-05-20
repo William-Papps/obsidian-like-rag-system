@@ -2,8 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withAuthenticatedUser } from "@/lib/auth";
 import { deleteNote, getNote, updateNote } from "@/lib/services/notes";
-import { getNoteShareForUser } from "@/lib/services/note-shares";
-import { dbGet } from "@/lib/db";
 
 const updateSchema = z.object({
   title: z.string().optional(),
@@ -37,26 +35,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(_: Request, { params }: { params: Promise<{ id: string }> }) {
   return withAuthenticatedUser(async (user) => {
     const { id } = await params;
-    // Only the owner can delete — shared editors cannot
     const note = await getNote(user.id, id);
     if (!note) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-    if (note.workspaceId) {
-      if (note.userId !== user.id) {
-        const roleRow = await dbGet<{ role: string }>(
-          "select role from workspace_members where workspace_id = ? and user_id = ?",
-          [String(note.workspaceId), user.id]
-        );
-        if (roleRow?.role !== "owner") {
-          return NextResponse.json({ error: "Only the note owner or workspace owner can delete this note." }, { status: 403 });
-        }
-      }
-      await deleteNote(user.id, id);
-      return NextResponse.json({ ok: true });
-    }
-
-    const share = await getNoteShareForUser(user.id, id);
-    if (share) return NextResponse.json({ error: "Only the owner can delete this note." }, { status: 403 });
     await deleteNote(user.id, id);
     return NextResponse.json({ ok: true });
   });

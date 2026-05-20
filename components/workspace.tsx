@@ -71,7 +71,11 @@ import { Component, type CSSProperties, type KeyboardEvent, type MouseEvent, typ
 import { MarkdownPreview } from "@/components/markdown";
 import { DocumentImportModal } from "@/components/document-import-modal";
 import { HelpWidget } from "@/components/help-widget";
-import type { AnswerResult, DocumentFile, Flashcard, Folder as FolderType, Note, NoteShare, NoteSharePermission, ProviderSettings, QuizEvaluation, QuizQuestion, WorkspaceWithMembers } from "@/lib/types";
+import type { AnswerResult, DocumentFile, Flashcard, Folder as FolderType, Note, ProviderSettings, QuizEvaluation, QuizQuestion } from "@/lib/types";
+
+type NoteSharePermission = "edit" | "view";
+type NoteShare = { sharedWithUserId: string; sharedWithName: string; sharedWithEmail: string; permission: NoteSharePermission };
+type WorkspaceWithMembers = { id: string; name: string; description?: string; currentUserRole: string; members: { userId: string; name: string; email: string; role: string }[]; inviteToken?: string | null };
 
 class PanelErrorBoundary extends Component<{ children: ReactNode; label: string }, { error: Error | null }> {
   constructor(props: { children: ReactNode; label: string }) {
@@ -107,7 +111,7 @@ type Bootstrap = {
   settings: ProviderSettings;
   indexStatus: { notes: number; chunks: number; staleNotes: number };
   noteTags: Record<string, string[]>;
-  workspaces: WorkspaceWithMembers[];
+  workspaces?: WorkspaceWithMembers[];
   documents: DocumentFile[];
 };
 
@@ -520,7 +524,7 @@ export function Workspace() {
 
   const activeNote = useMemo(() => data?.notes.find((note) => note.id === activeNoteId) ?? null, [data, activeNoteId]);
   activeNoteRef.current = activeNote;
-  const activeWorkspace = useMemo(() => data?.workspaces.find((w) => w.id === activeWorkspaceId) ?? null, [data, activeWorkspaceId]);
+  const activeWorkspace = useMemo(() => (data?.workspaces ?? []).find((w) => w.id === activeWorkspaceId) ?? null, [data, activeWorkspaceId]);
   const openNotes = useMemo(
     () =>
       [
@@ -2074,39 +2078,6 @@ export function Workspace() {
                   </div>
                 ) : null}
 
-                {(() => {
-                  const sharedNotes = vaultNotes.filter((n) => n.userId !== data.user.id);
-                  if (!sharedNotes.length) return null;
-                  return (
-                    <div className="mb-5">
-                      <SectionLabel label="Shared with me" />
-                      <div className="space-y-1">
-                        {sharedNotes.map((note) => (
-                          <div key={note.id} className="group relative flex items-center gap-1">
-                            <button
-                              onClick={() => selectNote(note.id)}
-                              className={`flex min-w-0 flex-1 items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left transition-all ${
-                                activeNoteId === note.id
-                                  ? "border-accent-500/30 bg-accent-500/10 text-ink-100"
-                                  : "border-transparent text-ink-300 hover:bg-graphite-rail/20 hover:text-ink-100"
-                              }`}
-                            >
-                              <FileText className="h-3.5 w-3.5 shrink-0 text-ink-500" />
-                              <span className="min-w-0 flex-1 truncate text-sm font-medium">{note.title}</span>
-                              <span className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-                                note.sharePermission === "edit"
-                                  ? "bg-accent-500/15 text-accent-300"
-                                  : "bg-ink-700/60 text-ink-400"
-                              }`}>
-                                {note.sharePermission === "edit" ? "Edit" : "View"}
-                              </span>
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  );
-                })()}
 
                 <div className="mt-2">
                   <SectionLabel label="All notes" />
@@ -2389,19 +2360,6 @@ export function Workspace() {
                   >
                     <RotateCw className="h-3.5 w-3.5" />
                   </button>
-                  {activeNote.userId === data.user.id ? (
-                    <button title="Share note" aria-label="Share note" onClick={() => void openShareModal(activeNote.id)} className="grid h-7 w-7 place-items-center rounded text-ink-500 hover:bg-graphite-rail/30 hover:text-ink-200">
-                      <UserPlus className="h-3.5 w-3.5" />
-                    </button>
-                  ) : (
-                    <span className={`rounded-lg border px-2 py-1 text-xs font-semibold ${
-                      activeNote.sharePermission === "edit"
-                        ? "border-accent-500/30 bg-accent-500/10 text-accent-300"
-                        : "border-graphite-rail bg-ink-800/50 text-ink-400"
-                    }`}>
-                      {activeNote.sharePermission === "edit" ? "Can edit" : "View only"}
-                    </span>
-                  )}
                   {activeNote.userId === data.user.id ? (
                     <button title="Delete note" aria-label="Delete note" onClick={deleteActiveNote} className="grid h-7 w-7 place-items-center rounded text-ink-600 hover:bg-danger-400/10 hover:text-danger-400">
                       <Trash2 className="h-3.5 w-3.5" />
@@ -5923,7 +5881,7 @@ function WorkspaceManageModal({
           <div className="px-5 py-4">
             <div className="mb-3 text-xs font-medium text-ink-500">Members ({workspace.members.length})</div>
             <div className="space-y-2">
-              {workspace.members.map((member) => (
+              {workspace.members.map((member: { userId: string; name: string; email: string; role: string }) => (
                 <div key={member.userId} className="flex items-center gap-3">
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-ink-700 text-xs font-semibold text-ink-200">
                     {member.name.charAt(0).toUpperCase()}
@@ -6828,9 +6786,7 @@ function NotebookDashboard({
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
 
-  const workspaceNotes = data.notes.filter((n) =>
-    activeWorkspaceId ? n.workspaceId === activeWorkspaceId : !n.workspaceId
-  );
+  const workspaceNotes = data.notes;
 
   const recentNotes = [...workspaceNotes]
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))

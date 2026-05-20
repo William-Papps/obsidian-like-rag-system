@@ -15,7 +15,7 @@ export async function reindexNotes(userId: string, scope?: { noteId?: string; fo
   await purgeOrphanedChunks(userId);
   const folderIds = scope?.folderId ? await listDescendantFolderIds(userId, scope.folderId) : [];
   const notes = (await listNotes(userId))
-    .filter((note) => note.userId === userId && !note.workspaceId)
+    .filter((note) => note.userId === userId)
     .filter((note) => {
     if (scope?.noteId) return note.id === scope.noteId;
     if (scope?.folderId !== undefined) return scope.folderId === null ? note.folderId === null : Boolean(note.folderId && folderIds.includes(note.folderId));

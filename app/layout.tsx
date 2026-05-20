@@ -4,7 +4,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "EternalNotes",
-  description: "AI-powered knowledge management for teams. Query your documents with natural language and get grounded answers with citations.",
+  description: "Local-first Markdown knowledge base with AI study tools. Runs fully offline via Ollama — no cloud, no telemetry.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

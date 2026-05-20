@@ -10,20 +10,6 @@ export type Folder = {
 
 export type UserRole = "user" | "admin" | "owner";
 
-export type NoteSharePermission = "view" | "edit";
-
-export type NoteShare = {
-  id: string;
-  noteId: string;
-  ownerUserId: string;
-  sharedWithUserId: string;
-  sharedWithEmail: string;
-  sharedWithName: string;
-  permission: NoteSharePermission;
-  createdAt: string;
-  updatedAt: string;
-};
-
 export type DocStatus = "draft" | "active" | "archived";
 export type DocType = "note" | "document";
 
@@ -37,8 +23,6 @@ export type Note = {
   updatedAt: string;
   contentHash: string;
   sortOrder?: number | null;
-  workspaceId?: string | null;
-  sharePermission?: NoteSharePermission | null;
   department?: string | null;
   effectiveDate?: string | null;
   docStatus?: DocStatus | null;
@@ -169,32 +153,6 @@ export type QuizEvaluation = {
   correct: boolean;
   verdict: "correct" | "partial" | "incorrect";
   feedback: string;
-};
-
-export type Workspace = {
-  id: string;
-  name: string;
-  ownerUserId: string;
-  description: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
-export type WorkspaceMemberRole = "owner" | "editor";
-
-export type WorkspaceMember = {
-  workspaceId: string;
-  userId: string;
-  email: string;
-  name: string;
-  role: WorkspaceMemberRole;
-  joinedAt: string | null;
-  createdAt: string;
-};
-
-export type WorkspaceWithMembers = Workspace & {
-  members: WorkspaceMember[];
-  currentUserRole: WorkspaceMemberRole;
 };
 
 export type Flashcard = {
