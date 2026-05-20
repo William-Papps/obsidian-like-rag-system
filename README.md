@@ -1,526 +1,210 @@
 # EternalNotes
 
-An Obsidian-like local study workspace with Markdown notes, SQLite persistence, and source-grounded RAG study tools — runs fully offline with Ollama.
+An Obsidian-like local study workspace with Markdown notes, SQLite persistence, and source-grounded RAG study tools — runs fully offline with [Ollama](https://ollama.com).
 
-**[Get EternalNotes at eternalbot.net](https://eternalbot.net)** — download, license, and hosted access.
+No accounts required to try. No cloud. No telemetry. Your notes stay on your machine.
 
 ---
 
-## Self-Hosting (Advanced)
+## What It Does
 
-> The recommended way to use EternalNotes is through **[eternalbot.net](https://eternalbot.net)**.
-> The instructions below are for users who want to run their own instance from source.
+- **Markdown notes** with folders, tags, search, and version history
+- **Ask AI** — retrieves indexed chunks from your notes, answers only from what you wrote (with source citations)
+- **Knowledge Check** — generates one question at a time from your notes, grades your typed answer against the source
+- **Training Cards** — flashcard-style review grounded in your note content
+- **Briefing** — extractive summaries from indexed excerpts
+- **Document import** — DOCX, PDF, plain text, Markdown, images (OCR via Ollama)
+- **Multi-user** — one server, multiple accounts, per-user note vaults
 
-## Docker Quickstart (< 20 min)
+All AI runs locally via Ollama. No OpenAI key required.
 
-**Requirements:** Docker Desktop 4.x, 8 GB RAM minimum (16 GB recommended), 10 GB free disk.
+---
 
-**Step 1 — Clone and configure**
+## Quick Start (Docker)
+
+**Requirements:** Docker Desktop 4.x · 16 GB RAM · 15 GB free disk
 
 ```bash
-git clone https://github.com/William-Papps/obsidian-rag-system.git
-cd obsidian-rag-system
-cp .env.example .env
+git clone https://github.com/William-Papps/obsidian-like-rag-system.git
+cd obsidian-like-rag-system
+cp .env.demo .env
 ```
 
-Open `.env` and set two required secrets (use any long random strings):
+Open `.env` and set two secrets (use any long random strings — `openssl rand -hex 32` works):
 
 ```
-AUTH_SESSION_SECRET=replace-with-64-random-chars
-PERSONAL_API_KEY_SECRET=replace-with-64-random-chars
+AUTH_SESSION_SECRET=replace-with-a-long-random-string
+PERSONAL_API_KEY_SECRET=replace-with-a-different-long-random-string
 ```
 
-**Step 2 — Start the stack**
+Also set `DEMO_MODE=false` once you've set real secrets (the app shows a warning banner while demo mode is on).
 
 ```bash
 docker compose up -d
 ```
 
-This pulls Ollama, downloads three AI models (`nomic-embed-text`, `llama3.2:3b`, `moondream`), and starts the app. Model downloads are ~3–5 GB total and only happen once.
+This starts Ollama, downloads three AI models (`nomic-embed-text`, `llama3.2:3b`, `moondream`), and starts the app. Model downloads are ~3–5 GB and only happen once.
 
-**Step 3 — Wait for models to load**
+Wait for models:
 
 ```bash
 docker compose logs -f init-models
 ```
 
-When you see `success` lines for all three models, the app is ready.
+When all three models show as pulled, open `http://localhost:3000`, create an account, and start adding notes.
 
-**Step 4 — Open EternalNotes**
-
-Visit `http://localhost:3000`, create an account, and start importing notes.
-
-**Step 5 — Verify AI is working**
-
-Go to **Account → Settings** and confirm the AI status shows Ollama connected. Index a note and use **Ask** to test retrieval.
-
-> **Backup:** your data lives in the `app_data` Docker volume. Export a backup any time from **Account → Backups**.
-
-If anything doesn't work, see [TROUBLESHOOT.md](TROUBLESHOOT.md).
+See [TROUBLESHOOT.md](TROUBLESHOOT.md) if anything doesn't work.
 
 ---
 
-The app is local-first for development, but the schema and service boundaries are user-scoped so it can move toward hosted multi-user deployment without rewriting the core data model.
+## Local Development (no Docker)
 
-## What Works Now
-
-- Three-pane workspace: vault sidebar, note editor/preview, and study tools panel.
-- Dedicated `/account` area for profile, AI setup, hosted plans, security, and backups.
-- Dedicated billing section under `/account` with plan state, billing identity, and hosted usage.
-- Dedicated admin section under `/account` for instance controls, user management, and audit logs.
-- Real Markdown note CRUD with SQLite persistence.
-- Email/password authentication with secure HTTP-only session cookies.
-- Optional email verification with a one-time code before first login.
-- Rate-limited auth endpoints for login, registration, and password change.
-- Nested folders/classes with move, rename, delete, and drag/drop support.
-- Browser-style note tabs, pinned notes, and recent notes.
-- Split, write, and preview note views.
-- Exact text search across saved notes.
-- Resizable and hideable left/right panels.
-- User-scoped database tables with real account ownership.
-- Provider settings UI with masked OpenAI key display.
-- Local API key storage under `data/secrets`, ignored by git.
-- Free notes workspace for all users, with BYOK in Account settings or an optional hosted AI plan in Account/Billing (when enabled by the instance owner).
-- Hosted AI monthly usage tracking for ask, quiz, flashcards, summary, OCR, and indexing.
-- Billing scaffolding for future Stripe integration: billing profile, subscription state, and plan lifecycle records.
-- Encrypted-at-rest personal API key storage using a local encryption secret.
-- Runtime instance settings for self-signup, hosted AI availability, and email verification.
-- Command palette for quick navigation and workspace actions.
-- Import modes for single-note import or split-by-heading import.
-- Recent study activity history.
-- Note chunking with note title and heading context.
-- Embedding/index data stored locally in SQLite.
-- Reindex flow that skips unchanged notes when content hashes match and removes stale/orphaned chunks.
-- Ask-from-notes responses with citations/source excerpts.
-- Source actions that open the note and temporarily highlight the matching excerpt.
-- Knowledge Check grading that compares the typed answer against the asked question, expected answer, and source excerpt.
-- Single-item Knowledge Check flow: one generated question at a time.
-- Single-item Training Cards flow: one generated flashcard at a time.
-- Searchable scope pickers for study tools and the right sidebar.
-- Extractive summaries generated from indexed excerpts.
-- Document import for DOCX, text, Markdown, and image files.
-- OCR for screenshots and embedded DOCX images using the configured vision model.
-- Password change inside Settings.
-- Database backup export from the account area.
-- Offline fallback retrieval using deterministic local vectors when no OpenAI key is configured.
-
-## Grounding Rule
-
-Notes are the source of truth. The answer prompt instructs the model to:
-
-- answer only from provided notes
-- avoid outside knowledge
-- avoid guessing
-- avoid debugging or prescribing fixes unless notes say so
-- refuse when the retrieved excerpts do not support an answer
-
-The UI always shows source excerpts for answers and study artifacts. Study generation and grading are grounded in stored note content, not external facts.
-
-## System Requirements
-
-For Docker deployment (recommended):
-
-- **OS:** Linux, macOS, or Windows with WSL2
-- **Architecture:** x86\_64 / amd64. Apple Silicon users: add `platform: linux/amd64` under the `app:` service in `docker-compose.yml` and enable Rosetta in Docker Desktop. Native ARM support is planned for v2.
-- **RAM:** 16 GB minimum (32 GB recommended). `llama3.2:3b` uses ~3 GB, `nomic-embed-text` uses ~300 MB.
-- **Disk:** 15 GB free (Ollama models ~5 GB + app data)
-- **Docker:** Docker Desktop 4.x or Docker Engine 24+
-
-For local development only:
-
-- Node.js 20+, npm 10+
-
----
-
-## Team Setup
-
-EternalNotes supports multi-user access from a single server. One person hosts; everyone else connects via browser.
-
-1. The host runs `docker compose up -d` on a machine or VPS reachable by the team (e.g. `http://192.168.1.10:3000`)
-2. The host creates the first account — this becomes the owner account
-3. The owner invites teammates: go to **Account → Workspaces**, create a workspace, and share the invite link (valid 7 days)
-4. Teammates open the server URL, click the invite link, and create their own accounts
-5. All notes and data stay on the host's machine — nothing leaves the network
-
-The $399 team license covers up to 20 users on a single installation. Each person gets their own private note vault; workspaces allow selective sharing.
-
----
-
-## Local Setup
+**Requirements:** Node.js 20+ · npm 10+ · [Ollama](https://ollama.com) running locally
 
 ```bash
+git clone https://github.com/William-Papps/obsidian-like-rag-system.git
+cd obsidian-like-rag-system
 npm install
-npm run dev
 ```
 
-Open `http://localhost:3000`.
+Pull the required Ollama models:
 
-Optional environment setup:
+```bash
+ollama pull nomic-embed-text
+ollama pull llama3.2:3b
+ollama pull moondream
+```
+
+Copy and configure the environment file:
 
 ```bash
 cp .env.example .env.local
 ```
 
-Set at least:
+Open `.env.local` and set at minimum:
 
-- `AUTH_SESSION_SECRET`
-- `ALLOW_SELF_SIGNUP=true` or `false`
-- `PERSONAL_API_KEY_SECRET`
-- `OWNER_EMAIL=owner@example.com`
-
-Optional owner/admin setup:
-
-- `HOSTED_AI_ENABLED=true` or `false`
-
-For email verification:
-
-- `RESEND_API_KEY`
-- `EMAIL_FROM`
-- `EMAIL_VERIFICATION_REQUIRED=false|true`
-
-For local testing without email delivery:
-
-- `EMAIL_VERIFICATION_DEV_MODE=true`
-
-Notes remain free without any AI key. Users can then either:
-
-- enter their own OpenAI key in Account settings for BYOK AI
-- use a hosted AI plan if the server has `HOSTED_OPENAI_API_KEY` configured
-
-## Production Setup
-
-When running with `.env.demo`, EternalNotes displays a warning banner — sessions will not survive restarts because the demo uses ephemeral secrets.
-
-To remove the banner and run securely:
-
-```bash
-# Generate two independent secrets
-openssl rand -hex 32   # → paste as AUTH_SESSION_SECRET
-openssl rand -hex 32   # → paste as PERSONAL_API_KEY_SECRET
+```
+AUTH_SESSION_SECRET=any-long-random-string
+PERSONAL_API_KEY_SECRET=any-different-long-random-string
+OLLAMA_BASE_URL=http://localhost:11434
 ```
 
-Edit your `.env` and set those values, then also set `DEMO_MODE=false` (or remove the line). Restart the stack:
+Start the dev server:
 
 ```bash
-docker compose down
-docker compose up -d
+npm run dev
 ```
+
+Open `http://localhost:3000`.
 
 ---
 
-## Home Server Deployment
+## Environment Variables
 
-For a 24/7 home machine deployment:
+| Variable | Required | Description |
+|---|---|---|
+| `AUTH_SESSION_SECRET` | Yes | Long random string for signing session cookies. Generate: `openssl rand -hex 32` |
+| `PERSONAL_API_KEY_SECRET` | Yes | Long random string for encrypting stored API keys. |
+| `OLLAMA_BASE_URL` | Yes | URL of your Ollama instance. Default: `http://localhost:11434` |
+| `ALLOW_SELF_SIGNUP` | No | `true` (default) allows anyone to register. Set `false` to disable new signups. |
+| `OWNER_EMAIL` | No | Email of the first/owner account. Gets admin privileges. |
+| `EMAIL_VERIFICATION_REQUIRED` | No | `false` by default. Set `true` to require email verification on signup. |
+| `RESEND_API_KEY` | No | Required only if `EMAIL_VERIFICATION_REQUIRED=true`. |
+| `DEMO_MODE` | No | `true` shows a warning banner that secrets are temporary. Set `false` for production. |
 
-1. Set your production config in `.env.local` (first time only):
+---
 
-```bash
-AUTH_SESSION_SECRET=replace-this-with-a-long-random-secret
-ALLOW_SELF_SIGNUP=true
-OWNER_EMAIL=owner@example.com
-HOSTED_AI_ENABLED=true
-PERSONAL_API_KEY_SECRET=replace-this-too
-RESEND_API_KEY=
-EMAIL_FROM=
-EMAIL_REPLY_TO=
-EMAIL_VERIFICATION_DEV_MODE=false
-EMAIL_VERIFICATION_REQUIRED=false
-TRUST_PROXY=false
-OPENAI_API_KEY=
-OPENAI_PROJECT_ID=
-HOSTED_OPENAI_API_KEY=
-HOSTED_OPENAI_PROJECT_ID=
-OPENAI_EMBEDDING_MODEL=text-embedding-3-small
-OPENAI_ANSWER_MODEL=gpt-4o-mini
-OPENAI_VISION_MODEL=gpt-4o-mini
-DISCORD_BOT_TOKEN=
-DISCORD_GUILD_ID=
-DISCORD_PUBLIC_KEY=
+## Required Ollama Models
+
+| Model | Purpose |
+|---|---|
+| `nomic-embed-text` | Note indexing and chunk retrieval |
+| `llama3.2:3b` | Ask, Quiz, Flashcards, Briefing |
+| `moondream` | OCR for images and DOCX embedded images (optional) |
+
+If a model is missing, the app surfaces a clear "run `ollama pull <model>`" message instead of a raw error.
+
+---
+
+## Where Notes Are Stored
+
+All data lives in `data/` at the project root:
+
+```
+data/
+  study.db        — SQLite database (notes, folders, chunks, sessions)
+  study.db-wal    — WAL journal
+  secrets/        — encrypted API keys (if any)
 ```
 
-2. Deploy (run on every update):
+This directory is gitignored. Back it up to keep your notes safe. You can also export a database backup from **Account → Backups** inside the app.
 
-```powershell
-cd C:\Users\willi\obsidian-rag-system
-.\deploy.ps1
-```
+---
 
-Or manually, step by step:
+## Adding Notes
 
-```powershell
-cd C:\Users\willi\obsidian-rag-system
-git pull origin main
-npm install
-npm run build
-node scripts/register-discord-commands.mjs
-npm start
-```
+- Click **New note** in the sidebar
+- Or use **Import** (top toolbar) to import `.md`, `.txt`, `.docx`, or image files
+- After adding notes, click **Index** in the study panel to embed them for AI retrieval
+- Use **Ask** to query your notes once indexed
 
-> **Note:** `npm start` runs both the web app and the Discord bot together. The Discord
-> bot uses webhook interactions (no separate process needed) — `register-discord-commands.mjs`
-> registers the `/verify` slash command with your server and only needs to re-run when
-> slash commands change.
+---
 
-4. Put it behind HTTPS before exposing it outside your network.
-5. Back up both:
+## System Requirements
 
-- `data/study.db`
-- `data/secrets/`
+| | Minimum | Recommended |
+|---|---|---|
+| RAM | 8 GB | 16 GB |
+| Disk | 10 GB free | 15 GB free |
+| Architecture | x86\_64/amd64 | x86\_64/amd64 |
 
-The in-app backup export downloads the database only. Secret files still need filesystem backup.
+Apple Silicon (M-series): add `platform: linux/amd64` under the `app:` service in `docker-compose.yml` and enable Rosetta in Docker Desktop Settings.
 
-Hosted AI notes:
+---
 
-- leave `HOSTED_OPENAI_API_KEY` empty if you want strict BYOK-only operation
-- set `HOSTED_OPENAI_API_KEY` if you want to offer paid hosted AI plans on your own key
-- hosted AI quotas are enforced per user, per month
-- regular users need owner approval before they can consume the server-managed key
-- BYOK usage does not consume hosted quota
+## Multi-User Setup
 
-Email verification notes:
+EternalNotes supports multiple accounts from a single server.
 
-- new accounts only verify email if `EMAIL_VERIFICATION_REQUIRED=true`
-- codes expire after 15 minutes
-- resend and verify attempts are rate limited
-- in local development, `EMAIL_VERIFICATION_DEV_MODE=true` exposes the code in the auth UI if no mail provider is configured
+1. Host runs `docker compose up -d` on a machine reachable by the team
+2. First account created becomes the owner (set `OWNER_EMAIL` to claim it)
+3. Others visit the server URL and register their own accounts
+4. Each user has a private note vault; workspaces allow selective sharing (via **Account → Workspaces**)
 
-## Recommended Settings
+Set `ALLOW_SELF_SIGNUP=false` to stop open registration once your team is onboarded.
 
-For the full feature set, configure these in Account settings:
-
-- `answer model`: used for grounded answers and study prompt generation
-- `embedding model`: used for indexing and retrieval
-- `vision model`: used for OCR on screenshots and embedded DOCX images
-- Hosted plan selection is managed under Account/Billing (if the instance supports hosted AI).
-
-Without an API key:
-
-- Ask falls back to extractive/local evidence output
-- quiz grading falls back to a conservative heuristic
-- quiz/flashcard generation falls back to a simpler local prompt builder
-- image OCR is not available
-
-With a personal API key:
-
-- AI runs on the user's own provider account
-- hosted AI quota is not consumed
-
-With a hosted AI plan and a configured server hosted key:
-
-- AI runs on the server-managed provider key
-- monthly quota is consumed for supported features
-
-## AI Access Model
-
-EternalNotes separates the free notes product from AI cost exposure:
-
-- notes, folders, editing, preview, search, organization, and local persistence are free
-- AI can run in BYOK mode or hosted-plan mode
-
-Product surface split:
-
-- `/` keeps the study workspace focused on notes and revision tools
-- `/account` handles profile, AI setup, hosted plan selection, usage, security, and backups
-- `/account` also contains billing identity and subscription scaffolding for future checkout integration
-- `/account` admin contains runtime settings, user management, and local audit logs when signed in as owner/admin
-
-Priority order for AI access:
-
-1. personal user API key
-2. hosted server API key plus an active hosted plan
-3. local fallback behavior where supported
-
-Hosted plan quotas are tracked per user, per month.
-
-Current billing implementation:
-
-- billing contact details are stored per user
-- subscription state is stored locally
-- hosted plan changes are persisted through the billing layer
-- no checkout, invoices, or payment provider are connected yet
-
-Current admin/runtime implementation:
-
-- owner/admin users can toggle self signup
-- owner/admin users can disable hosted AI globally
-- owner/admin users can enable or disable email verification
-- owner/admin users can manually manage user roles, hosted plans, and account disable/delete
-- recent local audit logs are stored in SQLite
-
-Current hosted plan quotas:
-
-### Personal (free)
-
-- No hosted AI quota
-- Full notes workspace and all study tools
-- AI runs on the user's own API key (BYOK)
-
-### Pro ($12/month)
-
-- Ask: `1500`
-- Knowledge Check generation: `600`
-- Training Cards generation: `600`
-- Briefing generation: `600`
-- OCR imports: `200`
-- Index/reindex runs: `1000`
-
-Knowledge Check answer grading is intentionally not billed against hosted quota. It uses the user's own key when available, otherwise a local grading heuristic.
-
-## Import and OCR
-
-The import modal supports:
-
-- `.docx`
-- `.txt`
-- `.md`
-- `.markdown`
-- `.text`
-- image files such as `.png`, `.jpg`, `.jpeg`, `.webp`, `.gif`, `.bmp`, `.tif`, `.tiff`
-
-Behavior:
-
-- plain text and Markdown are cleaned and imported into a note
-- DOCX text is converted to Markdown
-- DOCX embedded images are OCR'd and appended as labeled sections
-- uploaded screenshots/images are OCR'd and imported into a note
-- OCR output is stored in the note so retrieval stays grounded in saved content
-
-## Study Tools
-
-### Ask
-
-- retrieves indexed chunks from the selected scope
-- answers only from retrieved note excerpts
-- refuses unsupported questions instead of guessing
-- shows citations and exact source excerpts
-- if the direct answer is unsupported, shows closest related note evidence
-
-### Knowledge Check
-
-- generates one question at a time from the selected scope
-- lets the user type an answer
-- grades against the question, expected answer, and source excerpt
-- accepts equivalent wording when it matches the source meaning
-- includes a direct source link back to the note
-
-### Training Cards
-
-- generates one flashcard at a time from the selected scope
-- shows the prompt first
-- reveals the source-backed answer on demand
-- includes a direct source link back to the note
-
-### Briefing
-
-- produces extractive summaries from saved note excerpts
-- keeps the note text as the factual source
+---
 
 ## Scripts
 
 ```bash
-npm run dev
-npm run build
-npm run lint
-npm run typecheck
+npm run dev        # start dev server
+npm run build      # production build
+npm run typecheck  # TypeScript check
+npm run lint       # ESLint
 ```
 
-## Data Storage
+---
 
-Local runtime data is written under `data/`:
+## Tech Stack
 
-- `data/study.db`
-- `data/study.db-wal`
-- `data/study.db-shm`
-- `data/secrets/*`
+- **Framework:** Next.js (App Router)
+- **Database:** SQLite via `better-sqlite3`
+- **AI:** Ollama (local)
+- **Auth:** email/password, HTTP-only session cookies
+- **Styling:** Tailwind CSS
 
-This directory is ignored by git.
+---
 
-## Self-Hosting Notes
+## Limitations
 
-This build is now suitable for running continuously on your own machine behind your own network setup.
+- Requires Ollama for AI features; no cloud AI path in this build.
+- SQLite is right for single-machine self-hosting. A Postgres migration would be needed for a multi-server deployment.
+- Markdown preview supports common syntax but not the full Obsidian plugin surface.
+- `better-sqlite3` is a native addon compiled for the host platform — the Docker image targets `linux/amd64`.
 
-Current self-hosting posture:
+---
 
-- real account login/logout
-- per-user notes, folders, chunks, and settings
-- secure session cookies
-- rate-limited auth routes
-- local SQLite database for single-machine deployment
+## License
 
-Why SQLite is still used here:
-
-- you are running this on one home computer, not scaling across multiple app servers
-- it keeps the operational setup much simpler
-- the schema remains user-scoped and can still be migrated later if you move to Postgres
-
-## Architecture
-
-- `app/api/*`: Next.js API routes
-- `components/workspace.tsx`: main app workspace
-- `components/document-import-modal.tsx`: import and OCR UI
-- `lib/db.ts`: SQLite connection and migrations
-- `lib/auth.ts`: password auth, session cookies, and auth guards
-- `lib/services/*`: user-scoped notes, folders, and provider settings services
-- `lib/rag/*`: chunking, embeddings, indexing, retrieval, answers, grading, and study tools
-
-Core tables include:
-
-- `users`
-- `folders`
-- `notes`
-- `chunks`
-- `provider_settings`
-- `billing_profiles`
-- `subscriptions`
-- `app_settings`
-- `audit_logs`
-- `study_activity`
-- `sessions`
-- `ai_usage`
-- `flashcards`
-- `quiz_attempts`
-
-Tables that hold private user data include `user_id`, and service methods require a user ID.
-
-## Security Notes
-
-This is now a self-hostable local deployment baseline, not a full hosted SaaS security implementation.
-
-Implemented now:
-
-- `.env*`, local databases, and secret files are ignored
-- password-based login with HTTP-only session cookies
-- email verification required before first login
-- rate limiting on login, registration, and password change
-- rate limiting on email verification and resend routes
-- reverse-proxy header trust for rate limiting is configurable via `TRUST_PROXY` (enable only behind a trusted proxy)
-- API routes do not return full API keys
-- Settings UI masks stored keys
-- personal API keys are encrypted at rest before being written to local secret files
-- Notes, chunks, and settings are scoped by `user_id`
-- Hosted AI usage is counted per user and bounded by plan limits
-- Billing identity and subscription state are stored separately from provider settings
-- OpenAI answer generation receives only retrieved note excerpts
-- OCR output is stored in notes before it becomes retrievable
-
-Before hosted deployment:
-
-- replace local key files with encrypted per-user secret storage
-- add authorization middleware for every route
-- add rate limiting and audit logging
-- use managed Postgres or another production database
-- consider pgvector, LanceDB, or a hosted vector store for scalable retrieval
-- add backups, data export, and account deletion workflows
-
-## Current Limitations
-
-- Local API key storage is not suitable for hosted production.
-- Markdown preview supports common headings, lists, code blocks, bold, and inline code, not the full Obsidian syntax surface.
-- Study prompt quality still depends on the quality and structure of the indexed note excerpt.
-- Repetition in quiz/flashcard generation is reduced, but very short or highly repetitive notes can still produce similar prompts.
-- SQLite is the right fit for a single self-hosted machine, but Postgres is still the better target if you later move to a public multi-user internet-facing deployment.
-- The in-app backup export does not include `data/secrets`; back those up separately.
-- Learning outcomes and spaced repetition history are not implemented yet.
-- Billing is scaffolded only. There is no Stripe checkout, webhook sync, payment method storage, or invoice handling yet.
-- Production email verification requires a configured mail provider. The local debug-code mode is for development only.
-- Audit logging is local and lightweight. It is useful for self-hosting, but it is not a full security monitoring system.
+MIT
